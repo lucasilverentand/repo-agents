@@ -1,0 +1,31 @@
+{
+  "event_name": "issues",
+  "event": {
+    "action": "opened",
+    "issue": {
+      "number": 42,
+      "title": "Add dark mode support",
+      "body": "It would be great to have a dark mode option for the UI. This would help reduce eye strain when using the app at night.",
+      "user": {
+        "login": "johndoe",
+        "id": 12345
+      },
+      "labels": [],
+      "state": "open",
+      "created_at": "2025-12-03T16:00:00Z"
+    }
+  },
+  "repository": {
+    "owner": "testorg",
+    "name": "test-repo",
+    "full_name": "testorg/test-repo"
+  },
+  "issue": {
+    "number": 42,
+    "title": "Add dark mode support",
+    "body": "It would be great to have a dark mode option for the UI. This would help reduce eye strain when using the app at night.",
+    "user": {
+      "login": "johndoe"
+    }
+  }
+}

@@ -1,0 +1,58 @@
+#!/usr/bin/env node
+
+import { Command } from 'commander';
+import { readFileSync } from 'fs';
+import { join } from 'path';
+import { initCommand } from './cli/commands/init';
+import { compileCommand } from './cli/commands/compile';
+import { validateCommand } from './cli/commands/validate';
+import { listCommand } from './cli/commands/list';
+import { authCommand } from './cli/commands/auth';
+
+const packageJson = JSON.parse(
+  readFileSync(join(__dirname, '../package.json'), 'utf-8')
+);
+
+const program = new Command();
+
+program
+  .name('gh-claude')
+  .description('GitHub CLI extension for creating Claude-powered GitHub Actions workflows')
+  .version(packageJson.version);
+
+program
+  .command('init')
+  .description('Initialize gh-claude in the current repository')
+  .option('--examples', 'Include example agent templates')
+  .option('--force', 'Overwrite existing files')
+  .action(initCommand);
+
+program
+  .command('compile [file]')
+  .description('Compile agent markdown files to GitHub Actions workflows')
+  .option('-a, --all', 'Compile all agents')
+  .option('-d, --dry-run', 'Show what would be generated without writing files')
+  .option('-o, --output-dir <dir>', 'Output directory for workflows')
+  .action(compileCommand);
+
+program
+  .command('validate [file]')
+  .description('Validate agent markdown files')
+  .option('-a, --all', 'Validate all agents')
+  .option('-s, --strict', 'Enable strict validation')
+  .action(validateCommand);
+
+program
+  .command('list')
+  .description('List all Claude agents')
+  .option('-f, --format <format>', 'Output format (table, json, yaml)', 'table')
+  .option('-d, --details', 'Show detailed information')
+  .action(listCommand);
+
+program
+  .command('setup-token')
+  .description('Set up Claude API token (checks subscription token first, then prompts for API key)')
+  .option('--force', 'Overwrite existing token')
+  .action(authCommand);
+
+program.parse();

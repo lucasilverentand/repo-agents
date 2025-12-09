@@ -1,0 +1,4 @@
+#!/usr/bin/env node
+
+// GitHub CLI extension entry point
+require('./dist/index.js');
