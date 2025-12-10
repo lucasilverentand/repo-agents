@@ -1,6 +1,6 @@
 import { writeFile } from 'fs/promises';
 import yaml from 'js-yaml';
-import { AgentDefinition } from '../types';
+import type { AgentDefinition, WorkflowStep } from '../types';
 import { agentNameToWorkflowName } from '../cli/utils/files';
 
 export class WorkflowGenerator {
@@ -18,50 +18,82 @@ export class WorkflowGenerator {
       'validate': {
         'runs-on': 'ubuntu-latest',
         outputs: {
-          'should-run': '${{ steps.validation.outputs.should-run }}',
+          'should-run': '${{ steps.set-output.outputs.should-run }}',
         },
-        steps: [
-          {
-            name: 'Validate trigger',
-            id: 'validation',
-            env: {
-              GITHUB_TOKEN: '${{ secrets.GITHUB_TOKEN }}',
-              ANTHROPIC_API_KEY: '${{ secrets.ANTHROPIC_API_KEY }}',
-              CLAUDE_ACCESS_TOKEN: '${{ secrets.CLAUDE_ACCESS_TOKEN }}',
-            },
-            run: this.generateValidationStep(agent),
-          },
-        ],
+        steps: this.generateValidationSteps(agent),
       },
       'claude-agent': {
         'runs-on': 'ubuntu-latest',
         needs: 'validate',
         if: "needs.validate.outputs.should-run == 'true'",
-        steps: [
-          {
-            name: 'Checkout repository',
-            uses: 'actions/checkout@v4',
-          },
-          {
-            name: 'Setup Node.js',
-            uses: 'actions/setup-node@v4',
-            with: {
-              'node-version': '20',
-            },
-          },
-          {
-            name: 'Run Claude Agent',
-            run: this.generateClaudeStep(agent),
-            env: this.generateEnvironment(agent),
-          },
-        ],
+        steps: this.generateClaudeAgentSteps(agent),
       },
     };
 
-    return yaml.dump(workflow, {
+    const yamlContent = yaml.dump(workflow, {
       lineWidth: -1,
       noRefs: true,
     });
+
+    return this.formatYaml(yamlContent);
+  }
+
+  private formatYaml(yamlContent: string): string {
+    const lines = yamlContent.split('\n');
+    const formatted: string[] = [];
+    let previousLineWasStep = false;
+    let inJobs = false;
+    let inSteps = false;
+
+    for (let i = 0; i < lines.length; i++) {
+      const line = lines[i];
+      const trimmed = line.trim();
+
+      // Track when we enter jobs section
+      if (line === 'jobs:') {
+        inJobs = true;
+        formatted.push(line);
+        continue;
+      }
+
+      // Check if this is a job key (2 spaces indentation, ends with colon, alphanumeric+hyphens)
+      const isJobKey = inJobs && /^\s{2}[a-z-]+:$/.test(line);
+
+      // Check if entering steps section
+      if (trimmed === 'steps:') {
+        inSteps = true;
+        formatted.push(line);
+        previousLineWasStep = false;
+        continue;
+      }
+
+      // Check if exiting steps section
+      if (inSteps && /^\s{2}[a-z-]+:$/.test(line)) {
+        inSteps = false;
+      }
+
+      // Add blank line before job keys (except the very first one after "jobs:")
+      if (isJobKey) {
+        const lastNonEmptyLine = formatted.filter(l => l.trim() !== '').pop();
+        if (lastNonEmptyLine && lastNonEmptyLine !== 'jobs:') {
+          formatted.push('');
+        }
+        formatted.push(line);
+        previousLineWasStep = false;
+        continue;
+      }
+
+      // Add blank line before each step (except the first one)
+      const isStepStart = inSteps && /^\s{4}-\s/.test(line);
+      if (isStepStart && previousLineWasStep) {
+        formatted.push('');
+      }
+
+      formatted.push(line);
+      previousLineWasStep = isStepStart;
+    }
+
+    return formatted.join('\n');
   }
 
   private generateTriggers(agent: AgentDefinition): any {
@@ -94,22 +126,23 @@ export class WorkflowGenerator {
     return triggers;
   }
 
-  private generateValidationStep(agent: AgentDefinition): string {
+  private generateValidationSteps(agent: AgentDefinition): any[] {
     const allowedUsers = [...(agent.allowedUsers || []), ...(agent.allowedActors || [])];
     const allowedLabels = agent.triggerLabels || [];
     const rateLimitMinutes = agent.rateLimitMinutes ?? 5;
 
-    return `#!/bin/bash
-set -e
-
-echo "=== Pre-validation Checks ==="
-
-# 1. Secret validation - Verify either ANTHROPIC_API_KEY or CLAUDE_ACCESS_TOKEN is set
-echo "Checking secrets..."
-if [ -z "\${ANTHROPIC_API_KEY}" ] && [ -z "\${CLAUDE_ACCESS_TOKEN}" ]; then
+    const steps: any[] = [
+      {
+        name: 'Check secrets',
+        id: 'check-secrets',
+        env: {
+          ANTHROPIC_API_KEY: '${{ secrets.ANTHROPIC_API_KEY }}',
+          CLAUDE_ACCESS_TOKEN: '${{ secrets.CLAUDE_ACCESS_TOKEN }}',
+        },
+        run: `if [ -z "\${ANTHROPIC_API_KEY}" ] && [ -z "\${CLAUDE_ACCESS_TOKEN}" ]; then
   echo "::error::No Claude authentication found. Please set either ANTHROPIC_API_KEY (for API access) or CLAUDE_ACCESS_TOKEN (for subscription) in your repository secrets."
-  echo "should-run=false" >> $GITHUB_OUTPUT
-  exit 0
+  echo "validation-failed=true" >> $GITHUB_OUTPUT
+  exit 1
 fi
 
 if [ -n "\${ANTHROPIC_API_KEY}" ]; then
@@ -117,12 +150,15 @@ if [ -n "\${ANTHROPIC_API_KEY}" ]; then
 fi
 if [ -n "\${CLAUDE_ACCESS_TOKEN}" ]; then
   echo "✓ CLAUDE_ACCESS_TOKEN is configured (subscription access)"
-fi
-
-# 2. User authorization - Check if the user is allowed to trigger the agent
-echo "Checking user authorization..."
-ACTOR="\${{ github.actor }}"
-EVENT_NAME="\${{ github.event_name }}"
+fi`,
+      },
+      {
+        name: 'Check user authorization',
+        id: 'check-user',
+        env: {
+          GITHUB_TOKEN: '${{ secrets.GITHUB_TOKEN }}',
+        },
+        run: `ACTOR="\${{ github.actor }}"
 
 # Get user's association with the repository
 USER_ASSOCIATION=$(gh api "repos/\${{ github.repository }}/collaborators/\${ACTOR}/permission" --jq '.permission' 2>/dev/null || echo "none")
@@ -156,41 +192,53 @@ fi
 
 if [ "\${IS_ALLOWED}" = "false" ]; then
   echo "::warning::User @\${ACTOR} is not authorized to trigger this agent"
-  echo "should-run=false" >> $GITHUB_OUTPUT
-  exit 0
-fi
+  echo "validation-failed=true" >> $GITHUB_OUTPUT
+  exit 1
+fi`,
+      },
+    ];
 
-# 3. Label/trigger validation - Check if required labels are present (if configured)
-REQUIRED_LABELS="${allowedLabels.join(' ')}"
-if [ -n "\${REQUIRED_LABELS}" ]; then
-  echo "Checking required labels..."
+    // Only add label check step if labels are configured
+    if (allowedLabels.length > 0) {
+      steps.push({
+        name: 'Check required labels',
+        id: 'check-labels',
+        env: {
+          GITHUB_TOKEN: '${{ secrets.GITHUB_TOKEN }}',
+        },
+        run: `REQUIRED_LABELS="${allowedLabels.join(' ')}"
+ISSUE_NUMBER="\${{ github.event.issue.number }}\${{ github.event.pull_request.number }}"
 
-  ISSUE_NUMBER="\${{ github.event.issue.number }}\${{ github.event.pull_request.number }}"
-  if [ -n "\${ISSUE_NUMBER}" ]; then
-    CURRENT_LABELS=$(gh api "repos/\${{ github.repository }}/issues/\${ISSUE_NUMBER}" --jq '.labels[].name' 2>/dev/null | tr '\\n' ' ' || echo "")
+if [ -n "\${ISSUE_NUMBER}" ]; then
+  CURRENT_LABELS=$(gh api "repos/\${{ github.repository }}/issues/\${ISSUE_NUMBER}" --jq '.labels[].name' 2>/dev/null | tr '\\n' ' ' || echo "")
 
-    LABEL_FOUND="false"
-    for required in \${REQUIRED_LABELS}; do
-      if echo "\${CURRENT_LABELS}" | grep -qw "\${required}"; then
-        LABEL_FOUND="true"
-        echo "✓ Found required label: \${required}"
-        break
-      fi
-    done
-
-    if [ "\${LABEL_FOUND}" = "false" ]; then
-      echo "::notice::Required label not found. Need one of: \${REQUIRED_LABELS}"
-      echo "should-run=false" >> $GITHUB_OUTPUT
-      exit 0
+  LABEL_FOUND="false"
+  for required in \${REQUIRED_LABELS}; do
+    if echo "\${CURRENT_LABELS}" | grep -qw "\${required}"; then
+      LABEL_FOUND="true"
+      echo "✓ Found required label: \${required}"
+      break
     fi
+  done
+
+  if [ "\${LABEL_FOUND}" = "false" ]; then
+    echo "::notice::Required label not found. Need one of: \${REQUIRED_LABELS}"
+    echo "validation-failed=true" >> $GITHUB_OUTPUT
+    exit 1
   fi
 else
-  echo "✓ No label requirements configured"
-fi
+  echo "::warning::No issue or PR number found, skipping label check"
+fi`,
+      });
+    }
 
-# 4. Rate limiting - Check for recent agent runs
-echo "Checking rate limit..."
-RATE_LIMIT_MINUTES=${rateLimitMinutes}
+    steps.push({
+      name: 'Check rate limit',
+      id: 'check-rate-limit',
+      env: {
+        GITHUB_TOKEN: '${{ secrets.GITHUB_TOKEN }}',
+      },
+      run: `RATE_LIMIT_MINUTES=${rateLimitMinutes}
 
 # Get recent workflow runs for this workflow
 RECENT_RUNS=$(gh api "repos/\${{ github.repository }}/actions/workflows/\${{ github.workflow }}/runs" \\
@@ -205,56 +253,96 @@ if [ -n "\${RECENT_RUNS}" ]; then
 
     if [ "\${TIME_DIFF}" -lt "\${RATE_LIMIT_MINUTES}" ]; then
       echo "::warning::Rate limit: Agent ran \${TIME_DIFF} minutes ago. Minimum interval is \${RATE_LIMIT_MINUTES} minutes."
-      echo "should-run=false" >> $GITHUB_OUTPUT
-      exit 0
+      echo "validation-failed=true" >> $GITHUB_OUTPUT
+      exit 1
     fi
   done
 fi
-echo "✓ Rate limit check passed"
+echo "✓ Rate limit check passed"`,
+    });
 
-echo ""
-echo "=== All validation checks passed ==="
-echo "should-run=true" >> $GITHUB_OUTPUT`;
+    steps.push({
+      name: 'Set output',
+      id: 'set-output',
+      run: `echo "should-run=true" >> $GITHUB_OUTPUT
+echo "✓ All validation checks passed"`,
+    });
+
+    return steps;
   }
 
-  private generateClaudeStep(agent: AgentDefinition): string {
-    // Build the prompt that will be passed to Claude Code
+  private generateClaudeAgentSteps(agent: AgentDefinition): WorkflowStep[] {
     const instructions = agent.markdown.replace(/`/g, '\\`').replace(/\$/g, '\\$');
 
-    return `# Install Claude Code CLI
-npm install -g @anthropic-ai/claude-code
+    const steps: WorkflowStep[] = [
+      {
+        name: 'Checkout repository',
+        uses: 'actions/checkout@v4',
+      },
+      {
+        name: 'Setup Bun',
+        uses: 'oven-sh/setup-bun@v2',
+        with: {
+          'bun-version': 'latest',
+        },
+      },
+      {
+        name: 'Install Claude Code CLI',
+        run: 'bunx --bun @anthropic-ai/claude-code --version',
+      },
+      {
+        name: 'Prepare context file',
+        id: 'prepare',
+        run: 'cat > /tmp/context.txt << \'CONTEXT_EOF\'\n' +
+          'GitHub Event: ${{ github.event_name }}\n' +
+          'Repository: ${{ github.repository }}\n' +
+          'CONTEXT_EOF',
+      },
+    ];
 
-# Build context from GitHub event
-CONTEXT="GitHub Event: \${{ github.event_name }}
-Repository: \${{ github.repository }}
-"
+    // Add issue context if applicable
+    steps.push({
+      name: 'Add issue context',
+      if: 'github.event.issue.number',
+      run: 'cat >> /tmp/context.txt << \'ISSUE_EOF\'\n' +
+        'Issue #${{ github.event.issue.number }}: ${{ github.event.issue.title }}\n' +
+        'Author: @${{ github.event.issue.user.login }}\n' +
+        'Body:\n' +
+        '${{ github.event.issue.body }}\n' +
+        'ISSUE_EOF',
+    });
 
-# Add issue context if available
-if [ -n "\${{ github.event.issue.number }}" ]; then
-  CONTEXT="\${CONTEXT}
-Issue #\${{ github.event.issue.number }}: \${{ github.event.issue.title }}
-Author: @\${{ github.event.issue.user.login }}
-Body:
-\${{ github.event.issue.body }}
-"
-fi
+    // Add PR context if applicable
+    steps.push({
+      name: 'Add PR context',
+      if: 'github.event.pull_request.number',
+      run: 'cat >> /tmp/context.txt << \'PR_EOF\'\n' +
+        'PR #${{ github.event.pull_request.number }}: ${{ github.event.pull_request.title }}\n' +
+        'Author: @${{ github.event.pull_request.user.login }}\n' +
+        'Body:\n' +
+        '${{ github.event.pull_request.body }}\n' +
+        'PR_EOF',
+    });
 
-# Add PR context if available
-if [ -n "\${{ github.event.pull_request.number }}" ]; then
-  CONTEXT="\${CONTEXT}
-PR #\${{ github.event.pull_request.number }}: \${{ github.event.pull_request.title }}
-Author: @\${{ github.event.pull_request.user.login }}
-Body:
-\${{ github.event.pull_request.body }}
-"
-fi
+    // Add instructions to context file
+    steps.push({
+      name: 'Add agent instructions',
+      run: 'cat >> /tmp/context.txt << \'INSTRUCTIONS_EOF\'\n' +
+        '\n' +
+        '---\n' +
+        '\n' +
+        instructions + '\n' +
+        'INSTRUCTIONS_EOF',
+    });
 
-# Run Claude Code with the agent instructions
-claude -p "\${CONTEXT}
+    // Run Claude with the prepared context
+    steps.push({
+      name: 'Run Claude Agent',
+      env: this.generateEnvironment(agent),
+      run: 'bunx --bun @anthropic-ai/claude-code -p "$(cat /tmp/context.txt)" --allowedTools "Bash(git*),Bash(gh*),Read,Glob,Grep"',
+    });
 
----
-
-${instructions}" --allowedTools "Bash(git*),Bash(gh*),Read,Glob,Grep"`;
+    return steps;
   }
 
   private generateEnvironment(_agent: AgentDefinition): Record<string, string> {

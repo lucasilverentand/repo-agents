@@ -59,7 +59,7 @@ describe('WorkflowGenerator', () => {
       expect(workflow.permissions).toBeUndefined();
     });
 
-    it('should configure checkout and node setup steps in claude-agent job', () => {
+    it('should configure checkout and bun setup steps in claude-agent job', () => {
       const agent: AgentDefinition = {
         name: 'Test',
         on: { issues: { types: ['opened'] } },
@@ -71,8 +71,8 @@ describe('WorkflowGenerator', () => {
       const steps = workflow.jobs['claude-agent'].steps;
 
       expect(steps[0].uses).toBe('actions/checkout@v4');
-      expect(steps[1].uses).toBe('actions/setup-node@v4');
-      expect(steps[1].with['node-version']).toBe('20');
+      expect(steps[1].uses).toBe('oven-sh/setup-bun@v2');
+      expect(steps[1].with['bun-version']).toBe('latest');
     });
 
     it('should include agent instructions in the run script', () => {
@@ -84,10 +84,13 @@ describe('WorkflowGenerator', () => {
 
       const result = generator.generate(agent);
       const workflow = yaml.load(result) as any;
-      const runStep = workflow.jobs['claude-agent'].steps[2].run;
+      // Find the "Add agent instructions" step
+      const steps = workflow.jobs['claude-agent'].steps;
+      const instructionsStep = steps.find((step: any) => step.name === 'Add agent instructions');
 
-      expect(runStep).toContain('Test Instructions');
-      expect(runStep).toContain('Do something');
+      expect(instructionsStep).toBeDefined();
+      expect(instructionsStep.run).toContain('Test Instructions');
+      expect(instructionsStep.run).toContain('Do something');
     });
 
     it('should include Claude Code CLI installation', () => {
@@ -99,10 +102,11 @@ describe('WorkflowGenerator', () => {
 
       const result = generator.generate(agent);
       const workflow = yaml.load(result) as any;
-      const runStep = workflow.jobs['claude-agent'].steps[2].run;
+      const steps = workflow.jobs['claude-agent'].steps;
+      const runStep = steps[steps.length - 1].run;
 
-      expect(runStep).toContain('npm install -g @anthropic-ai/claude-code');
-      expect(runStep).toContain('claude -p');
+      expect(runStep).toContain('bunx --bun @anthropic-ai/claude-code');
+      expect(runStep).toContain('-p');
     });
 
     it('should handle multiple trigger types', () => {
@@ -134,7 +138,8 @@ describe('WorkflowGenerator', () => {
 
       const result = generator.generate(agent);
       const workflow = yaml.load(result) as any;
-      const env = workflow.jobs['claude-agent'].steps[2].env;
+      const steps = workflow.jobs['claude-agent'].steps;
+      const env = steps[steps.length - 1].env;
 
       expect(env.ANTHROPIC_API_KEY).toContain('secrets.ANTHROPIC_API_KEY');
       expect(env.GITHUB_TOKEN).toContain('secrets.GITHUB_TOKEN');
@@ -149,10 +154,13 @@ describe('WorkflowGenerator', () => {
 
       const result = generator.generate(agent);
       const workflow = yaml.load(result) as any;
-      const runStep = workflow.jobs['claude-agent'].steps[2].run;
+      const steps = workflow.jobs['claude-agent'].steps;
+      // Find the "Add issue context" step
+      const issueStep = steps.find((step: any) => step.name === 'Add issue context');
 
-      expect(runStep).toContain('github.event.issue.number');
-      expect(runStep).toContain('github.event.issue.title');
+      expect(issueStep).toBeDefined();
+      expect(issueStep.run).toContain('github.event.issue.number');
+      expect(issueStep.run).toContain('github.event.issue.title');
     });
 
     it('should include PR context variables in run script', () => {
@@ -164,10 +172,13 @@ describe('WorkflowGenerator', () => {
 
       const result = generator.generate(agent);
       const workflow = yaml.load(result) as any;
-      const runStep = workflow.jobs['claude-agent'].steps[2].run;
+      const steps = workflow.jobs['claude-agent'].steps;
+      // Find the "Add PR context" step
+      const prStep = steps.find((step: any) => step.name === 'Add PR context');
 
-      expect(runStep).toContain('github.event.pull_request.number');
-      expect(runStep).toContain('github.event.pull_request.title');
+      expect(prStep).toBeDefined();
+      expect(prStep.run).toContain('github.event.pull_request.number');
+      expect(prStep.run).toContain('github.event.pull_request.title');
     });
 
     it('should escape special characters in markdown', () => {
@@ -179,10 +190,12 @@ describe('WorkflowGenerator', () => {
 
       const result = generator.generate(agent);
       const workflow = yaml.load(result) as any;
-      const runStep = workflow.jobs['claude-agent'].steps[2].run;
+      const steps = workflow.jobs['claude-agent'].steps;
+      const instructionsStep = steps.find((step: any) => step.name === 'Add agent instructions');
 
-      expect(runStep).toContain('\\`code\\`');
-      expect(runStep).toContain('\\$variable');
+      expect(instructionsStep).toBeDefined();
+      expect(instructionsStep.run).toContain('\\`code\\`');
+      expect(instructionsStep.run).toContain('\\$variable');
     });
 
     describe('validation job', () => {
@@ -226,11 +239,12 @@ describe('WorkflowGenerator', () => {
 
         const result = generator.generate(agent);
         const workflow = yaml.load(result) as any;
-        const validateStep = workflow.jobs['validate'].steps[0].run;
+        const steps = workflow.jobs['validate'].steps;
+        const userStep = steps.find((step: any) => step.name === 'Check user authorization');
 
-        expect(validateStep).toContain('User authorization');
-        expect(validateStep).toContain('github.actor');
-        expect(validateStep).toContain('collaborators');
+        expect(userStep).toBeDefined();
+        expect(userStep.run).toContain('github.actor');
+        expect(userStep.run).toContain('collaborators');
       });
 
       it('should include rate limiting check in validate job', () => {
@@ -242,10 +256,12 @@ describe('WorkflowGenerator', () => {
 
         const result = generator.generate(agent);
         const workflow = yaml.load(result) as any;
-        const validateStep = workflow.jobs['validate'].steps[0].run;
+        const steps = workflow.jobs.validate.steps;
+        const rateLimitStep = steps.find((step: any) => step.name === 'Check rate limit');
 
-        expect(validateStep).toContain('Rate limit');
-        expect(validateStep).toContain('RATE_LIMIT_MINUTES');
+        expect(rateLimitStep).toBeDefined();
+        expect(rateLimitStep.run).toContain('Rate limit check passed');
+        expect(rateLimitStep.run).toContain('RATE_LIMIT_MINUTES');
       });
 
       it('should use custom rate limit when specified', () => {
@@ -258,9 +274,11 @@ describe('WorkflowGenerator', () => {
 
         const result = generator.generate(agent);
         const workflow = yaml.load(result) as any;
-        const validateStep = workflow.jobs['validate'].steps[0].run;
+        const steps = workflow.jobs.validate.steps;
+        const rateLimitStep = steps.find((step: any) => step.name === 'Check rate limit');
 
-        expect(validateStep).toContain('RATE_LIMIT_MINUTES=10');
+        expect(rateLimitStep).toBeDefined();
+        expect(rateLimitStep.run).toContain('RATE_LIMIT_MINUTES=10');
       });
 
       it('should include allowed users when specified', () => {
@@ -273,9 +291,11 @@ describe('WorkflowGenerator', () => {
 
         const result = generator.generate(agent);
         const workflow = yaml.load(result) as any;
-        const validateStep = workflow.jobs['validate'].steps[0].run;
+        const steps = workflow.jobs.validate.steps;
+        const userStep = steps.find((step: any) => step.name === 'Check user authorization');
 
-        expect(validateStep).toContain('user1 user2');
+        expect(userStep).toBeDefined();
+        expect(userStep.run).toContain('user1 user2');
       });
 
       it('should include trigger labels when specified', () => {
@@ -288,10 +308,12 @@ describe('WorkflowGenerator', () => {
 
         const result = generator.generate(agent);
         const workflow = yaml.load(result) as any;
-        const validateStep = workflow.jobs['validate'].steps[0].run;
+        const steps = workflow.jobs.validate.steps;
+        const labelStep = steps.find((step: any) => step.name === 'Check required labels');
 
-        expect(validateStep).toContain('claude ai-help');
-        expect(validateStep).toContain('Required label');
+        expect(labelStep).toBeDefined();
+        expect(labelStep.run).toContain('claude ai-help');
+        expect(labelStep.run).toContain('Required label not found');
       });
 
       it('should output should-run from validation job', () => {
@@ -304,7 +326,7 @@ describe('WorkflowGenerator', () => {
         const result = generator.generate(agent);
         const workflow = yaml.load(result) as any;
 
-        expect(workflow.jobs['validate'].outputs['should-run']).toContain('steps.validation.outputs.should-run');
+        expect(workflow.jobs.validate.outputs['should-run']).toContain('steps.set-output.outputs.should-run');
       });
     });
   });
