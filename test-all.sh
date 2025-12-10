@@ -49,7 +49,7 @@ run_test() {
 
 echo "1. Building Project"
 echo "-------------------------------------------"
-if npm run build > /dev/null 2>&1; then
+if bun run build > /dev/null 2>&1; then
     success "Build successful"
 else
     error "Build failed"
@@ -60,24 +60,24 @@ echo ""
 echo "2. CLI Tests"
 echo "-------------------------------------------"
 
-run_test "CLI help command" "node dist/index.js --help > /dev/null"
-run_test "CLI version command" "node dist/index.js --version > /dev/null"
+run_test "CLI help command" "bun dist/index.js --help > /dev/null"
+run_test "CLI version command" "bun dist/index.js --version > /dev/null"
 
 echo ""
 echo "3. Validation Tests"
 echo "-------------------------------------------"
 
 run_test "Validate issue-triage example" \
-    "node dist/index.js validate examples/issue-triage.md > /dev/null 2>&1"
+    "bun dist/index.js validate examples/issue-triage.md > /dev/null 2>&1"
 
 run_test "Validate pr-review example" \
-    "node dist/index.js validate examples/pr-review.md > /dev/null 2>&1"
+    "bun dist/index.js validate examples/pr-review.md > /dev/null 2>&1"
 
 run_test "Validate daily-summary example" \
-    "node dist/index.js validate examples/daily-summary.md > /dev/null 2>&1"
+    "bun dist/index.js validate examples/daily-summary.md > /dev/null 2>&1"
 
 run_test "Validate stale-issues example" \
-    "node dist/index.js validate examples/stale-issues.md > /dev/null 2>&1"
+    "bun dist/index.js validate examples/stale-issues.md > /dev/null 2>&1"
 
 echo ""
 echo "4. Compilation Tests"
@@ -91,10 +91,10 @@ cp examples/issue-triage.md "$TEMP_DIR/.github/claude-agents/"
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 
 run_test "Compile with dry-run" \
-    "cd $TEMP_DIR && node '$SCRIPT_DIR/dist/index.js' compile --dry-run .github/claude-agents/issue-triage.md > /dev/null 2>&1 && cd '$SCRIPT_DIR'"
+    "cd $TEMP_DIR && bun '$SCRIPT_DIR/dist/index.js' compile --dry-run .github/claude-agents/issue-triage.md > /dev/null 2>&1 && cd '$SCRIPT_DIR'"
 
 run_test "Compile to workflows directory" \
-    "cd $TEMP_DIR && node '$SCRIPT_DIR/dist/index.js' compile --all > /dev/null 2>&1 && cd '$SCRIPT_DIR'"
+    "cd $TEMP_DIR && bun '$SCRIPT_DIR/dist/index.js' compile --all > /dev/null 2>&1 && cd '$SCRIPT_DIR'"
 
 run_test "Check workflow file was created" \
     "test -f $TEMP_DIR/.github/workflows/claude-issue-triage.yml"
@@ -121,7 +121,7 @@ fi
 # Skip if no agents in test-repo yet
 if [ -d "../test-repo/.github/claude-agents" ]; then
     run_test "List agents in test repo" \
-        "cd ../test-repo && node ../gh-claude/dist/index.js list > /dev/null 2>&1"
+        "cd ../test-repo && bun ../gh-claude/dist/index.js list > /dev/null 2>&1"
 else
     info "Test repository has no agents yet (run init first)"
 fi

@@ -101,3 +101,13 @@ export interface ClaudeOutput {
   type: Output;
   data: Record<string, unknown>;
 }
+
+export interface WorkflowStep {
+  name?: string;
+  id?: string;
+  uses?: string;
+  with?: Record<string, string>;
+  run?: string;
+  env?: Record<string, string>;
+  if?: string;
+}

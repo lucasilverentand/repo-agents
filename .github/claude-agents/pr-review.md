@@ -4,7 +4,7 @@ on:
   pull_request:
     types: [opened, synchronize]
 permissions:
-  pull_requests: write
+  pull-requests: write
 outputs:
   add-comment: { max: 1 }
   add-label: true

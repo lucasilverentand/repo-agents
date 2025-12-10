@@ -7,6 +7,7 @@ import { findMarkdownFiles, fileExists } from '../utils/files';
 import { agentParser } from '../../parser';
 import { workflowGenerator } from '../../generator';
 import { CompileResult } from '../../types';
+import { workflowValidator } from '../utils/workflow-validator';
 
 interface CompileOptions {
   all?: boolean;
@@ -124,11 +125,44 @@ async function compileSingle(
     };
   }
 
+  // Validate generated workflow against GitHub Actions schema
+  spinner.text = `Validating workflow schema for ${fileName}...`;
+  const generatedWorkflow = workflowGenerator.generate(agent);
+
+  try {
+    const schemaErrors = await workflowValidator.validateWorkflow(generatedWorkflow);
+
+    if (schemaErrors.length > 0) {
+      spinner.fail(`Workflow schema validation failed for ${fileName}`);
+      logger.newline();
+      schemaErrors.forEach((error) => {
+        logger.log(chalk.red(`  ✗ ${error.path}: ${error.message}`));
+      });
+      return {
+        success: false,
+        inputPath: filePath,
+        errors: [
+          ...allErrors,
+          ...schemaErrors.map(e => ({
+            field: e.path,
+            message: e.message,
+            severity: 'error' as const,
+          })),
+        ],
+      };
+    }
+    spinner.text = `Compiling ${chalk.cyan(fileName)}...`;
+  } catch (error) {
+    spinner.warn(`Could not validate workflow schema (${(error as Error).message})`);
+    logger.newline();
+    logger.warn('Continuing without schema validation...');
+  }
+
   if (dryRun) {
     spinner.succeed(`Validated ${fileName}`);
     logger.newline();
     logger.log(chalk.gray('--- Generated Workflow (dry-run) ---'));
-    logger.log(workflowGenerator.generate(agent));
+    logger.log(generatedWorkflow);
     logger.log(chalk.gray('--- End of Generated Workflow ---'));
     return {
       success: true,

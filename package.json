@@ -31,6 +31,8 @@
   "author": "",
   "license": "MIT",
   "dependencies": {
+    "ajv": "^8.17.1",
+    "ajv-formats": "^3.0.1",
     "chalk": "^4.1.2",
     "commander": "^12.1.0",
     "gray-matter": "^4.0.3",
@@ -56,6 +58,6 @@
     "typescript": "^5.4.5"
   },
   "engines": {
-    "node": ">=20.0.0"
+    "bun": ">=1.0.0"
   }
 }

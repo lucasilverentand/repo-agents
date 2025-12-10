@@ -27,9 +27,20 @@ export default defineConfig({
           label: 'Guide',
           items: [
             { label: 'Agent Definition', slug: 'guide/agent-definition' },
-            { label: 'Triggers', slug: 'guide/triggers' },
             { label: 'Outputs', slug: 'guide/outputs' },
             { label: 'Permissions', slug: 'guide/permissions' },
+          ],
+        },
+        {
+          label: 'Triggers',
+          items: [
+            { label: 'Overview', slug: 'triggers' },
+            { label: 'Issues', slug: 'triggers/issues' },
+            { label: 'Pull Requests', slug: 'triggers/pull-requests' },
+            { label: 'Discussions', slug: 'triggers/discussions' },
+            { label: 'Schedule', slug: 'triggers/schedule' },
+            { label: 'Workflow Dispatch', slug: 'triggers/workflow-dispatch' },
+            { label: 'Repository Dispatch', slug: 'triggers/repository-dispatch' },
           ],
         },
         {
