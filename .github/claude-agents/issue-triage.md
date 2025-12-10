@@ -56,6 +56,14 @@ When a new issue is opened, analyze it and:
 
 ## Available Actions
 
-Use the `gh` CLI to interact with GitHub:
-- `gh issue edit <number> --add-label <label>` - Add labels
-- `gh issue comment <number> --body "<message>"` - Add comments
+You have access to GitHub MCP tools for safe interactions:
+- Use the GitHub MCP tools to add labels to issues
+- Use the GitHub MCP tools to add comments to issues
+- The tools are namespaced as `mcp__github__*` and provide structured, safe access to GitHub operations
+
+Example workflow:
+1. Analyze the issue content
+2. Decide on appropriate label(s)
+3. Use GitHub MCP to add the label
+4. Draft a welcoming comment
+5. Use GitHub MCP to post the comment

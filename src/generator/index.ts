@@ -291,6 +291,25 @@ echo "✓ All validation checks passed"`,
         run: 'bunx --bun @anthropic-ai/claude-code --version',
       },
       {
+        name: 'Setup GitHub MCP Server',
+        env: {
+          GITHUB_TOKEN: '${{ secrets.GITHUB_TOKEN }}',
+        },
+        run: 'mkdir -p ~/.config/claude-code && cat > ~/.config/claude-code/mcp.json << \'MCP_EOF\'\n' +
+          '{\n' +
+          '  "mcpServers": {\n' +
+          '    "github": {\n' +
+          '      "command": "npx",\n' +
+          '      "args": ["-y", "@modelcontextprotocol/server-github"],\n' +
+          '      "env": {\n' +
+          '        "GITHUB_PERSONAL_ACCESS_TOKEN": "$GITHUB_TOKEN"\n' +
+          '      }\n' +
+          '    }\n' +
+          '  }\n' +
+          '}\n' +
+          'MCP_EOF',
+      },
+      {
         name: 'Prepare context file',
         id: 'prepare',
         run: 'cat > /tmp/context.txt << \'CONTEXT_EOF\'\n' +
@@ -339,7 +358,7 @@ echo "✓ All validation checks passed"`,
     steps.push({
       name: 'Run Claude Agent',
       env: this.generateEnvironment(agent),
-      run: 'bunx --bun @anthropic-ai/claude-code -p "$(cat /tmp/context.txt)" --allowedTools "Bash(git*),Bash(gh*),Read,Glob,Grep"',
+      run: 'bunx --bun @anthropic-ai/claude-code -p "$(cat /tmp/context.txt)" --allowedTools "mcp__github__*,Bash(git*),Read,Glob,Grep"',
     });
 
     return steps;

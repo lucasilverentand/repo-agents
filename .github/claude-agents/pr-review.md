@@ -47,24 +47,16 @@ When a pull request is opened or updated:
 - Remember: you're here to help, not to block progress
 - Acknowledge what's done well
 
-## Output Format
+## Available Actions
 
-For adding a comment:
-```
-ADD_COMMENT:
-```json
-{
-  "body": "Your review comment here"
-}
-```
-```
+You have access to GitHub MCP tools for safe interactions:
+- Use the GitHub MCP tools to add comments to pull requests
+- Use the GitHub MCP tools to add labels to pull requests
+- The tools are namespaced as `mcp__github__*` and provide structured, safe access to GitHub operations
 
-For adding labels:
-```
-ADD_LABEL:
-```json
-{
-  "labels": ["label1", "label2"]
-}
-```
-```
+Example workflow:
+1. Analyze the PR changes using Read/Grep/Glob tools
+2. Review for potential issues
+3. Draft constructive feedback
+4. Use GitHub MCP to post your review comment (max 1 per run)
+5. Use GitHub MCP to add appropriate labels

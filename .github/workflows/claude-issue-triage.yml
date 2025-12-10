@@ -117,6 +117,23 @@ jobs:
           bun-version: latest
       - name: Install Claude Code CLI
         run: bunx --bun @anthropic-ai/claude-code --version
+      - name: Setup GitHub MCP Server
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |-
+          mkdir -p ~/.config/claude-code && cat > ~/.config/claude-code/mcp.json << 'MCP_EOF'
+          {
+            "mcpServers": {
+              "github": {
+                "command": "npx",
+                "args": ["-y", "@modelcontextprotocol/server-github"],
+                "env": {
+                  "GITHUB_PERSONAL_ACCESS_TOKEN": "$GITHUB_TOKEN"
+                }
+              }
+            }
+          }
+          MCP_EOF
       - name: Prepare context file
         id: prepare
         run: |-
@@ -194,13 +211,21 @@ jobs:
 
           ## Available Actions
 
-          Use the \`gh\` CLI to interact with GitHub:
-          - \`gh issue edit <number> --add-label <label>\` - Add labels
-          - \`gh issue comment <number> --body "<message>"\` - Add comments
+          You have access to GitHub MCP tools for safe interactions:
+          - Use the GitHub MCP tools to add labels to issues
+          - Use the GitHub MCP tools to add comments to issues
+          - The tools are namespaced as \`mcp__github__*\` and provide structured, safe access to GitHub operations
+
+          Example workflow:
+          1. Analyze the issue content
+          2. Decide on appropriate label(s)
+          3. Use GitHub MCP to add the label
+          4. Draft a welcoming comment
+          5. Use GitHub MCP to post the comment
           INSTRUCTIONS_EOF
       - name: Run Claude Agent
         env:
           ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
           CLAUDE_ACCESS_TOKEN: ${{ secrets.CLAUDE_ACCESS_TOKEN }}
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        run: bunx --bun @anthropic-ai/claude-code -p "$(cat /tmp/context.txt)" --allowedTools "Bash(git*),Bash(gh*),Read,Glob,Grep"
+        run: bunx --bun @anthropic-ai/claude-code -p "$(cat /tmp/context.txt)" --allowedTools "mcp__github__*,Bash(git*),Read,Glob,Grep"
