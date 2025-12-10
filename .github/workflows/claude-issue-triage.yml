@@ -103,6 +103,7 @@ jobs:
         run: |-
           echo "should-run=true" >> $GITHUB_OUTPUT
           echo "✓ All validation checks passed"
+
   claude-agent:
     runs-on: ubuntu-latest
     needs: validate
@@ -114,46 +115,40 @@ jobs:
         uses: oven-sh/setup-bun@v2
         with:
           bun-version: latest
-      - name: Build GitHub context
-        id: build-context
+      - name: Install Claude Code CLI
+        run: bunx --bun @anthropic-ai/claude-code --version
+      - name: Prepare context file
+        id: prepare
         run: |-
-          CONTEXT="GitHub Event: ${{ github.event_name }}\nRepository: ${{ github.repository }}\n"
-          echo "context<<EOF" >> $GITHUB_OUTPUT
-          echo "${CONTEXT}" >> $GITHUB_OUTPUT
-          echo "EOF" >> $GITHUB_OUTPUT
+          cat > /tmp/context.txt << 'CONTEXT_EOF'
+          GitHub Event: ${{ github.event_name }}
+          Repository: ${{ github.repository }}
+          CONTEXT_EOF
       - name: Add issue context
         if: github.event.issue.number
         run: |-
-          ISSUE_CONTEXT="Issue #${{ github.event.issue.number }}: ${{ github.event.issue.title }}\nAuthor: @${{ github.event.issue.user.login }}\nBody:\n${{ github.event.issue.body }}\n"
-          echo "issue-context<<EOF" >> $GITHUB_OUTPUT
-          echo "${ISSUE_CONTEXT}" >> $GITHUB_OUTPUT
-          echo "EOF" >> $GITHUB_OUTPUT
-        id: issue-context
+          cat >> /tmp/context.txt << 'ISSUE_EOF'
+          Issue #${{ github.event.issue.number }}: ${{ github.event.issue.title }}
+          Author: @${{ github.event.issue.user.login }}
+          Body:
+          ${{ github.event.issue.body }}
+          ISSUE_EOF
       - name: Add PR context
         if: github.event.pull_request.number
         run: |-
-          PR_CONTEXT="PR #${{ github.event.pull_request.number }}: ${{ github.event.pull_request.title }}\nAuthor: @${{ github.event.pull_request.user.login }}\nBody:\n${{ github.event.pull_request.body }}\n"
-          echo "pr-context<<EOF" >> $GITHUB_OUTPUT
-          echo "${PR_CONTEXT}" >> $GITHUB_OUTPUT
-          echo "EOF" >> $GITHUB_OUTPUT
-        id: pr-context
-      - name: Run Claude Agent
-        env:
-          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
-          CLAUDE_ACCESS_TOKEN: ${{ secrets.CLAUDE_ACCESS_TOKEN }}
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          cat >> /tmp/context.txt << 'PR_EOF'
+          PR #${{ github.event.pull_request.number }}: ${{ github.event.pull_request.title }}
+          Author: @${{ github.event.pull_request.user.login }}
+          Body:
+          ${{ github.event.pull_request.body }}
+          PR_EOF
+      - name: Add agent instructions
         run: |-
-          FULL_CONTEXT="${{ steps.build-context.outputs.context }}"
+          cat >> /tmp/context.txt << 'INSTRUCTIONS_EOF'
 
-          if [ -n "${{ steps.issue-context.outputs.issue-context }}" ]; then
-            FULL_CONTEXT="${FULL_CONTEXT}${{ steps.issue-context.outputs.issue-context }}"
-          fi
+          ---
 
-          if [ -n "${{ steps.pr-context.outputs.pr-context }}" ]; then
-            FULL_CONTEXT="${FULL_CONTEXT}${{ steps.pr-context.outputs.pr-context }}"
-          fi
-
-          bunx --bun @anthropic-ai/claude-code -p "${FULL_CONTEXT}\n\n---\n\n# Issue Triage Agent
+          # Issue Triage Agent
 
           You are an intelligent issue triage assistant for the gh-claude project.
 
@@ -201,4 +196,11 @@ jobs:
 
           Use the \`gh\` CLI to interact with GitHub:
           - \`gh issue edit <number> --add-label <label>\` - Add labels
-          - \`gh issue comment <number> --body "<message>"\` - Add comments" --allowedTools "Bash(git*),Bash(gh*),Read,Glob,Grep"
+          - \`gh issue comment <number> --body "<message>"\` - Add comments
+          INSTRUCTIONS_EOF
+      - name: Run Claude Agent
+        env:
+          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+          CLAUDE_ACCESS_TOKEN: ${{ secrets.CLAUDE_ACCESS_TOKEN }}
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: bunx --bun @anthropic-ai/claude-code -p "$(cat /tmp/context.txt)" --allowedTools "Bash(git*),Bash(gh*),Read,Glob,Grep"
