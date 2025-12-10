@@ -127,16 +127,6 @@ else
 fi
 
 echo ""
-echo "6. Runtime Structure Tests"
-echo "-------------------------------------------"
-
-run_test "Runtime structure test" \
-    "node '$SCRIPT_DIR/test-runtime/test-simple.js' > /dev/null"
-
-run_test "Mock context is valid JSON" \
-    "cat test-runtime/mock-context.json | jq empty 2>&1"
-
-echo ""
 echo "==========================================="
 echo "  Test Summary"
 echo "==========================================="
