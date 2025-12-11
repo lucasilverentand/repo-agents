@@ -126,10 +126,13 @@ Your natural language instructions for Claude go here...
 
 - **permissions**: GitHub permissions (read/write for contents, issues, pull_requests, discussions)
 - **outputs**: Allowed actions the agent can perform
+- **inputs**: Data collection configuration for scheduled/manual agents
 - **claude**: Claude model configuration
 - **allowed-actors**: Restrict to specific GitHub users
 - **allowed-teams**: Restrict to specific GitHub teams
 - **allowed-paths**: File paths the agent can modify
+- **triggerLabels**: Required labels for issue/PR triggers
+- **rateLimitMinutes**: Minimum minutes between runs (default: 5)
 
 ### Triggers
 
@@ -189,6 +192,148 @@ Available outputs:
 - **close-pr**: Close pull requests
 
 Use `true` for simple enablement or an object with configuration options.
+
+### Inputs
+
+Inputs enable agents to collect and analyze repository data before execution. This is particularly useful for scheduled agents that create reports, summaries, or alerts based on repository activity.
+
+**Key Feature**: Agents with inputs will **skip execution if no data is collected**, preventing unnecessary runs and saving API costs.
+
+```yaml
+inputs:
+  issues:
+    states: [open, closed]
+    labels: [bug, enhancement]
+    limit: 50
+  pullRequests:
+    states: [open, merged]
+    limit: 50
+  discussions:
+    categories: [Announcements, Q&A]
+    limit: 20
+  commits:
+    branches: [main, develop]
+    limit: 100
+  releases:
+    prerelease: false
+    limit: 10
+  workflowRuns:
+    status: [failure, success]
+    workflows: [test.yml, build.yml]
+    limit: 30
+  since: last-run  # or "1h", "24h", "7d"
+  minItems: 1      # Skip if fewer items collected
+```
+
+#### Input Types
+
+**Issues** - Collect issues from the repository:
+- `states`: Filter by state (`open`, `closed`, `all`)
+- `labels`: Only issues with these labels
+- `assignees`: Only issues assigned to these users
+- `creators`: Only issues created by these users
+- `mentions`: Only issues mentioning these users
+- `milestones`: Only issues in these milestones
+- `excludeLabels`: Exclude issues with these labels
+- `limit`: Maximum issues to fetch (default: 100, max: 1000)
+
+**Pull Requests** - Collect pull requests:
+- `states`: Filter by state (`open`, `closed`, `merged`, `all`)
+- `labels`: Only PRs with these labels
+- `assignees`: Only PRs assigned to these users
+- `creators`: Only PRs created by these users
+- `reviewers`: Only PRs with these reviewers
+- `baseBranch`: Only PRs targeting this branch
+- `headBranch`: Only PRs from this branch
+- `excludeLabels`: Exclude PRs with these labels
+- `limit`: Maximum PRs to fetch (default: 100, max: 1000)
+
+**Discussions** - Collect discussions:
+- `categories`: Filter by category names
+- `answered`: Only answered discussions (boolean)
+- `unanswered`: Only unanswered discussions (boolean)
+- `labels`: Only discussions with these labels
+- `limit`: Maximum discussions to fetch (default: 100, max: 1000)
+
+**Commits** - Collect commits:
+- `branches`: Branches to check (default: `["main", "master"]`)
+- `authors`: Only commits by these authors
+- `excludeAuthors`: Exclude commits by these authors
+- `limit`: Maximum commits per branch (default: 100, max: 1000)
+
+**Releases** - Collect releases:
+- `prerelease`: Include pre-releases (boolean)
+- `draft`: Include draft releases (boolean)
+- `limit`: Maximum releases to fetch (default: 20, max: 100)
+
+**Workflow Runs** - Collect workflow execution data:
+- `workflows`: Filter by workflow file names
+- `status`: Filter by conclusion (`success`, `failure`, `cancelled`, `skipped`)
+- `branches`: Only runs on these branches
+- `limit`: Maximum runs to fetch (default: 50, max: 1000)
+
+**Stars & Forks** - Track repository metrics:
+- `stars: true` - Include current star count
+- `forks: true` - Include current fork count
+
+#### Time Filtering
+
+The `since` field controls the time range for data collection:
+
+- `last-run` (default): Collect data since the last successful workflow run
+- `1h`, `6h`, `24h`: Collect data from the last N hours
+- `7d`, `30d`: Collect data from the last N days
+
+#### Minimum Items
+
+The `minItems` field (default: 1) prevents agent execution when insufficient data is collected. For example, a daily report with `minItems: 5` won't run if there's been minimal activity.
+
+#### Example: Daily Report Agent
+
+```markdown
+---
+name: Daily Activity Report
+on:
+  schedule:
+    - cron: '0 9 * * 1-5'  # Weekdays at 9 AM
+permissions:
+  issues: write
+outputs:
+  create-issue: true
+inputs:
+  issues:
+    states: [open, closed]
+    limit: 50
+  pullRequests:
+    states: [all]
+    limit: 50
+  commits:
+    branches: [main]
+    limit: 100
+  since: last-run
+  minItems: 1
+---
+
+Analyze the collected repository data and create a comprehensive daily activity report.
+
+Summarize:
+1. Issues opened and closed
+2. PRs merged and opened
+3. Commit activity
+4. Key achievements
+
+Create a new issue with the label "daily-report" containing your analysis.
+```
+
+#### How Input Collection Works
+
+1. **Pre-flight Job**: Collects configured data using GitHub CLI
+2. **Data Formatting**: Formats data as markdown sections
+3. **Threshold Check**: Compares total items against `minItems`
+4. **Context Injection**: Passes formatted data to Claude agent
+5. **Agent Execution**: Claude analyzes the data and performs configured outputs
+
+Collected data is provided to Claude as structured markdown within the agent context, allowing for sophisticated analysis and reporting.
 
 ## CLI Commands
 

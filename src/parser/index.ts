@@ -98,6 +98,7 @@ export class AgentParser {
       allowedPaths: frontmatter['allowed-paths'],
       triggerLabels: frontmatter.triggerLabels,
       rateLimitMinutes: frontmatter.rateLimitMinutes,
+      inputs: frontmatter.inputs,
       markdown: parsed.content.trim(),
     };
 

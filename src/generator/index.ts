@@ -4,6 +4,7 @@ import type { AgentDefinition, WorkflowStep, Output } from '../types';
 import { agentNameToWorkflowName } from '../cli/utils/files';
 import { getOutputHandler } from './outputs';
 import type { RuntimeContext } from './outputs/base';
+import { inputCollector } from './input-collector';
 
 export class WorkflowGenerator {
   generate(agent: AgentDefinition): string {
@@ -13,21 +14,36 @@ export class WorkflowGenerator {
     };
 
     if (agent.permissions) {
-      workflow.permissions = agent.permissions;
+      // Transform permission keys from snake_case to kebab-case for GitHub Actions
+      workflow.permissions = Object.entries(agent.permissions).reduce((acc, [key, value]) => {
+        const kebabKey = key.replace(/_/g, '-');
+        acc[kebabKey] = value;
+        return acc;
+      }, {} as Record<string, string>);
+    }
+
+    const preFlightOutputs: Record<string, string> = {
+      'should-run': '$' + '{{ steps.set-output.outputs.should-run }}',
+    };
+
+    // Add inputs output if configured
+    if (agent.inputs) {
+      preFlightOutputs['has-inputs'] = '$' + '{{ steps.collect-inputs.outputs.has-inputs }}';
+      preFlightOutputs['inputs-data'] = '$' + '{{ steps.collect-inputs.outputs.inputs-data }}';
     }
 
     workflow.jobs = {
       'pre-flight': {
         'runs-on': 'ubuntu-latest',
-        outputs: {
-          'should-run': '${{ steps.set-output.outputs.should-run }}',
-        },
+        outputs: preFlightOutputs,
         steps: this.generateValidationSteps(agent),
       },
       'claude-agent': {
         'runs-on': 'ubuntu-latest',
         needs: 'pre-flight',
-        if: "needs.pre-flight.outputs.should-run == 'true'",
+        if: agent.inputs
+          ? "needs.pre-flight.outputs.should-run == 'true' && needs.pre-flight.outputs.has-inputs == 'true'"
+          : "needs.pre-flight.outputs.should-run == 'true'",
         steps: this.generateClaudeAgentSteps(agent),
       },
     };
@@ -269,6 +285,19 @@ fi
 echo "✓ Rate limit check passed"`,
     });
 
+    // Add input collection step if configured
+    if (agent.inputs) {
+      const collectionScript = inputCollector.generateCollectionScript(agent.inputs);
+      steps.push({
+        name: 'Collect inputs',
+        id: 'collect-inputs',
+        env: {
+          GITHUB_TOKEN: '$' + '{{ secrets.GITHUB_TOKEN }}',
+        },
+        run: collectionScript,
+      });
+    }
+
     steps.push({
       name: 'Set output',
       id: 'set-output',
@@ -313,10 +342,26 @@ echo "✓ All validation checks passed"`,
       name: 'Prepare context file',
       id: 'prepare',
       run: 'cat > /tmp/context.txt << \'CONTEXT_EOF\'\n' +
-        'GitHub Event: ${{ github.event_name }}\n' +
-        'Repository: ${{ github.repository }}\n' +
+        'GitHub Event: $' + '{{ github.event_name }}\n' +
+        'Repository: $' + '{{ github.repository }}\n' +
         'CONTEXT_EOF',
     });
+
+    // Add collected inputs to context if available
+    if (agent.inputs) {
+      steps.push({
+        name: 'Add collected inputs to context',
+        if: 'needs.pre-flight.outputs.has-inputs == \'true\'',
+        run: 'cat >> /tmp/context.txt << \'INPUTS_EOF\'\n' +
+          '\n' +
+          '## Collected Inputs\n' +
+          '\n' +
+          'The following data has been collected from the repository:\n' +
+          '\n' +
+          '$' + '{{ needs.pre-flight.outputs.inputs-data }}\n' +
+          'INPUTS_EOF',
+      });
+    }
 
     // Add issue context if applicable
     steps.push({
