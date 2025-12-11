@@ -257,7 +257,7 @@ permissions:
   discussions: write
 ```
 
-See [Permissions](/guide/permissions/) for details.
+See [Permissions](../../guide/permissions/) for details.
 
 ## Best Practices
 
@@ -536,7 +536,7 @@ Inspect the payload structure here.
 
 ## Next Steps
 
-- Compare with [Workflow Dispatch](/triggers/workflow-dispatch/) for manual triggers
-- Combine with [Schedule triggers](/triggers/schedule/) for hybrid automation
-- Understand [Permissions](/guide/permissions/)
-- Learn about [Outputs](/guide/outputs/)
+- Compare with [Workflow Dispatch](workflow-dispatch/) for manual triggers
+- Combine with [Schedule triggers](schedule/) for hybrid automation
+- Understand [Permissions](../../guide/permissions/)
+- Learn about [Outputs](../../guide/outputs/)

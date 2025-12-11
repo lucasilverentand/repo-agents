@@ -14,7 +14,7 @@ export default defineConfig({
         {
           label: 'GitHub',
           icon: 'github',
-          href: 'https://github.com/yourusername/gh-claude',
+          href: 'https://github.com/lucasilverentand/gh-claude',
         },
       ],
       sidebar: [

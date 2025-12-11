@@ -83,6 +83,6 @@ Create a new issue in your repository. The agent should automatically:
 
 ## What's Next?
 
-- Learn about [Agent Definition](/guide/agent-definition/) format
-- Explore [Triggers](/guide/triggers/) for different events
-- See more [Examples](/examples/issue-triage/)
+- Learn about [Agent Definition](../../guide/agent-definition/) format
+- Explore [Triggers](../../triggers/) for different events
+- See more [Examples](../../examples/issue-triage/)

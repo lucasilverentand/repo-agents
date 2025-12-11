@@ -16,7 +16,7 @@ Before installing gh-claude, ensure you have:
 Install gh-claude as a GitHub CLI extension:
 
 ```bash
-gh extension install yourusername/gh-claude
+gh extension install lucasilverentand/gh-claude
 ```
 
 ## Verify Installation
@@ -44,4 +44,4 @@ When prompted, paste your API key.
 
 ## Next Steps
 
-Now that you have gh-claude installed, proceed to the [Quick Start](/getting-started/quick-start/) guide to create your first agent.
+Now that you have gh-claude installed, proceed to the [Quick Start](../quick-start/) guide to create your first agent.

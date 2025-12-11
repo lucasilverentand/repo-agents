@@ -74,7 +74,7 @@ With `--examples`, creates starter agent templates:
 
 After initialization:
 
-1. Configure your [Anthropic API key](/getting-started/installation/#setting-up-api-key)
+1. Configure your [Anthropic API key](../../getting-started/installation/#setting-up-api-key)
 2. Review or customize example agents
-3. [Compile](/cli/compile/) agents to workflows
+3. [Compile](../compile/) agents to workflows
 4. Commit and push changes

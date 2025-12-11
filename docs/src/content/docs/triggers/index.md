@@ -11,22 +11,22 @@ Triggers define when your agent runs. gh-claude supports GitHub event triggers, 
 
 Respond to activity in your repository:
 
-- **[Issues](/triggers/issues/)** - React to issue activity (opened, labeled, closed, etc.)
-- **[Pull Requests](/triggers/pull-requests/)** - Respond to PR events (opened, synchronize, ready_for_review, etc.)
-- **[Discussions](/triggers/discussions/)** - Handle discussion activity (created, answered, etc.)
+- **[Issues](issues/)** - React to issue activity (opened, labeled, closed, etc.)
+- **[Pull Requests](pull-requests/)** - Respond to PR events (opened, synchronize, ready_for_review, etc.)
+- **[Discussions](discussions/)** - Handle discussion activity (created, answered, etc.)
 
 ### Time-Based Triggers
 
 Run on a schedule:
 
-- **[Schedule](/triggers/schedule/)** - Execute on a recurring schedule using cron syntax
+- **[Schedule](schedule/)** - Execute on a recurring schedule using cron syntax
 
 ### Manual Triggers
 
 Trigger agents on-demand:
 
-- **[Workflow Dispatch](/triggers/workflow-dispatch/)** - Manual triggering with optional inputs
-- **[Repository Dispatch](/triggers/repository-dispatch/)** - Trigger via API or webhooks
+- **[Workflow Dispatch](workflow-dispatch/)** - Manual triggering with optional inputs
+- **[Repository Dispatch](repository-dispatch/)** - Trigger via API or webhooks
 
 ## Basic Usage
 
@@ -141,9 +141,9 @@ on:
 
 Explore detailed documentation for each trigger type:
 
-- [Issue Events](/triggers/issues/)
-- [Pull Request Events](/triggers/pull-requests/)
-- [Discussion Events](/triggers/discussions/)
-- [Schedule Triggers](/triggers/schedule/)
-- [Workflow Dispatch](/triggers/workflow-dispatch/)
-- [Repository Dispatch](/triggers/repository-dispatch/)
+- [Issue Events](issues/)
+- [Pull Request Events](pull-requests/)
+- [Discussion Events](discussions/)
+- [Schedule Triggers](schedule/)
+- [Workflow Dispatch](workflow-dispatch/)
+- [Repository Dispatch](repository-dispatch/)

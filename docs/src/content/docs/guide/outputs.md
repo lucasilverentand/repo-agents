@@ -272,6 +272,6 @@ outputs:
 
 ## Next Steps
 
-- Learn about [Permissions](/guide/permissions/)
-- See [Examples](/examples/issue-triage/)
-- Review [Security](/reference/security/)
+- Learn about [Permissions](../permissions/)
+- See [Examples](../../examples/issue-triage/)
+- Review [Security](../../reference/security/)

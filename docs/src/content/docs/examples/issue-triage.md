@@ -164,5 +164,5 @@ For security-related issues, assign to @security-lead
 
 ## Related Examples
 
-- [PR Review](/examples/pr-review/) - Review pull requests
-- [Daily Summary](/examples/daily-summary/) - Generate activity summaries
+- [PR Review](pr-review/) - Review pull requests
+- [Daily Summary](daily-summary/) - Generate activity summaries

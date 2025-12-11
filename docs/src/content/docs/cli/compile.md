@@ -79,6 +79,6 @@ The compiled workflow includes:
 
 ## Next Steps
 
-- [Validate](/cli/validate/) agents before compiling
-- [List](/cli/list/) all agents
-- Learn about [Agent Definition](/guide/agent-definition/)
+- [Validate](../validate/) agents before compiling
+- [List](../list/) all agents
+- Learn about [Agent Definition](../../guide/agent-definition/)

@@ -380,6 +380,6 @@ gh workflow run "Workflow Name"
 
 ## Next Steps
 
-- Combine with [Issue triggers](/triggers/issues/) for comprehensive automation
-- Use [Workflow Dispatch](/triggers/workflow-dispatch/) for manual testing
-- Learn about [Permissions](/guide/permissions/)
+- Combine with [Issue triggers](issues/) for comprehensive automation
+- Use [Workflow Dispatch](workflow-dispatch/) for manual testing
+- Learn about [Permissions](../../guide/permissions/)

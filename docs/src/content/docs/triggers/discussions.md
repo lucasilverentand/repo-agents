@@ -157,7 +157,7 @@ permissions:
   discussions: write
 ```
 
-See [Permissions](/guide/permissions/) for details.
+See [Permissions](../../guide/permissions/) for details.
 
 ## Rate Limiting
 
@@ -293,6 +293,6 @@ CATEGORY="${{ github.event.discussion.category.name }}"
 
 ## Next Steps
 
-- Learn about [Issue triggers](/triggers/issues/)
-- Understand [Permissions](/guide/permissions/)
-- See more [Examples](/examples/)
+- Learn about [Issue triggers](issues/)
+- Understand [Permissions](../../guide/permissions/)
+- See more [Examples](../../examples/)

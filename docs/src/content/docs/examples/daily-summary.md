@@ -148,5 +148,5 @@ Post a short version to Slack channel and link to the full summary issue.
 
 ## Related Examples
 
-- [Issue Triage](/examples/issue-triage/)
-- [PR Review](/examples/pr-review/)
+- [Issue Triage](issue-triage/)
+- [PR Review](pr-review/)

@@ -120,5 +120,5 @@ jobs:
 
 ## Next Steps
 
-- [Compile](/cli/compile/) validated agents
-- Review [Agent Definition](/guide/agent-definition/)
+- [Compile](../compile/) validated agents
+- Review [Agent Definition](../../guide/agent-definition/)

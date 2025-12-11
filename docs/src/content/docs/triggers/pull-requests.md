@@ -183,7 +183,7 @@ permissions:
   contents: read
 ```
 
-See [Permissions](/guide/permissions/) for details.
+See [Permissions](../../guide/permissions/) for details.
 
 ## Rate Limiting
 
@@ -328,6 +328,6 @@ gh pr view $PR_NUMBER --json isDraft -q '.isDraft'
 
 ## Next Steps
 
-- Learn about [Issue triggers](/triggers/issues/)
-- Understand [Permissions](/guide/permissions/)
-- See [PR Review example](/examples/pr-review/)
+- Learn about [Issue triggers](issues/)
+- Understand [Permissions](../../guide/permissions/)
+- See [PR Review example](../../examples/pr-review/)

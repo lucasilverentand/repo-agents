@@ -227,6 +227,6 @@ All file changes are committed:
 
 ## Related Resources
 
-- [Permissions](/guide/permissions/)
-- [Outputs](/guide/outputs/)
-- [Configuration](/reference/configuration/)
+- [Permissions](../../guide/permissions/)
+- [Outputs](../../guide/outputs/)
+- [Configuration](configuration/)

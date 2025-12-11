@@ -165,7 +165,7 @@ permissions:
   issues: write
 ```
 
-See [Permissions](/guide/permissions/) for details.
+See [Permissions](../../guide/permissions/) for details.
 
 ## Rate Limiting
 
@@ -259,6 +259,6 @@ Check if the issue follows the template:
 
 ## Next Steps
 
-- Learn about [Pull Request triggers](/triggers/pull-requests/)
-- Understand [Permissions](/guide/permissions/)
-- See [Issue Triage example](/examples/issue-triage/)
+- Learn about [Pull Request triggers](pull-requests/)
+- Understand [Permissions](../../guide/permissions/)
+- See [Issue Triage example](../../examples/issue-triage/)

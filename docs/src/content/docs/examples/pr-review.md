@@ -129,5 +129,5 @@ For Python PRs:
 
 ## Related Examples
 
-- [Issue Triage](/examples/issue-triage/)
-- [Daily Summary](/examples/daily-summary/)
+- [Issue Triage](issue-triage/)
+- [Daily Summary](daily-summary/)

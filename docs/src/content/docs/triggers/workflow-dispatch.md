@@ -477,6 +477,6 @@ Migrate labels from one to another:
 
 ## Next Steps
 
-- Learn about [Repository Dispatch](/triggers/repository-dispatch/) for API triggering
-- Combine with [Schedule triggers](/triggers/schedule/) for hybrid automation
-- Understand [Permissions](/guide/permissions/)
+- Learn about [Repository Dispatch](repository-dispatch/) for API triggering
+- Combine with [Schedule triggers](schedule/) for hybrid automation
+- Understand [Permissions](../../guide/permissions/)

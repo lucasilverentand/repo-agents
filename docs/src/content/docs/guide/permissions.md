@@ -86,5 +86,5 @@ outputs:
 
 ## Next Steps
 
-- Learn about [Outputs](/guide/outputs/)
-- Review [Security](/reference/security/)
+- Learn about [Outputs](../outputs/)
+- Review [Security](../../reference/security/)

@@ -91,5 +91,5 @@ Output:
 
 ## Next Steps
 
-- [Validate](/cli/validate/) agents
-- [Compile](/cli/compile/) agents
+- [Validate](../validate/) agents
+- [Compile](../compile/) agents

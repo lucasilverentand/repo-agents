@@ -47,7 +47,7 @@ on:
     types: [opened, edited]
 ```
 
-See [Triggers](/guide/triggers/) for all available options.
+See [Triggers](../../triggers/) for all available options.
 
 ### Optional Fields
 
@@ -70,7 +70,7 @@ Default: read-only access
 
 #### `outputs`
 
-Actions the agent is allowed to perform. See [Outputs](/guide/outputs/) for details.
+Actions the agent is allowed to perform. See [Outputs](../outputs/) for details.
 
 ```yaml
 outputs:
@@ -258,6 +258,6 @@ Keep the tone friendly and professional!
 
 ## Next Steps
 
-- Learn about [Triggers](/guide/triggers/)
-- Explore [Outputs](/guide/outputs/)
-- Review [Examples](/examples/issue-triage/)
+- Learn about [Triggers](../../triggers/)
+- Explore [Outputs](../outputs/)
+- Review [Examples](../../examples/issue-triage/)
