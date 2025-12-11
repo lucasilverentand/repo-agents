@@ -241,7 +241,7 @@ Even with scheduled triggers, consider using `rateLimitMinutes`:
 on:
   schedule:
     - cron: '0 * * * *'  # Every hour
-rateLimitMinutes: 60  # Ensure max once per hour
+rate_limit_minutes: 60  # Ensure max once per hour
 ```
 
 ## Best Practices

@@ -39,7 +39,7 @@ permissions:
   pull_requests: read
 claude:
   model: claude-3-5-sonnet-20241022
-  maxTokens: 8192
+  max_tokens: 8192
   temperature: 0.5
 outputs:
   add-comment: { max: 2 }
@@ -60,7 +60,7 @@ Complex agent.`;
       expect(agent?.permissions?.issues).toBe('write');
       expect(agent?.claude?.model).toBe('claude-3-5-sonnet-20241022');
       expect(agent?.outputs).toHaveProperty('add-comment');
-      expect(agent?.allowedActors).toContain('user1');
+      expect(agent?.allowed_actors).toContain('user1');
       expect(errors).toHaveLength(0);
     });
 
@@ -202,7 +202,7 @@ Body`;
         name: 'Test',
         on: { issues: { types: ['opened'] } },
         outputs: { 'update-file': true },
-        allowedPaths: ['file.txt'],
+        allowed_paths: ['file.txt'],
         permissions: { issues: 'write' as const },
         markdown: 'Test',
       };

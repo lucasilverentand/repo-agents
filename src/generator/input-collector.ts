@@ -7,7 +7,7 @@ export class InputCollector {
    */
   generateCollectionScript(config: InputConfig): string {
     const since = config.since || 'last-run';
-    const minItems = config.minItems ?? 1;
+    const minItems = config.min_items ?? 1;
 
     const scriptParts: string[] = [
       '#!/bin/bash',
@@ -30,8 +30,8 @@ export class InputCollector {
       scriptParts.push('');
     }
 
-    if (config.pullRequests) {
-      scriptParts.push(this.generatePullRequestsScript(config.pullRequests));
+    if (config.pull_requests) {
+      scriptParts.push(this.generatePullRequestsScript(config.pull_requests));
       scriptParts.push('');
     }
 
@@ -50,8 +50,8 @@ export class InputCollector {
       scriptParts.push('');
     }
 
-    if (config.workflowRuns) {
-      scriptParts.push(this.generateWorkflowRunsScript(config.workflowRuns));
+    if (config.workflow_runs) {
+      scriptParts.push(this.generateWorkflowRunsScript(config.workflow_runs));
       scriptParts.push('');
     }
 
@@ -127,7 +127,7 @@ fi`;
     const limit = config.limit || 100;
     const states = config.states?.join(',') || 'open,closed';
     const labels = config.labels?.join(',') || '';
-    const excludeLabels = config.excludeLabels?.join(',') || '';
+    const excludeLabels = config.exclude_labels?.join(',') || '';
 
     return `# Collect Issues
 echo "## 📋 Issues" >> /tmp/issues_section.md
@@ -169,7 +169,7 @@ fi`;
     const limit = config.limit || 100;
     const states = config.states?.includes('all') ? 'all' : config.states?.join(',') || 'open';
     const labels = config.labels?.join(',') || '';
-    const excludeLabels = config.excludeLabels?.join(',') || '';
+    const excludeLabels = config.exclude_labels?.join(',') || '';
 
     return `# Collect Pull Requests
 echo "## 🔀 Pull Requests" >> /tmp/prs_section.md

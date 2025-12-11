@@ -16,7 +16,7 @@ inputs:
     states:
       - all
     limit: 200
-  pullRequests:
+  pull_requests:
     states:
       - all
     limit: 200
@@ -29,8 +29,8 @@ inputs:
     draft: false
     limit: 20
   since: 7d  # Last 7 days
-  minItems: 5
-rateLimitMinutes: 10080  # Once per week
+  min_items: 5
+rate_limit_minutes: 10080  # Once per week
 ---
 
 You are a weekly digest agent that summarizes repository activity over the past week.

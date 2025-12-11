@@ -268,7 +268,7 @@ describe('WorkflowGenerator', () => {
         const agent: AgentDefinition = {
           name: 'Test',
           on: { issues: { types: ['opened'] } },
-          rateLimitMinutes: 10,
+          rate_limit_minutes: 10,
           markdown: 'Test',
         };
 
@@ -285,7 +285,7 @@ describe('WorkflowGenerator', () => {
         const agent: AgentDefinition = {
           name: 'Test',
           on: { issues: { types: ['opened'] } },
-          allowedUsers: ['user1', 'user2'],
+          allowed_users: ['user1', 'user2'],
           markdown: 'Test',
         };
 
@@ -302,7 +302,7 @@ describe('WorkflowGenerator', () => {
         const agent: AgentDefinition = {
           name: 'Test',
           on: { issues: { types: ['opened'] } },
-          triggerLabels: ['claude', 'ai-help'],
+          trigger_labels: ['claude', 'ai-help'],
           markdown: 'Test',
         };
 
@@ -411,7 +411,7 @@ describe('WorkflowGenerator', () => {
           outputs: {
             'update-file': { sign: true },
           },
-          allowedPaths: ['src/**/*.ts', '*.md'],
+          allowed_paths: ['src/**/*.ts', '*.md'],
           markdown: 'Test',
         };
 

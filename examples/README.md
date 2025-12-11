@@ -147,7 +147,7 @@ Fine-tune the AI model:
 ```yaml
 claude:
   model: claude-3-5-sonnet-20241022
-  maxTokens: 4096        # Longer for detailed responses
+  max_tokens: 4096        # Longer for detailed responses
   temperature: 0.7       # Higher = more creative, Lower = more deterministic
 ```
 

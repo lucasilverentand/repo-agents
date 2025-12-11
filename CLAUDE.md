@@ -93,7 +93,7 @@ The input system ([src/generator/input-collector.ts](src/generator/input-collect
 **Key Features**:
 - Collects issues, PRs, discussions, commits, releases, workflow runs
 - Filters data by time range (`since` field: "last-run", "1h", "24h", "7d")
-- Skips agent execution if `minItems` threshold not met (prevents unnecessary runs)
+- Skips agent execution if `min_items` threshold not met (prevents unnecessary runs)
 - Formats collected data as markdown sections for Claude
 
 **Workflow Integration**:

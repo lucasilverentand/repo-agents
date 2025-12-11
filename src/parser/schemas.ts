@@ -55,7 +55,7 @@ const permissionsSchema = z
 const claudeConfigSchema = z
   .object({
     model: z.string().optional(),
-    maxTokens: z.number().optional(),
+    max_tokens: z.number().optional(),
     temperature: z.number().min(0).max(1).optional(),
   })
   .optional();
@@ -102,7 +102,7 @@ const issuesInputSchema = z
     creators: z.array(z.string()).optional(),
     mentions: z.array(z.string()).optional(),
     milestones: z.array(z.string()).optional(),
-    excludeLabels: z.array(z.string()).optional(),
+    exclude_labels: z.array(z.string()).optional(),
     limit: z.number().min(1).max(1000).optional(),
   })
   .optional();
@@ -114,9 +114,9 @@ const pullRequestsInputSchema = z
     assignees: z.array(z.string()).optional(),
     creators: z.array(z.string()).optional(),
     reviewers: z.array(z.string()).optional(),
-    baseBranch: z.string().optional(),
-    headBranch: z.string().optional(),
-    excludeLabels: z.array(z.string()).optional(),
+    base_branch: z.string().optional(),
+    head_branch: z.string().optional(),
+    exclude_labels: z.array(z.string()).optional(),
     limit: z.number().min(1).max(1000).optional(),
   })
   .optional();
@@ -135,7 +135,7 @@ const commitsInputSchema = z
   .object({
     branches: z.array(z.string()).optional(),
     authors: z.array(z.string()).optional(),
-    excludeAuthors: z.array(z.string()).optional(),
+    exclude_authors: z.array(z.string()).optional(),
     limit: z.number().min(1).max(1000).optional(),
   })
   .optional();
@@ -160,15 +160,15 @@ const workflowRunsInputSchema = z
 const inputConfigSchema = z
   .object({
     issues: issuesInputSchema,
-    pullRequests: pullRequestsInputSchema,
+    pull_requests: pullRequestsInputSchema,
     discussions: discussionsInputSchema,
     commits: commitsInputSchema,
     releases: releasesInputSchema,
-    workflowRuns: workflowRunsInputSchema,
+    workflow_runs: workflowRunsInputSchema,
     stars: z.boolean().optional(),
     forks: z.boolean().optional(),
     since: z.string().optional(),
-    minItems: z.number().min(0).optional(),
+    min_items: z.number().min(0).optional(),
   })
   .optional();
 
@@ -183,8 +183,8 @@ export const agentFrontmatterSchema = z.object({
   'allowed-users': z.array(z.string()).optional(),
   'allowed-teams': z.array(z.string()).optional(),
   'allowed-paths': z.array(z.string()).optional(),
-  triggerLabels: z.array(z.string()).optional(),
-  rateLimitMinutes: z.number().min(0).optional(),
+  trigger_labels: z.array(z.string()).optional(),
+  rate_limit_minutes: z.number().min(0).optional(),
   inputs: inputConfigSchema,
 });
 

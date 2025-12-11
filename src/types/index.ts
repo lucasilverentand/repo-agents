@@ -5,12 +5,12 @@ export interface AgentDefinition {
   claude?: ClaudeConfig;
   outputs?: Record<string, OutputConfig | boolean>;
   tools?: Tool[];
-  allowedActors?: string[];
-  allowedUsers?: string[]; // Alias for allowedActors (explicit user list)
-  allowedTeams?: string[];
-  allowedPaths?: string[];
-  triggerLabels?: string[]; // Labels that must be present to trigger the agent
-  rateLimitMinutes?: number; // Minimum minutes between agent runs (default: 5)
+  allowed_actors?: string[];
+  allowed_users?: string[]; // Alias for allowed_actors (explicit user list)
+  allowed_teams?: string[];
+  allowed_paths?: string[];
+  trigger_labels?: string[]; // Labels that must be present to trigger the agent
+  rate_limit_minutes?: number; // Minimum minutes between agent runs (default: 5)
   inputs?: InputConfig; // Data collection configuration
   markdown: string;
 }
@@ -53,7 +53,7 @@ export interface PermissionsConfig {
 
 export interface ClaudeConfig {
   model?: string;
-  maxTokens?: number;
+  max_tokens?: number;
   temperature?: number;
 }
 
@@ -117,15 +117,15 @@ export interface WorkflowStep {
 // Input Configuration Types
 export interface InputConfig {
   issues?: IssuesInputConfig;
-  pullRequests?: PullRequestsInputConfig;
+  pull_requests?: PullRequestsInputConfig;
   discussions?: DiscussionsInputConfig;
   commits?: CommitsInputConfig;
   releases?: ReleasesInputConfig;
-  workflowRuns?: WorkflowRunsInputConfig;
+  workflow_runs?: WorkflowRunsInputConfig;
   stars?: boolean;
   forks?: boolean;
   since?: string; // Time filter: "last-run", "1h", "24h", "7d", etc. (default: "last-run")
-  minItems?: number; // Minimum total items to trigger agent (default: 1)
+  min_items?: number; // Minimum total items to trigger agent (default: 1)
 }
 
 export interface IssuesInputConfig {
@@ -135,7 +135,7 @@ export interface IssuesInputConfig {
   creators?: string[];
   mentions?: string[];
   milestones?: string[];
-  excludeLabels?: string[];
+  exclude_labels?: string[];
   limit?: number; // Max items to fetch (default: 100)
 }
 
@@ -145,9 +145,9 @@ export interface PullRequestsInputConfig {
   assignees?: string[];
   creators?: string[];
   reviewers?: string[];
-  baseBranch?: string;
-  headBranch?: string;
-  excludeLabels?: string[];
+  base_branch?: string;
+  head_branch?: string;
+  exclude_labels?: string[];
   limit?: number;
 }
 
@@ -162,7 +162,7 @@ export interface DiscussionsInputConfig {
 export interface CommitsInputConfig {
   branches?: string[]; // Branches to check (default: ["main", "master"])
   authors?: string[];
-  excludeAuthors?: string[];
+  exclude_authors?: string[];
   limit?: number;
 }
 
@@ -181,15 +181,15 @@ export interface WorkflowRunsInputConfig {
 
 export interface CollectedInputs {
   issues?: GitHubIssue[];
-  pullRequests?: GitHubPullRequest[];
+  pull_requests?: GitHubPullRequest[];
   discussions?: GitHubDiscussion[];
   commits?: GitHubCommit[];
   releases?: GitHubRelease[];
-  workflowRuns?: GitHubWorkflowRun[];
+  workflow_runs?: GitHubWorkflowRun[];
   stars?: number;
   forks?: number;
-  totalItems: number;
-  collectedAt: string;
+  total_items: number;
+  collected_at: string;
 }
 
 export interface GitHubIssue {

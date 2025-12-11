@@ -111,7 +111,7 @@ outputs:
   add-label: true
 claude:
   model: claude-3-5-sonnet-20241022
-  maxTokens: 4096
+  max_tokens: 4096
   temperature: 0.7
 ---
 
@@ -136,8 +136,8 @@ Your natural language instructions for Claude go here...
 - **allowed-actors**: Restrict to specific GitHub users
 - **allowed-teams**: Restrict to specific GitHub teams
 - **allowed-paths**: File paths the agent can modify
-- **triggerLabels**: Required labels for issue/PR triggers
-- **rateLimitMinutes**: Minimum minutes between runs (default: 5)
+- **trigger_labels**: Required labels for issue/PR triggers
+- **rate_limit_minutes**: Minimum minutes between runs (default: 5)
 
 ### Triggers
 
@@ -213,7 +213,7 @@ inputs:
     states: [open, closed]
     labels: [bug, enhancement]
     limit: 50
-  pullRequests:
+  pull_requests:
     states: [open, merged]
     limit: 50
   discussions:
@@ -225,12 +225,12 @@ inputs:
   releases:
     prerelease: false
     limit: 10
-  workflowRuns:
+  workflow_runs:
     status: [failure, success]
     workflows: [test.yml, build.yml]
     limit: 30
   since: last-run  # or "1h", "24h", "7d"
-  minItems: 1      # Skip if fewer items collected
+  min_items: 1      # Skip if fewer items collected
 ```
 
 #### Input Types
@@ -294,7 +294,7 @@ The `since` field controls the time range for data collection:
 
 #### Minimum Items
 
-The `minItems` field (default: 1) prevents agent execution when insufficient data is collected. For example, a daily report with `minItems: 5` won't run if there's been minimal activity.
+The `min_items` field (default: 1) prevents agent execution when insufficient data is collected. For example, a daily report with `min_items: 5` won't run if there's been minimal activity.
 
 #### Example: Daily Report Agent
 
@@ -312,14 +312,14 @@ inputs:
   issues:
     states: [open, closed]
     limit: 50
-  pullRequests:
+  pull_requests:
     states: [all]
     limit: 50
   commits:
     branches: [main]
     limit: 100
   since: last-run
-  minItems: 1
+  min_items: 1
 ---
 
 Analyze the collected repository data and create a comprehensive daily activity report.
@@ -337,7 +337,7 @@ Create a new issue with the label "daily-report" containing your analysis.
 
 1. **Pre-flight Job**: Collects configured data using GitHub CLI
 2. **Data Formatting**: Formats data as markdown sections
-3. **Threshold Check**: Compares total items against `minItems`
+3. **Threshold Check**: Compares total items against `min_items`
 4. **Context Injection**: Passes formatted data to Claude agent
 5. **Agent Execution**: Claude analyzes the data and performs configured outputs
 

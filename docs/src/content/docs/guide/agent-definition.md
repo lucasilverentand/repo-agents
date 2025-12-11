@@ -85,7 +85,7 @@ Claude model configuration:
 ```yaml
 claude:
   model: claude-3-5-sonnet-20241022
-  maxTokens: 4096
+  max_tokens: 4096
   temperature: 0.7
 ```
 

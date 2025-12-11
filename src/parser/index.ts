@@ -92,12 +92,12 @@ export class AgentParser {
       claude: frontmatter.claude,
       outputs: frontmatter.outputs,
       tools: frontmatter.tools,
-      allowedActors: frontmatter['allowed-actors'],
-      allowedUsers: frontmatter['allowed-users'],
-      allowedTeams: frontmatter['allowed-teams'],
-      allowedPaths: frontmatter['allowed-paths'],
-      triggerLabels: frontmatter.triggerLabels,
-      rateLimitMinutes: frontmatter.rateLimitMinutes,
+      allowed_actors: frontmatter['allowed-actors'],
+      allowed_users: frontmatter['allowed-users'],
+      allowed_teams: frontmatter['allowed-teams'],
+      allowed_paths: frontmatter['allowed-paths'],
+      trigger_labels: frontmatter.trigger_labels,
+      rate_limit_minutes: frontmatter.rate_limit_minutes,
       inputs: frontmatter.inputs,
       markdown: parsed.content.trim(),
     };
@@ -112,7 +112,7 @@ export class AgentParser {
 
     if (
       outputTypes.includes('update-file') &&
-      (!agent.allowedPaths || agent.allowedPaths.length === 0)
+      (!agent.allowed_paths || agent.allowed_paths.length === 0)
     ) {
       errors.push({
         field: 'outputs',

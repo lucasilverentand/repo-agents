@@ -193,7 +193,7 @@ PRs can be updated frequently during development. Use rate limiting:
 on:
   pull_request:
     types: [synchronize]
-rateLimitMinutes: 5  # Max once per 5 minutes
+rate_limit_minutes: 5  # Max once per 5 minutes
 ```
 
 ## Best Practices

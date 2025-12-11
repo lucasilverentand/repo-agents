@@ -17,7 +17,7 @@ outputs:
   create-issue: true
 claude:
   model: claude-3-5-sonnet-20241022
-  maxTokens: 8192
+  max_tokens: 8192
   temperature: 0.5
 allowed-actors:
   - user1

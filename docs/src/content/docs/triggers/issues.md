@@ -64,7 +64,7 @@ name: Bug Investigation
 on:
   issues:
     types: [labeled]
-triggerLabels: [bug, needs-investigation]
+trigger_labels: [bug, needs-investigation]
 permissions:
   issues: write
 ---
@@ -87,7 +87,7 @@ on:
     types: [labeled]
   schedule:
     - cron: '0 0 * * *'  # Check daily
-triggerLabels: [stale]
+trigger_labels: [stale]
 permissions:
   issues: write
 ---
@@ -175,7 +175,7 @@ Issues can be edited frequently. Use rate limiting to prevent excessive runs:
 on:
   issues:
     types: [edited]
-rateLimitMinutes: 10  # Max once per 10 minutes
+rate_limit_minutes: 10  # Max once per 10 minutes
 ```
 
 ## Best Practices
@@ -204,7 +204,7 @@ Reduce unnecessary runs by filtering on labels:
 on:
   issues:
     types: [labeled, opened]
-triggerLabels: [needs-triage]
+trigger_labels: [needs-triage]
 ```
 
 This only triggers when the issue has the `needs-triage` label.

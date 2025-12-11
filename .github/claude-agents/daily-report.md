@@ -17,7 +17,7 @@ inputs:
       - open
       - closed
     limit: 50
-  pullRequests:
+  pull_requests:
     states:
       - open
       - closed
@@ -33,16 +33,16 @@ inputs:
     prerelease: false
     draft: false
     limit: 10
-  workflowRuns:
+  workflow_runs:
     status:
       - failure
       - success
     limit: 30
   since: last-run
-  minItems: 1
+  min_items: 1
 allowed-users:
   - lucasilverentand
-rateLimitMinutes: 720  # Once every 12 hours max
+rate_limit_minutes: 720  # Once every 12 hours max
 ---
 
 You are a daily activity report agent for this GitHub repository.

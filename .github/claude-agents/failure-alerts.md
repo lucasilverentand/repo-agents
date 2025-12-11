@@ -12,7 +12,7 @@ outputs:
   add-comment: true
   create-issue: true
 inputs:
-  workflowRuns:
+  workflow_runs:
     status:
       - failure
     limit: 50
@@ -23,7 +23,7 @@ inputs:
       - bug
       - critical
     limit: 100
-  pullRequests:
+  pull_requests:
     states:
       - open
     labels:
@@ -31,8 +31,8 @@ inputs:
       - blocked
     limit: 50
   since: last-run
-  minItems: 1
-rateLimitMinutes: 360  # Minimum 6 hours between runs
+  min_items: 1
+rate_limit_minutes: 360  # Minimum 6 hours between runs
 ---
 
 You are a proactive monitoring agent that alerts the team about failures and critical issues.

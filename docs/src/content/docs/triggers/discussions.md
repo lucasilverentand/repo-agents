@@ -167,7 +167,7 @@ Discussions can be edited frequently. Use rate limiting:
 on:
   discussion:
     types: [edited]
-rateLimitMinutes: 10  # Max once per 10 minutes
+rate_limit_minutes: 10  # Max once per 10 minutes
 ```
 
 ## Best Practices

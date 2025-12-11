@@ -158,9 +158,9 @@ export class WorkflowGenerator {
   }
 
   private generateValidationSteps(agent: AgentDefinition): any[] {
-    const allowedUsers = [...(agent.allowedUsers || []), ...(agent.allowedActors || [])];
-    const allowedLabels = agent.triggerLabels || [];
-    const rateLimitMinutes = agent.rateLimitMinutes ?? 5;
+    const allowedUsers = [...(agent.allowed_users || []), ...(agent.allowed_actors || [])];
+    const allowedLabels = agent.trigger_labels || [];
+    const rateLimitMinutes = agent.rate_limit_minutes ?? 5;
 
     const steps: any[] = [
       {
@@ -481,7 +481,7 @@ echo "✓ All validation checks passed"`,
       repository: '${{ github.repository }}',
       issueNumber: '${{ github.event.issue.number }}',
       prNumber: '${{ github.event.pull_request.number }}',
-      allowedPaths: agent.allowedPaths,
+      allowedPaths: agent.allowed_paths,
     };
   }
 

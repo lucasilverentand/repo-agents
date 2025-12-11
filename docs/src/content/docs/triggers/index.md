@@ -77,7 +77,7 @@ name: Bug Handler
 on:
   issues:
     types: [labeled, opened]
-triggerLabels: [bug, needs-investigation]
+trigger_labels: [bug, needs-investigation]
 ---
 ```
 
@@ -91,7 +91,7 @@ name: Rate Limited Agent
 on:
   issues:
     types: [edited]
-rateLimitMinutes: 30  # Max once per 30 minutes
+rate_limit_minutes: 30  # Max once per 30 minutes
 ---
 ```
 
@@ -123,7 +123,7 @@ Protect against excessive runs:
 on:
   issues:
     types: [edited]
-rateLimitMinutes: 10  # Prevents spam during rapid edits
+rate_limit_minutes: 10  # Prevents spam during rapid edits
 ```
 
 ### Test First

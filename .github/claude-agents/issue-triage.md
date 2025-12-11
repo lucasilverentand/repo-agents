@@ -9,8 +9,8 @@ permissions:
 outputs:
   add-comment: { max: 1 }
   add-label: true
-triggerLabels: []
-rateLimitMinutes: 1
+trigger_labels: []
+rate_limit_minutes: 1
 ---
 
 # Issue Triage Agent
