@@ -294,17 +294,14 @@ jobs:
 
           ## Available Actions
 
-          You have access to GitHub MCP tools for safe interactions:
-          - Use the GitHub MCP tools to add labels to issues
-          - Use the GitHub MCP tools to add comments to issues
-          - The tools are namespaced as \`mcp__github__*\` and provide structured, safe access to GitHub operations
+          You can perform actions by creating output files. See the CLAUDE.md file for available skills and output formats.
 
           Example workflow:
           1. Analyze the issue content
           2. Decide on appropriate label(s)
-          3. Use GitHub MCP to add the label
+          3. Create an add-label output file with the chosen labels
           4. Draft a welcoming comment
-          5. Use GitHub MCP to post the comment
+          5. Create an add-comment output file with the comment text
           INSTRUCTIONS_EOF
       - name: Run Claude Agent
         env:
