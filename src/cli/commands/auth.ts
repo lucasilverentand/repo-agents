@@ -139,7 +139,7 @@ function getExistingSecrets(): { hasApiKey: boolean; hasAccessToken: boolean } {
     const secrets = JSON.parse(output);
     return {
       hasApiKey: secrets.some((s: { name: string }) => s.name === 'ANTHROPIC_API_KEY'),
-      hasAccessToken: secrets.some((s: { name: string }) => s.name === 'ANTHROPIC_AUTH_TOKEN'),
+      hasAccessToken: secrets.some((s: { name: string }) => s.name === 'CLAUDE_CODE_OAUTH_TOKEN'),
     };
   } catch (error) {
     return { hasApiKey: false, hasAccessToken: false };
@@ -163,7 +163,7 @@ export async function authCommand(options: AuthOptions): Promise<void> {
     useSubscription = answer.toLowerCase() === 'y' || answer.toLowerCase() === 'yes';
   }
 
-  const secretName = useSubscription ? 'ANTHROPIC_AUTH_TOKEN' : 'ANTHROPIC_API_KEY';
+  const secretName = useSubscription ? 'CLAUDE_CODE_OAUTH_TOKEN' : 'ANTHROPIC_API_KEY';
   const hasExistingSecret = useSubscription ? existingSecrets.hasAccessToken : existingSecrets.hasApiKey;
 
   // Check if the relevant secret already exists

@@ -67,7 +67,7 @@ gh extension install .    # Install as gh extension locally
 Compiled workflows always have this two-job structure:
 
 1. **validate job**: Runs bash script that checks:
-   - Required secrets (ANTHROPIC_API_KEY or ANTHROPIC_AUTH_TOKEN)
+   - Required secrets (ANTHROPIC_API_KEY or CLAUDE_CODE_OAUTH_TOKEN)
    - User authorization (admin, write, org member, or explicit allow list)
    - Trigger labels (if configured)
    - Rate limiting (5-minute default between runs)

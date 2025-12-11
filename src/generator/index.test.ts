@@ -226,7 +226,7 @@ describe('WorkflowGenerator', () => {
         const validateStep = workflow.jobs['validate'].steps[0].run;
 
         expect(validateStep).toContain('ANTHROPIC_API_KEY');
-        expect(validateStep).toContain('ANTHROPIC_AUTH_TOKEN');
+        expect(validateStep).toContain('CLAUDE_CODE_OAUTH_TOKEN');
         expect(validateStep).toContain('No Claude authentication found');
       });
 

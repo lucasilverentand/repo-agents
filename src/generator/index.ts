@@ -138,10 +138,10 @@ export class WorkflowGenerator {
         id: 'check-secrets',
         env: {
           ANTHROPIC_API_KEY: '${{ secrets.ANTHROPIC_API_KEY }}',
-          ANTHROPIC_AUTH_TOKEN: '${{ secrets.ANTHROPIC_AUTH_TOKEN }}',
+          CLAUDE_CODE_OAUTH_TOKEN: '${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}',
         },
-        run: `if [ -z "\${ANTHROPIC_API_KEY}" ] && [ -z "\${ANTHROPIC_AUTH_TOKEN}" ]; then
-  echo "::error::No Claude authentication found. Please set either ANTHROPIC_API_KEY or ANTHROPIC_AUTH_TOKEN in your repository secrets."
+        run: `if [ -z "\${ANTHROPIC_API_KEY}" ] && [ -z "\${CLAUDE_CODE_OAUTH_TOKEN}" ]; then
+  echo "::error::No Claude authentication found. Please set either ANTHROPIC_API_KEY or CLAUDE_CODE_OAUTH_TOKEN in your repository secrets."
   echo "validation-failed=true" >> $GITHUB_OUTPUT
   exit 1
 fi
@@ -149,8 +149,8 @@ fi
 if [ -n "\${ANTHROPIC_API_KEY}" ]; then
   echo "✓ ANTHROPIC_API_KEY is configured"
 fi
-if [ -n "\${ANTHROPIC_AUTH_TOKEN}" ]; then
-  echo "✓ ANTHROPIC_AUTH_TOKEN is configured"
+if [ -n "\${CLAUDE_CODE_OAUTH_TOKEN}" ]; then
+  echo "✓ CLAUDE_CODE_OAUTH_TOKEN is configured"
 fi`,
       },
       {
@@ -381,7 +381,7 @@ echo "✓ All validation checks passed"`,
   private generateEnvironment(_agent: AgentDefinition): Record<string, string> {
     return {
       ANTHROPIC_API_KEY: '${{ secrets.ANTHROPIC_API_KEY }}',
-      ANTHROPIC_AUTH_TOKEN: '${{ secrets.ANTHROPIC_AUTH_TOKEN }}',
+      CLAUDE_CODE_OAUTH_TOKEN: '${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}',
       GITHUB_TOKEN: '${{ secrets.GITHUB_TOKEN }}',
     };
   }
