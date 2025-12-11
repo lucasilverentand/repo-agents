@@ -117,23 +117,8 @@ jobs:
           bun-version: latest
       - name: Install Claude Code CLI
         run: bunx --bun @anthropic-ai/claude-code --version
-      - name: Setup GitHub MCP Server
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        run: |-
-          mkdir -p ~/.config/claude-code && cat > ~/.config/claude-code/mcp.json << 'MCP_EOF'
-          {
-            "mcpServers": {
-              "github": {
-                "command": "npx",
-                "args": ["-y", "@modelcontextprotocol/server-github"],
-                "env": {
-                  "GITHUB_PERSONAL_ACCESS_TOKEN": "$GITHUB_TOKEN"
-                }
-              }
-            }
-          }
-          MCP_EOF
+      - name: Create outputs directory
+        run: mkdir -p /tmp/outputs /tmp/validation-errors
       - name: Prepare context file
         id: prepare
         run: |-
@@ -159,58 +144,96 @@ jobs:
           Body:
           ${{ github.event.pull_request.body }}
           PR_EOF
-      - name: Add available operations
+      - name: Fetch add-label context
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |-
-          cat >> /tmp/context.txt << 'OPERATIONS_EOF'
+          # Fetch available labels for context
+          LABELS_JSON=$(gh api "repos/${{ github.repository }}/labels" --jq '[.[].name]' 2>/dev/null || echo '[]')
+          LABELS_LIST=$(echo "$LABELS_JSON" | jq -r 'join(", ")' 2>/dev/null || echo "No labels available")
 
-          ---
-          # Available Operations
+          cat >> /tmp/context.txt << 'LABELS_EOF'
 
-          You are authorized to perform the following operations in this workflow. Use these operations to complete your assigned task.
+          ## Available Repository Labels
 
-          ## Operation: Add Comment
+          The following labels are available in this repository:
+          $LABELS_LIST
+
+          **Important**: You can only add labels that already exist. New labels cannot be created by this agent.
+
+          LABELS_EOF
+      - name: Create Claude skills file
+        run: |-
+          mkdir -p /tmp/claude && cat > /tmp/claude/CLAUDE.md << 'SKILLS_EOF'
+          # Agent Output Skills
+
+          This file documents how to create outputs for this agent.
+
+          ## Skill: Add Comment
 
           Add a comment to the current issue or pull request.
 
-          **How to use:**
-          - Use \`mcp__github__add_issue_comment\` tool
-          - Works for both issues and pull requests
-          - Provide the comment body as markdown text
-          - Be constructive and professional in your comments
+          **File to create**: \`/tmp/outputs/add-comment.json\`
 
-          **Constraints:**
+          **JSON Schema**:
+          \`\`\`json
+          {
+            "body": "string"
+          }
+          \`\`\`
+
+          **Fields**:
+          - \`body\` (required): Markdown-formatted comment text
+
+          **Constraints**:
           - Maximum comments: 1
+          - Body must be non-empty
 
-          **Example:**
+          **Example**:
+          Create \`/tmp/outputs/add-comment.json\` with:
+          \`\`\`json
+          {
+            "body": "Thank you for reporting this issue! I've analyzed it and added appropriate labels."
+          }
           \`\`\`
-          Use the mcp__github__add_issue_comment tool with:
-          - owner: repository owner
-          - repo: repository name
-          - issue_number: current issue/PR number
-          - body: "Your markdown comment here"
+
+          **Important**: Use the Write tool to create this file. Only create the file when you're ready to post the comment.
+
+          ## Skill: Add Labels
+
+          Add one or more labels to the current issue or pull request.
+
+          **Available labels**: See the "Available Repository Labels" section in the context above for the complete list of labels you can use.
+
+          **File to create**: \`/tmp/outputs/add-label.json\`
+
+          **JSON Schema**:
+          \`\`\`json
+          {
+            "labels": ["string"]
+          }
           \`\`\`
 
-          ## Operation: Add Labels
+          **Fields**:
+          - \`labels\` (required): Array of label names to add
 
-          Add labels to the current issue or pull request.
-
-          **How to use:**
-          - Use \`mcp__github__update_issue\` tool to add labels
-          - Works for both issues and pull requests
-          - Provide an array of label names to add
-          - Note: Labels must already exist in the repository
+          **Constraints**:
+          - Labels must already exist in the repository (see available labels above)
+          - Labels array must be non-empty
+          - Duplicate labels will be ignored
           - This operation adds to existing labels (doesn't replace them)
 
-          **Example:**
-          \`\`\`
-          Use the mcp__github__update_issue tool with:
-          - owner: repository owner
-          - repo: repository name
-          - issue_number: current issue/PR number
-          - labels: ["bug", "needs-triage"]  # Labels to add
+          **Example**:
+          Create \`/tmp/outputs/add-label.json\` with:
+          \`\`\`json
+          {
+            "labels": ["bug", "priority: high"]
+          }
           \`\`\`
 
-          OPERATIONS_EOF
+          **Important**: Use the Write tool to create this file. Only add labels that exist in the available labels list.
+
+          SKILLS_EOF
       - name: Add agent instructions
         run: |-
           cat >> /tmp/context.txt << 'INSTRUCTIONS_EOF'
@@ -280,4 +303,141 @@ jobs:
           ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
           CLAUDE_CODE_OAUTH_TOKEN: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        run: bunx --bun @anthropic-ai/claude-code -p "$(cat /tmp/context.txt)" --allowedTools "mcp__github__*,Bash(git*),Read,Glob,Grep"
+        run: cd /tmp/claude && bunx --bun @anthropic-ai/claude-code -p "$(cat /tmp/context.txt)" --allowedTools "Write(/tmp/outputs/*),Read,Glob,Grep"
+      - name: Validate and execute outputs
+        if: always()
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+
+          # Validate and execute add-comment output
+          if [ -f "/tmp/outputs/add-comment.json" ]; then
+            echo "Validating add-comment output..."
+
+            # Validate JSON structure
+            if ! jq empty /tmp/outputs/add-comment.json 2>/dev/null; then
+              echo "- **add-comment**: Invalid JSON format" > /tmp/validation-errors/add-comment.txt
+            else
+              # Extract body
+              COMMENT_BODY=$(jq -r '.body' /tmp/outputs/add-comment.json)
+
+              # Validate body is non-empty
+              if [ -z "$COMMENT_BODY" ] || [ "$COMMENT_BODY" = "null" ]; then
+                echo "- **add-comment**: Comment body is empty or missing" > /tmp/validation-errors/add-comment.txt
+              elif [ ${#COMMENT_BODY} -gt 65536 ]; then
+                echo "- **add-comment**: Comment body exceeds 65536 characters" > /tmp/validation-errors/add-comment.txt
+              else
+                # Validation passed - execute
+                echo "✓ add-comment validation passed"
+
+                # Check if we have an issue/PR number
+                ISSUE_NUMBER="${{ github.event.issue.number }}"
+                if [ -z "$ISSUE_NUMBER" ]; then
+                  echo "- **add-comment**: No issue or PR number available" > /tmp/validation-errors/add-comment.txt
+                else
+                  # Add comment via GitHub API
+                  gh api "repos/${{ github.repository }}/issues/$ISSUE_NUMBER/comments" \
+                    -f body="$COMMENT_BODY" || {
+                    echo "- **add-comment**: Failed to post comment via GitHub API" > /tmp/validation-errors/add-comment.txt
+                  }
+                fi
+              fi
+            fi
+          fi
+
+
+          # Validate and execute add-label output
+          if [ -f "/tmp/outputs/add-label.json" ]; then
+            echo "Validating add-label output..."
+
+            # Validate JSON structure
+            if ! jq empty /tmp/outputs/add-label.json 2>/dev/null; then
+              echo "- **add-label**: Invalid JSON format" > /tmp/validation-errors/add-label.txt
+            else
+              # Extract labels array
+              LABELS_ARRAY=$(jq -r '.labels' /tmp/outputs/add-label.json 2>/dev/null)
+
+              # Validate labels is an array
+              if [ "$LABELS_ARRAY" = "null" ] || ! echo "$LABELS_ARRAY" | jq -e 'type == "array"' >/dev/null 2>&1; then
+                echo "- **add-label**: labels field must be an array" > /tmp/validation-errors/add-label.txt
+              elif [ "$(echo "$LABELS_ARRAY" | jq 'length')" -eq 0 ]; then
+                echo "- **add-label**: labels array cannot be empty" > /tmp/validation-errors/add-label.txt
+              else
+                # Fetch existing labels from repository
+                EXISTING_LABELS=$(gh api "repos/${{ github.repository }}/labels" --jq '[.[].name]' 2>/dev/null || echo '[]')
+
+                # Validate each label exists
+                INVALID_LABELS=""
+                for label in $(echo "$LABELS_ARRAY" | jq -r '.[]'); do
+                  if ! echo "$EXISTING_LABELS" | jq -e --arg label "$label" 'index($label)' >/dev/null 2>&1; then
+                    if [ -z "$INVALID_LABELS" ]; then
+                      INVALID_LABELS="$label"
+                    else
+                      INVALID_LABELS="$INVALID_LABELS, $label"
+                    fi
+                  fi
+                done
+
+                # If there are invalid labels, write error and skip execution
+                if [ -n "$INVALID_LABELS" ]; then
+                  echo "- **add-label**: The following labels do not exist in the repository: $INVALID_LABELS" > /tmp/validation-errors/add-label.txt
+                else
+                  # Validation passed - execute
+                  echo "✓ add-label validation passed"
+
+                  # Check if we have an issue/PR number
+                  ISSUE_NUMBER="${{ github.event.issue.number }}"
+                  if [ -z "$ISSUE_NUMBER" ]; then
+                    echo "- **add-label**: No issue or PR number available" > /tmp/validation-errors/add-label.txt
+                  else
+                    # Get current labels and merge with new ones to avoid overwriting
+                    CURRENT_LABELS=$(gh api "repos/${{ github.repository }}/issues/$ISSUE_NUMBER" --jq '.labels[].name' 2>/dev/null | jq -R . | jq -s .)
+                    NEW_LABELS=$(echo "$LABELS_ARRAY" | jq -r '.[]' | jq -R . | jq -s .)
+                    MERGED_LABELS=$(echo "$CURRENT_LABELS" "$NEW_LABELS" | jq -s 'add | unique')
+
+                    # Add labels via GitHub API
+                    echo "$MERGED_LABELS" | gh api "repos/${{ github.repository }}/issues/$ISSUE_NUMBER/labels" \
+                      -X PUT \
+                      --input - || {
+                      echo "- **add-label**: Failed to add labels via GitHub API" > /tmp/validation-errors/add-label.txt
+                    }
+                  fi
+                fi
+              fi
+            fi
+          fi
+
+
+          # Report validation errors if any exist
+          if [ -d "/tmp/validation-errors" ] && [ "$(ls -A /tmp/validation-errors 2>/dev/null)" ]; then
+            echo "⚠️  Some output validations failed"
+
+            # Build error message
+            ERROR_MSG="## ⚠️ Agent Output Validation Errors
+
+          The following outputs failed validation:
+
+          "
+
+            for error_file in /tmp/validation-errors/*; do
+              if [ -f "$error_file" ]; then
+                ERROR_CONTENT=$(cat "$error_file")
+                ERROR_MSG="${ERROR_MSG}${ERROR_CONTENT}
+          "
+              fi
+            done
+
+            # Post comment if we have issue/PR number
+            ISSUE_OR_PR_NUMBER="${{ github.event.issue.number }}"
+            if [ -n "$ISSUE_OR_PR_NUMBER" ]; then
+              echo "$ERROR_MSG" | gh api "repos/${{ github.repository }}/issues/$ISSUE_OR_PR_NUMBER/comments" \
+                -X POST \
+                --input - \
+                -f body=@- || echo "Failed to post validation error comment"
+            else
+              echo "No issue or PR number available to post validation errors"
+              echo -e "$ERROR_MSG"
+            fi
+          else
+            echo "✓ All output validations passed"
+          fi

@@ -1,8 +1,9 @@
 import { writeFile } from 'fs/promises';
 import yaml from 'js-yaml';
-import type { AgentDefinition, WorkflowStep } from '../types';
+import type { AgentDefinition, WorkflowStep, Output } from '../types';
 import { agentNameToWorkflowName } from '../cli/utils/files';
-import { generateSkillsSection } from './skills';
+import { getOutputHandler } from './outputs';
+import type { RuntimeContext } from './outputs/base';
 
 export class WorkflowGenerator {
   generate(agent: AgentDefinition): string {
@@ -291,34 +292,25 @@ echo "✓ All validation checks passed"`,
         name: 'Install Claude Code CLI',
         run: 'bunx --bun @anthropic-ai/claude-code --version',
       },
-      {
-        name: 'Setup GitHub MCP Server',
-        env: {
-          GITHUB_TOKEN: '${{ secrets.GITHUB_TOKEN }}',
-        },
-        run: 'mkdir -p ~/.config/claude-code && cat > ~/.config/claude-code/mcp.json << \'MCP_EOF\'\n' +
-          '{\n' +
-          '  "mcpServers": {\n' +
-          '    "github": {\n' +
-          '      "command": "npx",\n' +
-          '      "args": ["-y", "@modelcontextprotocol/server-github"],\n' +
-          '      "env": {\n' +
-          '        "GITHUB_PERSONAL_ACCESS_TOKEN": "$GITHUB_TOKEN"\n' +
-          '      }\n' +
-          '    }\n' +
-          '  }\n' +
-          '}\n' +
-          'MCP_EOF',
-      },
-      {
-        name: 'Prepare context file',
-        id: 'prepare',
-        run: 'cat > /tmp/context.txt << \'CONTEXT_EOF\'\n' +
-          'GitHub Event: ${{ github.event_name }}\n' +
-          'Repository: ${{ github.repository }}\n' +
-          'CONTEXT_EOF',
-      },
     ];
+
+    // Create outputs directory if outputs are configured
+    if (agent.outputs && Object.keys(agent.outputs).length > 0) {
+      steps.push({
+        name: 'Create outputs directory',
+        run: 'mkdir -p /tmp/outputs /tmp/validation-errors',
+      });
+    }
+
+    // Prepare initial context file
+    steps.push({
+      name: 'Prepare context file',
+      id: 'prepare',
+      run: 'cat > /tmp/context.txt << \'CONTEXT_EOF\'\n' +
+        'GitHub Event: ${{ github.event_name }}\n' +
+        'Repository: ${{ github.repository }}\n' +
+        'CONTEXT_EOF',
+    });
 
     // Add issue context if applicable
     steps.push({
@@ -344,16 +336,41 @@ echo "✓ All validation checks passed"`,
         'PR_EOF',
     });
 
-    // Add available operations section if outputs are configured
-    const skillsSection = generateSkillsSection(agent.outputs, agent.allowedPaths);
-    if (skillsSection) {
-      // Escape backticks and dollar signs for shell
-      const escapedSkills = skillsSection.replace(/`/g, '\\`').replace(/\$/g, '\\$');
+    // Add dynamic context for outputs if configured
+    if (agent.outputs && Object.keys(agent.outputs).length > 0) {
+      const runtime = this.createRuntimeContext(agent);
+
+      for (const [outputType] of Object.entries(agent.outputs)) {
+        try {
+          const handler = getOutputHandler(outputType as Output);
+          const contextScript = handler.getContextScript(runtime);
+
+          if (contextScript) {
+            steps.push({
+              name: `Fetch ${outputType} context`,
+              env: {
+                GITHUB_TOKEN: '${{ secrets.GITHUB_TOKEN }}',
+              },
+              run: contextScript.trim(),
+            });
+          }
+        } catch {
+          // Handler not found - skip
+          console.warn(`Warning: No handler found for output type: ${outputType}`);
+        }
+      }
+    }
+
+    // Create Claude skills file if outputs are configured
+    if (agent.outputs && Object.keys(agent.outputs).length > 0) {
+      const skillsContent = this.generateSkillsFile(agent);
+      const escapedSkills = skillsContent.replace(/`/g, '\\`').replace(/\$/g, '\\$');
+
       steps.push({
-        name: 'Add available operations',
-        run: 'cat >> /tmp/context.txt << \'OPERATIONS_EOF\'\n' +
+        name: 'Create Claude skills file',
+        run: 'mkdir -p /tmp/claude && cat > /tmp/claude/CLAUDE.md << \'SKILLS_EOF\'\n' +
           escapedSkills + '\n' +
-          'OPERATIONS_EOF',
+          'SKILLS_EOF',
       });
     }
 
@@ -369,13 +386,121 @@ echo "✓ All validation checks passed"`,
     });
 
     // Run Claude with the prepared context
+    const allowedTools = agent.outputs && Object.keys(agent.outputs).length > 0
+      ? 'Write(/tmp/outputs/*),Read,Glob,Grep'
+      : 'Read,Glob,Grep';
+
+    const claudeCommand = agent.outputs && Object.keys(agent.outputs).length > 0
+      ? `cd /tmp/claude && bunx --bun @anthropic-ai/claude-code -p "$(cat /tmp/context.txt)" --allowedTools "${allowedTools}"`
+      : `bunx --bun @anthropic-ai/claude-code -p "$(cat /tmp/context.txt)" --allowedTools "${allowedTools}"`;
+
     steps.push({
       name: 'Run Claude Agent',
       env: this.generateEnvironment(agent),
-      run: 'bunx --bun @anthropic-ai/claude-code -p "$(cat /tmp/context.txt)" --allowedTools "mcp__github__*,Bash(git*),Read,Glob,Grep"',
+      run: claudeCommand,
     });
 
+    // Add validation and execution step if outputs are configured
+    if (agent.outputs && Object.keys(agent.outputs).length > 0) {
+      steps.push({
+        name: 'Validate and execute outputs',
+        if: 'always()',
+        env: {
+          GITHUB_TOKEN: '${{ secrets.GITHUB_TOKEN }}',
+        },
+        run: this.generateValidationScript(agent),
+      });
+    }
+
     return steps;
+  }
+
+  private createRuntimeContext(agent: AgentDefinition): RuntimeContext {
+    return {
+      repository: '${{ github.repository }}',
+      issueNumber: '${{ github.event.issue.number }}',
+      prNumber: '${{ github.event.pull_request.number }}',
+      allowedPaths: agent.allowedPaths,
+    };
+  }
+
+  private generateSkillsFile(agent: AgentDefinition): string {
+    if (!agent.outputs || Object.keys(agent.outputs).length === 0) {
+      return '';
+    }
+
+    const skills: string[] = ['# Agent Output Skills', '', 'This file documents how to create outputs for this agent.', ''];
+
+    for (const [outputType, config] of Object.entries(agent.outputs)) {
+      try {
+        const handler = getOutputHandler(outputType as Output);
+        const outputConfig = typeof config === 'boolean' ? {} : config;
+        const skillMarkdown = handler.generateSkill(outputConfig);
+        skills.push(skillMarkdown);
+        skills.push('');
+      } catch {
+        // Handler not found - skip
+        console.warn(`Warning: No handler found for output type: ${outputType}`);
+      }
+    }
+
+    return skills.join('\n');
+  }
+
+  private generateValidationScript(agent: AgentDefinition): string {
+    if (!agent.outputs || Object.keys(agent.outputs).length === 0) {
+      return '';
+    }
+
+    const runtime = this.createRuntimeContext(agent);
+    const scripts: string[] = [];
+
+    // Add validation script for each output type
+    for (const [outputType, config] of Object.entries(agent.outputs)) {
+      try {
+        const handler = getOutputHandler(outputType as Output);
+        const outputConfig = typeof config === 'boolean' ? {} : config;
+        const validationScript = handler.generateValidationScript(outputConfig, runtime);
+        scripts.push(validationScript);
+      } catch {
+        // Handler not found - skip
+        console.warn(`Warning: No handler found for output type: ${outputType}`);
+      }
+    }
+
+    // Add error reporting section at the end
+    scripts.push(`
+# Report validation errors if any exist
+if [ -d "/tmp/validation-errors" ] && [ "$(ls -A /tmp/validation-errors 2>/dev/null)" ]; then
+  echo "⚠️  Some output validations failed"
+
+  # Build error message
+  ERROR_MSG="## ⚠️ Agent Output Validation Errors\n\nThe following outputs failed validation:\n\n"
+
+  for error_file in /tmp/validation-errors/*; do
+    if [ -f "$error_file" ]; then
+      ERROR_CONTENT=$(cat "$error_file")
+      ERROR_MSG="\${ERROR_MSG}\${ERROR_CONTENT}\n"
+    fi
+  done
+
+  # Post comment if we have issue/PR number
+  ISSUE_OR_PR_NUMBER="${runtime.issueNumber || runtime.prNumber}"
+  if [ -n "$ISSUE_OR_PR_NUMBER" ]; then
+    echo "$ERROR_MSG" | gh api "repos/${runtime.repository}/issues/$ISSUE_OR_PR_NUMBER/comments" \\
+      -X POST \\
+      --input - \\
+      -f body=@- || echo "Failed to post validation error comment"
+  else
+    echo "No issue or PR number available to post validation errors"
+    echo -e "$ERROR_MSG"
+  fi
+else
+  echo "✓ All output validations passed"
+fi
+`);
+
+    return scripts.join('\n');
   }
 
   private generateEnvironment(_agent: AgentDefinition): Record<string, string> {
