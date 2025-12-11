@@ -1,6 +1,5 @@
 import type { OutputConfig } from '../../types/index';
 import type { OutputHandler, RuntimeContext } from './base';
-import { registry } from './index';
 
 class AddLabelHandler implements OutputHandler {
   getContextScript(runtime: RuntimeContext): string | null {
@@ -163,7 +162,6 @@ fi
 }
 
 // Register the handler
-const handler = new AddLabelHandler();
-registry.register('add-label', handler);
+export const handler = new AddLabelHandler();
 
 export default handler;

@@ -1,6 +1,5 @@
 import type { OutputConfig } from '../../types/index';
 import type { OutputHandler, RuntimeContext } from './base';
-import { registry } from './index';
 
 class RemoveLabelHandler implements OutputHandler {
   getContextScript(runtime: RuntimeContext): string | null {
@@ -108,7 +107,6 @@ fi
 }
 
 // Register the handler
-const handler = new RemoveLabelHandler();
-registry.register('remove-label', handler);
+export const handler = new RemoveLabelHandler();
 
 export default handler;

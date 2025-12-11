@@ -1,6 +1,5 @@
 import type { OutputConfig } from '../../types/index';
 import type { OutputHandler, RuntimeContext } from './base';
-import { registry } from './index';
 
 class ClosePRHandler implements OutputHandler {
   getContextScript(_runtime: RuntimeContext): string | null {
@@ -83,7 +82,6 @@ fi
 }
 
 // Register the handler
-const handler = new ClosePRHandler();
-registry.register('close-pr', handler);
+export const handler = new ClosePRHandler();
 
 export default handler;

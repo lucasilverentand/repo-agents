@@ -1,6 +1,5 @@
 import type { OutputConfig } from '../../types/index';
 import type { OutputHandler, RuntimeContext } from './base';
-import { registry } from './index';
 
 class CreateDiscussionHandler implements OutputHandler {
   getContextScript(_runtime: RuntimeContext): string | null {
@@ -210,7 +209,6 @@ fi
 }
 
 // Register the handler
-const handler = new CreateDiscussionHandler();
-registry.register('create-discussion', handler);
+export const handler = new CreateDiscussionHandler();
 
 export default handler;

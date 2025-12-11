@@ -1,6 +1,5 @@
 import type { OutputConfig } from '../../types/index';
 import type { OutputHandler, RuntimeContext } from './base';
-import { registry } from './index';
 
 class CreateIssueHandler implements OutputHandler {
   getContextScript(_runtime: RuntimeContext): string | null {
@@ -161,7 +160,6 @@ fi
 }
 
 // Register the handler
-const handler = new CreateIssueHandler();
-registry.register('create-issue', handler);
+export const handler = new CreateIssueHandler();
 
 export default handler;

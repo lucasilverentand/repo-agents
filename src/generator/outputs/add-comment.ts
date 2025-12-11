@@ -1,6 +1,5 @@
 import type { OutputConfig } from '../../types/index';
 import type { OutputHandler, RuntimeContext } from './base';
-import { registry } from './index';
 
 class AddCommentHandler implements OutputHandler {
   getContextScript(_runtime: RuntimeContext): string | null {
@@ -128,8 +127,5 @@ fi
   }
 }
 
-// Register the handler
-const handler = new AddCommentHandler();
-registry.register('add-comment', handler);
-
-export default handler;
+// Export handler for registration
+export const addCommentHandler = new AddCommentHandler();

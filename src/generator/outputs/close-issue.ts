@@ -1,6 +1,5 @@
 import type { OutputConfig } from '../../types/index';
 import type { OutputHandler, RuntimeContext } from './base';
-import { registry } from './index';
 
 class CloseIssueHandler implements OutputHandler {
   getContextScript(_runtime: RuntimeContext): string | null {
@@ -80,7 +79,6 @@ fi
 }
 
 // Register the handler
-const handler = new CloseIssueHandler();
-registry.register('close-issue', handler);
+export const handler = new CloseIssueHandler();
 
 export default handler;

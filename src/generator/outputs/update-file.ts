@@ -1,6 +1,5 @@
 import type { OutputConfig } from '../../types/index';
 import type { OutputHandler, RuntimeContext } from './base';
-import { registry } from './index';
 
 class UpdateFileHandler implements OutputHandler {
   getContextScript(runtime: RuntimeContext): string | null {
@@ -177,7 +176,6 @@ fi
 }
 
 // Register the handler
-const handler = new UpdateFileHandler();
-registry.register('update-file', handler);
+export const handler = new UpdateFileHandler();
 
 export default handler;
