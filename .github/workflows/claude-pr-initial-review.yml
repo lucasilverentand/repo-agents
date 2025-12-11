@@ -110,7 +110,7 @@ jobs:
     if: needs.pre-flight.outputs.should-run == 'true'
     steps:
       - name: Checkout repository
-        uses: actions/checkout@v4
+        uses: actions/checkout@v6
       - name: Setup Bun
         uses: oven-sh/setup-bun@v2
         with:
@@ -325,7 +325,7 @@ jobs:
       fail-fast: false
     steps:
       - name: Checkout repository
-        uses: actions/checkout@v4
+        uses: actions/checkout@v6
       - name: Download outputs artifact
         uses: actions/download-artifact@v4
         with:
