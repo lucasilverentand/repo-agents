@@ -16,7 +16,7 @@ export class WorkflowGenerator {
     }
 
     workflow.jobs = {
-      'validate': {
+      'pre-flight': {
         'runs-on': 'ubuntu-latest',
         outputs: {
           'should-run': '${{ steps.set-output.outputs.should-run }}',
@@ -25,8 +25,8 @@ export class WorkflowGenerator {
       },
       'claude-agent': {
         'runs-on': 'ubuntu-latest',
-        needs: 'validate',
-        if: "needs.validate.outputs.should-run == 'true'",
+        needs: 'pre-flight',
+        if: "needs.pre-flight.outputs.should-run == 'true'",
         steps: this.generateClaudeAgentSteps(agent),
       },
     };
