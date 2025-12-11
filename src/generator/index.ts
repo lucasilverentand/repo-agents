@@ -26,27 +26,31 @@ export class WorkflowGenerator {
       'should-run': '$' + '{{ steps.set-output.outputs.should-run }}',
     };
 
-    // Add inputs output if configured
-    if (agent.inputs) {
-      preFlightOutputs['has-inputs'] = '$' + '{{ steps.collect-inputs.outputs.has-inputs }}';
-      preFlightOutputs['inputs-data'] = '$' + '{{ steps.collect-inputs.outputs.inputs-data }}';
-    }
-
     workflow.jobs = {
       'pre-flight': {
         'runs-on': 'ubuntu-latest',
         outputs: preFlightOutputs,
         steps: this.generateValidationSteps(agent),
       },
-      'claude-agent': {
+    };
+
+    // Add collect-inputs job if inputs are configured
+    if (agent.inputs) {
+      workflow.jobs['collect-inputs'] = this.generateCollectInputsJob(agent);
+      workflow.jobs['claude-agent'] = {
+        'runs-on': 'ubuntu-latest',
+        needs: ['pre-flight', 'collect-inputs'],
+        if: "needs.pre-flight.outputs.should-run == 'true' && needs.collect-inputs.outputs.has-inputs == 'true'",
+        steps: this.generateClaudeAgentSteps(agent),
+      };
+    } else {
+      workflow.jobs['claude-agent'] = {
         'runs-on': 'ubuntu-latest',
         needs: 'pre-flight',
-        if: agent.inputs
-          ? "needs.pre-flight.outputs.should-run == 'true' && needs.pre-flight.outputs.has-inputs == 'true'"
-          : "needs.pre-flight.outputs.should-run == 'true'",
+        if: "needs.pre-flight.outputs.should-run == 'true'",
         steps: this.generateClaudeAgentSteps(agent),
-      },
-    };
+      };
+    }
 
     // Add execute-outputs job if outputs are configured
     if (agent.outputs && Object.keys(agent.outputs).length > 0) {
@@ -286,19 +290,6 @@ fi
 echo "✓ Rate limit check passed"`,
     });
 
-    // Add input collection step if configured
-    if (agent.inputs) {
-      const collectionScript = inputCollector.generateCollectionScript(agent.inputs);
-      steps.push({
-        name: 'Collect inputs',
-        id: 'collect-inputs',
-        env: {
-          GITHUB_TOKEN: '$' + '{{ secrets.GITHUB_TOKEN }}',
-        },
-        run: collectionScript,
-      });
-    }
-
     steps.push({
       name: 'Set output',
       id: 'set-output',
@@ -352,14 +343,14 @@ echo "✓ All validation checks passed"`,
     if (agent.inputs) {
       steps.push({
         name: 'Add collected inputs to context',
-        if: 'needs.pre-flight.outputs.has-inputs == \'true\'',
+        if: 'needs.collect-inputs.outputs.has-inputs == \'true\'',
         run: 'cat >> /tmp/context.txt << \'INPUTS_EOF\'\n' +
           '\n' +
           '## Collected Inputs\n' +
           '\n' +
           'The following data has been collected from the repository:\n' +
           '\n' +
-          '$' + '{{ needs.pre-flight.outputs.inputs-data }}\n' +
+          '$' + '{{ needs.collect-inputs.outputs.inputs-data }}\n' +
           'INPUTS_EOF',
       });
     }
@@ -499,6 +490,34 @@ echo "✓ All validation checks passed"`,
     }
 
     return skills.join('\n');
+  }
+
+  private generateCollectInputsJob(agent: AgentDefinition): any {
+    if (!agent.inputs) {
+      throw new Error('generateCollectInputsJob called without inputs configuration');
+    }
+
+    const collectionScript = inputCollector.generateCollectionScript(agent.inputs);
+
+    return {
+      'runs-on': 'ubuntu-latest',
+      needs: 'pre-flight',
+      if: "needs.pre-flight.outputs.should-run == 'true'",
+      outputs: {
+        'has-inputs': '$' + '{{ steps.collect.outputs.has-inputs }}',
+        'inputs-data': '$' + '{{ steps.collect.outputs.inputs-data }}',
+      },
+      steps: [
+        {
+          name: 'Collect repository data',
+          id: 'collect',
+          env: {
+            GITHUB_TOKEN: '$' + '{{ secrets.GITHUB_TOKEN }}',
+          },
+          run: collectionScript,
+        },
+      ],
+    };
   }
 
   private generateExecuteOutputsJob(agent: AgentDefinition): any {

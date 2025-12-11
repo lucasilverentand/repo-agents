@@ -13,8 +13,6 @@ jobs:
     runs-on: ubuntu-latest
     outputs:
       should-run: ${{ steps.set-output.outputs.should-run }}
-      has-inputs: ${{ steps.collect-inputs.outputs.has-inputs }}
-      inputs-data: ${{ steps.collect-inputs.outputs.inputs-data }}
     steps:
       - name: Check secrets
         id: check-secrets
@@ -103,8 +101,22 @@ jobs:
             done
           fi
           echo "✓ Rate limit check passed"
-      - name: Collect inputs
-        id: collect-inputs
+      - name: Set output
+        id: set-output
+        run: |-
+          echo "should-run=true" >> $GITHUB_OUTPUT
+          echo "✓ All validation checks passed"
+
+  collect-inputs:
+    runs-on: ubuntu-latest
+    needs: pre-flight
+    if: needs.pre-flight.outputs.should-run == 'true'
+    outputs:
+      has-inputs: ${{ steps.collect.outputs.has-inputs }}
+      inputs-data: ${{ steps.collect.outputs.inputs-data }}
+    steps:
+      - name: Collect repository data
+        id: collect
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |-
@@ -419,16 +431,13 @@ jobs:
           echo "inputs-data<<EOF" >> $GITHUB_OUTPUT
           echo "$TRUNCATED_DATA" >> $GITHUB_OUTPUT
           echo "EOF" >> $GITHUB_OUTPUT
-      - name: Set output
-        id: set-output
-        run: |-
-          echo "should-run=true" >> $GITHUB_OUTPUT
-          echo "✓ All validation checks passed"
 
   claude-agent:
     runs-on: ubuntu-latest
-    needs: pre-flight
-    if: needs.pre-flight.outputs.should-run == 'true' && needs.pre-flight.outputs.has-inputs == 'true'
+    needs:
+      - pre-flight
+      - collect-inputs
+    if: needs.pre-flight.outputs.should-run == 'true' && needs.collect-inputs.outputs.has-inputs == 'true'
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
@@ -448,7 +457,7 @@ jobs:
           Repository: ${{ github.repository }}
           CONTEXT_EOF
       - name: Add collected inputs to context
-        if: needs.pre-flight.outputs.has-inputs == 'true'
+        if: needs.collect-inputs.outputs.has-inputs == 'true'
         run: |-
           cat >> /tmp/context.txt << 'INPUTS_EOF'
 
@@ -456,7 +465,7 @@ jobs:
 
           The following data has been collected from the repository:
 
-          ${{ needs.pre-flight.outputs.inputs-data }}
+          ${{ needs.collect-inputs.outputs.inputs-data }}
           INPUTS_EOF
       - name: Add issue context
         if: github.event.issue.number
