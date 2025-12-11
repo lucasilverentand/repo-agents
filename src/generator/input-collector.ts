@@ -92,8 +92,9 @@ export class InputCollector {
     return `# Calculate time filter based on 'since' configuration
 if [ "${since}" = "last-run" ]; then
   # Get timestamp of last successful run
-  LAST_RUN=$(gh api "repos/\${{ github.repository }}/actions/workflows/\${{ github.workflow }}/runs" \\
-    --jq '[.workflow_runs[] | select(.status == "completed" and .conclusion == "success")] | .[0].created_at' 2>/dev/null || echo "")
+  # Note: Using repo-level runs endpoint and filtering by workflow name to avoid URL encoding issues
+  LAST_RUN=$(gh api "repos/\${{ github.repository }}/actions/runs" \\
+    --jq '[.workflow_runs[] | select(.name == "\${{ github.workflow }}" and .status == "completed" and .conclusion == "success")] | .[0].created_at' 2>/dev/null || echo "")
 
   if [ -n "$LAST_RUN" ]; then
     SINCE_DATE="$LAST_RUN"
