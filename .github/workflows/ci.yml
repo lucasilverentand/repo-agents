@@ -90,7 +90,7 @@ jobs:
         run: node dist/index.js --version
 
       - name: Upload build artifacts
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v5
         if: matrix.node-version == '20.x'
         with:
           name: build-node-${{ matrix.node-version }}
@@ -134,7 +134,7 @@ jobs:
           CODECOV_TOKEN: ${{ secrets.CODECOV_TOKEN }}
 
       - name: Upload coverage artifacts
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v5
         with:
           name: coverage-report
           path: coverage/
@@ -244,7 +244,7 @@ jobs:
         run: bun run docs:build
 
       - name: Upload docs artifacts
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v5
         with:
           name: docs-build
           path: docs/dist/

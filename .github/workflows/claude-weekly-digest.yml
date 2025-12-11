@@ -486,7 +486,7 @@ jobs:
         run: cd /tmp/claude && bunx --bun @anthropic-ai/claude-code -p "$(cat /tmp/context.txt)" --allowedTools "Write(/tmp/outputs/*),Read,Glob,Grep" --permission-mode bypassPermissions
       - name: Upload outputs artifact
         if: always()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v5
         with:
           name: agent-outputs
           path: /tmp/outputs/
@@ -586,7 +586,7 @@ jobs:
           fi
       - name: Upload validation results
         if: always()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v5
         with:
           name: validation-results-${{ matrix.output-type }}
           path: /tmp/validation-errors/
