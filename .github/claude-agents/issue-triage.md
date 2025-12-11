@@ -6,6 +6,9 @@ on:
 permissions:
   issues: write
   contents: read
+outputs:
+  add-comment: { max: 1 }
+  add-label: true
 triggerLabels: []
 rateLimitMinutes: 1
 ---

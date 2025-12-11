@@ -159,6 +159,57 @@ jobs:
           Body:
           ${{ github.event.pull_request.body }}
           PR_EOF
+      - name: Add available operations
+        run: |-
+          cat >> /tmp/context.txt << 'OPERATIONS_EOF'
+
+          ---
+          # Available Operations
+
+          You are authorized to perform the following operations in this workflow. Use these operations to complete your assigned task.
+
+          ## Operation: Add Comment
+
+          Add a comment to the current issue or pull request.
+
+          **How to use:**
+          - Use \`mcp__github__issues_addComment\` for issues
+          - Use \`mcp__github__pulls_addComment\` for pull requests
+          - Provide the comment body as markdown text
+          - Be constructive and professional in your comments
+
+          **Constraints:**
+          - Maximum comments: 1
+
+          **Example:**
+          \`\`\`
+          Use the mcp__github__issues_addComment tool with:
+          - owner: repository owner
+          - repo: repository name
+          - issue_number: current issue number
+          - body: "Your markdown comment here"
+          \`\`\`
+
+          ## Operation: Add Labels
+
+          Add labels to the current issue or pull request.
+
+          **How to use:**
+          - Use \`mcp__github__issues_addLabels\` for issues
+          - Use \`mcp__github__pulls_addLabels\` for pull requests (using issue_number parameter)
+          - Provide an array of label names
+          - Note: Labels must already exist in the repository
+
+          **Example:**
+          \`\`\`
+          Use the mcp__github__issues_addLabels tool with:
+          - owner: repository owner
+          - repo: repository name
+          - issue_number: current issue/PR number
+          - labels: ["bug", "needs-triage"]
+          \`\`\`
+
+          OPERATIONS_EOF
       - name: Add agent instructions
         run: |-
           cat >> /tmp/context.txt << 'INSTRUCTIONS_EOF'
