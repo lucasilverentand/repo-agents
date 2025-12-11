@@ -397,7 +397,7 @@ echo "✓ All validation checks passed"`,
       : 'Read,Glob,Grep';
 
     const claudeCommand = agent.outputs && Object.keys(agent.outputs).length > 0
-      ? `cd /tmp/claude && bunx --bun @anthropic-ai/claude-code -p "$(cat /tmp/context.txt)" --allowedTools "${allowedTools}"`
+      ? `cd /tmp/claude && bunx --bun @anthropic-ai/claude-code -p "$(cat /tmp/context.txt)" --allowedTools "${allowedTools}" --permission-mode bypassPermissions`
       : `bunx --bun @anthropic-ai/claude-code -p "$(cat /tmp/context.txt)" --allowedTools "${allowedTools}"`;
 
     steps.push({
