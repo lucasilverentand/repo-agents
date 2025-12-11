@@ -499,7 +499,7 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v6
       - name: Download outputs artifact
-        uses: actions/download-artifact@v4
+        uses: actions/download-artifact@v6
         with:
           name: agent-outputs
           path: /tmp/outputs
@@ -689,7 +689,7 @@ jobs:
     if: always()
     steps:
       - name: Download all validation results
-        uses: actions/download-artifact@v4
+        uses: actions/download-artifact@v6
         with:
           pattern: validation-results-*
           path: /tmp/all-validation-errors

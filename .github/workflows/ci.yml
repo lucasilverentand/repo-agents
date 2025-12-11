@@ -166,7 +166,7 @@ jobs:
         run: bun install --frozen-lockfile
 
       - name: Download build artifacts
-        uses: actions/download-artifact@v4
+        uses: actions/download-artifact@v6
         with:
           name: build-node-20.x
           path: dist/
