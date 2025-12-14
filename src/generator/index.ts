@@ -493,6 +493,7 @@ echo "✓ All validation checks passed"`,
     }
 
     // Create Claude skills file if outputs are configured
+    // Note: We create this in .claude/ in the repo so Claude can access both the skills AND the actual codebase
     if (agent.outputs && Object.keys(agent.outputs).length > 0) {
       const skillsContent = this.generateSkillsFile(agent);
       const escapedSkills = skillsContent.replace(/`/g, '\\`').replace(/\$/g, '\\$');
@@ -500,7 +501,7 @@ echo "✓ All validation checks passed"`,
       steps.push({
         name: 'Create Claude skills file',
         run:
-          "mkdir -p /tmp/claude && cat > /tmp/claude/CLAUDE.md << 'SKILLS_EOF'\n" +
+          "mkdir -p .claude && cat > .claude/CLAUDE.md << 'SKILLS_EOF'\n" +
           escapedSkills +
           '\n' +
           'SKILLS_EOF',
@@ -526,9 +527,12 @@ echo "✓ All validation checks passed"`,
         ? 'Write(/tmp/outputs/*),Read,Glob,Grep'
         : 'Read,Glob,Grep';
 
+    // Claude runs in $GITHUB_WORKSPACE (the repo checkout) with either:
+    // - bypassPermissions if we have outputs (skills file is in .claude/CLAUDE.md)
+    // - normal mode otherwise
     const claudeCommand =
       agent.outputs && Object.keys(agent.outputs).length > 0
-        ? `cd /tmp/claude && bunx --bun @anthropic-ai/claude-code -p "$(cat /tmp/context.txt)" --allowedTools "${allowedTools}" --permission-mode bypassPermissions --output-format json > /tmp/claude-output.json`
+        ? `bunx --bun @anthropic-ai/claude-code -p "$(cat /tmp/context.txt)" --allowedTools "${allowedTools}" --permission-mode bypassPermissions --output-format json > /tmp/claude-output.json`
         : `bunx --bun @anthropic-ai/claude-code -p "$(cat /tmp/context.txt)" --allowedTools "${allowedTools}" --output-format json > /tmp/claude-output.json`;
 
     steps.push({

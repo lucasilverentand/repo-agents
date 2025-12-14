@@ -239,7 +239,7 @@ jobs:
           LABELS_EOF
       - name: Create Claude skills file
         run: |-
-          mkdir -p /tmp/claude && cat > /tmp/claude/CLAUDE.md << 'SKILLS_EOF'
+          mkdir -p .claude && cat > .claude/CLAUDE.md << 'SKILLS_EOF'
           # Agent Output Skills
 
           This file documents how to create outputs for this agent.
@@ -523,7 +523,7 @@ jobs:
           ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
           CLAUDE_CODE_OAUTH_TOKEN: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        run: cd /tmp/claude && bunx --bun @anthropic-ai/claude-code -p "$(cat /tmp/context.txt)" --allowedTools "Write(/tmp/outputs/*),Read,Glob,Grep" --permission-mode bypassPermissions --output-format json > /tmp/claude-output.json
+        run: bunx --bun @anthropic-ai/claude-code -p "$(cat /tmp/context.txt)" --allowedTools "Write(/tmp/outputs/*),Read,Glob,Grep" --permission-mode bypassPermissions --output-format json > /tmp/claude-output.json
       - name: Extract execution metrics
         id: extract-metrics
         if: always()
