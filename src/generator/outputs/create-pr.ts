@@ -73,93 +73,133 @@ Create \`/tmp/outputs/create-pr.json\` with:
 - Use the Write tool to create this file
 - Provide complete file content for each file
 - Branch will be created automatically
-- Commits will be made automatically`;
+- Commits will be made automatically
+
+**Multiple PRs**: To create multiple PRs, use numbered files:
+- \`/tmp/outputs/create-pr-1.json\`
+- \`/tmp/outputs/create-pr-2.json\`
+- etc.`;
   }
 
   generateValidationScript(config: OutputConfig, _runtime: RuntimeContext): string {
     const signCommits = config.sign || false;
+    const maxPRs = config.max || 10;
 
     return `
-# Validate and execute create-pr output
-if [ -f "/tmp/outputs/create-pr.json" ]; then
-  echo "Validating create-pr output..."
+# Validate and execute create-pr output(s)
+# Find all create-pr JSON files (create-pr.json, create-pr-1.json, create-pr-2.json, etc.)
+PR_FILES=$(find /tmp/outputs -name "create-pr*.json" 2>/dev/null | sort || true)
 
-  # Validate JSON structure
-  if ! jq empty /tmp/outputs/create-pr.json 2>/dev/null; then
-    echo "- **create-pr**: Invalid JSON format" > /tmp/validation-errors/create-pr.txt
-  else
+if [ -n "$PR_FILES" ]; then
+  PR_COUNT=0
+  MAX_PRS=${maxPRs}
+
+  for PR_FILE in $PR_FILES; do
+    if [ $PR_COUNT -ge $MAX_PRS ]; then
+      echo "⚠️ Reached maximum PR limit ($MAX_PRS), skipping remaining files"
+      break
+    fi
+
+    PR_NAME=$(basename "$PR_FILE" .json)
+    echo "Processing $PR_NAME..."
+
+    # Validate JSON structure
+    if ! jq empty "$PR_FILE" 2>/dev/null; then
+      echo "- **$PR_NAME**: Invalid JSON format" >> /tmp/validation-errors/create-pr.txt
+      continue
+    fi
+
     # Extract fields
-    BRANCH=$(jq -r '.branch' /tmp/outputs/create-pr.json)
-    TITLE=$(jq -r '.title' /tmp/outputs/create-pr.json)
-    BODY=$(jq -r '.body' /tmp/outputs/create-pr.json)
-    BASE=$(jq -r '.base // "main"' /tmp/outputs/create-pr.json)
-    FILES=$(jq -r '.files' /tmp/outputs/create-pr.json)
+    BRANCH=$(jq -r '.branch' "$PR_FILE")
+    TITLE=$(jq -r '.title' "$PR_FILE")
+    BODY=$(jq -r '.body' "$PR_FILE")
+    BASE=$(jq -r '.base // "main"' "$PR_FILE")
+    FILES=$(jq -r '.files' "$PR_FILE")
 
     # Validate required fields
     if [ -z "$BRANCH" ] || [ "$BRANCH" = "null" ]; then
-      echo "- **create-pr**: branch is required" > /tmp/validation-errors/create-pr.txt
+      echo "- **$PR_NAME**: branch is required" >> /tmp/validation-errors/create-pr.txt
+      continue
     elif [ -z "$TITLE" ] || [ "$TITLE" = "null" ]; then
-      echo "- **create-pr**: title is required" > /tmp/validation-errors/create-pr.txt
+      echo "- **$PR_NAME**: title is required" >> /tmp/validation-errors/create-pr.txt
+      continue
     elif [ -z "$BODY" ] || [ "$BODY" = "null" ]; then
-      echo "- **create-pr**: body is required" > /tmp/validation-errors/create-pr.txt
+      echo "- **$PR_NAME**: body is required" >> /tmp/validation-errors/create-pr.txt
+      continue
     elif [ "$FILES" = "null" ] || ! echo "$FILES" | jq -e 'type == "array"' >/dev/null 2>&1; then
-      echo "- **create-pr**: files field must be an array" > /tmp/validation-errors/create-pr.txt
+      echo "- **$PR_NAME**: files field must be an array" >> /tmp/validation-errors/create-pr.txt
+      continue
     elif [ "$(echo "$FILES" | jq 'length')" -eq 0 ]; then
-      echo "- **create-pr**: files array cannot be empty" > /tmp/validation-errors/create-pr.txt
-    elif [[ ! "$BRANCH" =~ ^[a-zA-Z0-9/_-]+$ ]]; then
-      echo "- **create-pr**: branch name contains invalid characters" > /tmp/validation-errors/create-pr.txt
-    else
-      # Validation passed - execute
-      echo "✓ create-pr validation passed"
-
-      # Configure git
-      git config user.name "github-actions[bot]"
-      git config user.email "github-actions[bot]@users.noreply.github.com"
-
-      # Create and checkout new branch
-      if ! git checkout -b "$BRANCH" 2>/dev/null; then
-        echo "- **create-pr**: Failed to create branch '$BRANCH'" > /tmp/validation-errors/create-pr.txt
-        exit 0
-      fi
-
-      # Create/update each file using jq to extract paths and contents safely
-      FILE_COUNT=$(jq '.files | length' /tmp/outputs/create-pr.json)
-      for i in $(seq 0 $((FILE_COUNT - 1))); do
-        FILE_PATH=$(jq -r ".files[$i].path" /tmp/outputs/create-pr.json)
-
-        # Create directory if needed
-        mkdir -p "$(dirname "$FILE_PATH")"
-
-        # Write file content directly using jq (handles special chars properly)
-        jq -r ".files[$i].content" /tmp/outputs/create-pr.json > "$FILE_PATH"
-
-        # Stage file
-        git add "$FILE_PATH"
-      done
-
-      # Commit changes
-      COMMIT_MESSAGE="$TITLE"
-      ${signCommits ? 'git commit -S -m "$COMMIT_MESSAGE"' : 'git commit -m "$COMMIT_MESSAGE"'} || {
-        echo "- **create-pr**: Failed to commit changes" > /tmp/validation-errors/create-pr.txt
-        exit 0
-      }
-
-      # Push branch
-      git push origin "$BRANCH" || {
-        echo "- **create-pr**: Failed to push branch to remote" > /tmp/validation-errors/create-pr.txt
-        exit 0
-      }
-
-      # Create pull request
-      gh pr create \\
-        --title "$TITLE" \\
-        --body "$BODY" \\
-        --base "$BASE" \\
-        --head "$BRANCH" || {
-        echo "- **create-pr**: Failed to create pull request via GitHub API" > /tmp/validation-errors/create-pr.txt
-      }
+      echo "- **$PR_NAME**: files array cannot be empty" >> /tmp/validation-errors/create-pr.txt
+      continue
+    elif [[ ! "$BRANCH" =~ ^[a-zA-Z0-9/_.-]+$ ]]; then
+      echo "- **$PR_NAME**: branch name contains invalid characters" >> /tmp/validation-errors/create-pr.txt
+      continue
     fi
-  fi
+
+    # Validation passed - execute
+    echo "✓ $PR_NAME validation passed"
+
+    # Configure git
+    git config user.name "github-actions[bot]"
+    git config user.email "github-actions[bot]@users.noreply.github.com"
+
+    # Return to main branch before creating new branch
+    git checkout main 2>/dev/null || git checkout master 2>/dev/null || true
+
+    # Create and checkout new branch
+    if ! git checkout -b "$BRANCH" 2>/dev/null; then
+      echo "- **$PR_NAME**: Failed to create branch '$BRANCH'" >> /tmp/validation-errors/create-pr.txt
+      continue
+    fi
+
+    # Create/update each file using jq to extract paths and contents safely
+    FILE_COUNT=$(jq '.files | length' "$PR_FILE")
+    for i in $(seq 0 $((FILE_COUNT - 1))); do
+      FILE_PATH=$(jq -r ".files[$i].path" "$PR_FILE")
+
+      # Create directory if needed
+      mkdir -p "$(dirname "$FILE_PATH")"
+
+      # Write file content directly using jq (handles special chars properly)
+      jq -r ".files[$i].content" "$PR_FILE" > "$FILE_PATH"
+
+      # Stage file
+      git add "$FILE_PATH"
+    done
+
+    # Commit changes
+    COMMIT_MESSAGE="$TITLE"
+    ${signCommits ? 'git commit -S -m "$COMMIT_MESSAGE"' : 'git commit -m "$COMMIT_MESSAGE"'} || {
+      echo "- **$PR_NAME**: Failed to commit changes" >> /tmp/validation-errors/create-pr.txt
+      git checkout main 2>/dev/null || git checkout master 2>/dev/null || true
+      continue
+    }
+
+    # Push branch
+    git push origin "$BRANCH" || {
+      echo "- **$PR_NAME**: Failed to push branch to remote" >> /tmp/validation-errors/create-pr.txt
+      git checkout main 2>/dev/null || git checkout master 2>/dev/null || true
+      continue
+    }
+
+    # Create pull request
+    gh pr create \\
+      --title "$TITLE" \\
+      --body "$BODY" \\
+      --base "$BASE" \\
+      --head "$BRANCH" && {
+      echo "✅ Created PR: $TITLE"
+      PR_COUNT=$((PR_COUNT + 1))
+    } || {
+      echo "- **$PR_NAME**: Failed to create pull request via GitHub API" >> /tmp/validation-errors/create-pr.txt
+    }
+
+    # Return to main branch for next PR
+    git checkout main 2>/dev/null || git checkout master 2>/dev/null || true
+  done
+
+  echo "📊 Created $PR_COUNT PRs"
 fi
 `;
   }
