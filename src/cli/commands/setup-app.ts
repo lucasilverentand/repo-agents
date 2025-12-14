@@ -123,11 +123,46 @@ function setOrgSecret(org: string, secretName: string, secretValue: string): voi
 }
 
 /**
+ * Sets a GitHub repository secret
+ */
+function setRepoSecret(secretName: string, secretValue: string): void {
+  try {
+    execSync(`gh secret set ${secretName}`, {
+      input: secretValue,
+      stdio: ['pipe', 'inherit', 'inherit'],
+    });
+  } catch {
+    throw new Error(
+      'Failed to set repository secret. Make sure you have admin access to this repository.'
+    );
+  }
+}
+
+/**
  * Checks which GitHub App secrets are already set at org level
  */
 function getExistingOrgSecrets(org: string): { hasAppId: boolean; hasPrivateKey: boolean } {
   try {
     const output = execSync(`gh secret list --org ${org} --json name`, {
+      encoding: 'utf-8',
+      stdio: ['pipe', 'pipe', 'pipe'],
+    });
+    const secrets = JSON.parse(output);
+    return {
+      hasAppId: secrets.some((s: { name: string }) => s.name === 'GH_APP_ID'),
+      hasPrivateKey: secrets.some((s: { name: string }) => s.name === 'GH_APP_PRIVATE_KEY'),
+    };
+  } catch {
+    return { hasAppId: false, hasPrivateKey: false };
+  }
+}
+
+/**
+ * Checks which GitHub App secrets are already set at repo level
+ */
+function getExistingRepoSecrets(): { hasAppId: boolean; hasPrivateKey: boolean } {
+  try {
+    const output = execSync('gh secret list --json name', {
       encoding: 'utf-8',
       stdio: ['pipe', 'pipe', 'pipe'],
     });
@@ -226,13 +261,15 @@ export async function setupAppCommand(options: SetupAppOptions): Promise<void> {
     process.exit(1);
   }
 
-  // Determine the organization for storing secrets
-  let org: string;
+  // Determine the owner and whether it's an org or user
+  let owner: string;
+  let isOrg: boolean;
 
   if (options.org) {
     // Explicit org specified
-    org = options.org;
-    logger.info(`Organization: ${org}`);
+    owner = options.org;
+    isOrg = true;
+    logger.info(`Organization: ${owner}`);
   } else {
     // Auto-detect from repo
     const ownerInfo = getOwnerFromRepo();
@@ -242,44 +279,33 @@ export async function setupAppCommand(options: SetupAppOptions): Promise<void> {
       process.exit(1);
     }
 
-    if (ownerInfo.type === 'Organization') {
-      org = ownerInfo.login;
-      logger.info(`Detected organization: ${org}`);
-    } else {
-      // User-owned repo - need to prompt for organization
-      logger.info(`Repository owner: ${ownerInfo.login} (personal account)`);
-      logger.newline();
-      logger.warn(
-        'GitHub App secrets must be stored as organization secrets to be shared across repos.'
-      );
-      logger.log('Personal accounts cannot have organization secrets.');
-      logger.newline();
+    owner = ownerInfo.login;
+    isOrg = ownerInfo.type === 'Organization';
 
-      const orgName = await promptForInput(
-        'Enter the organization name where secrets should be stored (or press Enter to cancel): '
-      );
-      if (!orgName) {
-        logger.info('Setup cancelled.');
-        logger.log('To use organization secrets, either:');
-        logger.log('  1. Run this command with --org <organization>');
-        logger.log('  2. Create a GitHub organization and transfer your repos there');
-        return;
-      }
-      org = orgName;
-      logger.newline();
-      logger.info(`Using organization: ${org}`);
+    if (isOrg) {
+      logger.info(`Detected organization: ${owner}`);
+    } else {
+      logger.info(`Detected user: ${owner}`);
     }
   }
 
-  logger.log('Secrets will be stored as organization secrets (available to all repos in the org)');
+  if (isOrg) {
+    logger.log(
+      'Secrets will be stored as organization secrets (available to all repos in the org)'
+    );
+  } else {
+    logger.log('Secrets will be stored as repository secrets (for this repo only)');
+    logger.warn('To share across repos, use an organization or run setup-app in each repo.');
+  }
   logger.newline();
 
   // Check which secrets already exist
-  const existingSecrets = getExistingOrgSecrets(org);
+  const existingSecrets = isOrg ? getExistingOrgSecrets(owner) : getExistingRepoSecrets();
   const hasExistingSecrets = existingSecrets.hasAppId || existingSecrets.hasPrivateKey;
 
   if (!options.force && hasExistingSecrets) {
-    logger.warn(`GitHub App secrets already exist in ${org} organization:`);
+    const location = isOrg ? `${owner} organization` : 'this repository';
+    logger.warn(`GitHub App secrets already exist in ${location}:`);
     if (existingSecrets.hasAppId) logger.log('  • GH_APP_ID');
     if (existingSecrets.hasPrivateKey) logger.log('  • GH_APP_PRIVATE_KEY');
     logger.newline();
@@ -292,11 +318,13 @@ export async function setupAppCommand(options: SetupAppOptions): Promise<void> {
     logger.newline();
   }
 
-  // Display setup guide (always for organization)
-  displaySetupGuide(org, true);
+  // Display setup guide
+  displaySetupGuide(owner, isOrg);
 
-  // Offer to open browser (org app creation page)
-  const appCreationUrl = `https://github.com/organizations/${org}/settings/apps/new`;
+  // Offer to open browser
+  const appCreationUrl = isOrg
+    ? `https://github.com/organizations/${owner}/settings/apps/new`
+    : 'https://github.com/settings/apps/new';
 
   const openBrowser = await promptForInput('Open GitHub App creation page in browser? (Y/n): ');
   if (openBrowser.toLowerCase() !== 'n' && openBrowser.toLowerCase() !== 'no') {
@@ -357,21 +385,31 @@ export async function setupAppCommand(options: SetupAppOptions): Promise<void> {
 
   logger.newline();
 
-  // Set secrets as organization secrets
-  const appIdSpinner = ora(`Setting GH_APP_ID as ${org} organization secret...`).start();
+  // Set secrets (org or repo level)
+  const secretLocation = isOrg ? `${owner} organization secret` : 'repository secret';
+
+  const appIdSpinner = ora(`Setting GH_APP_ID as ${secretLocation}...`).start();
   try {
-    setOrgSecret(org, 'GH_APP_ID', appId);
-    appIdSpinner.succeed(`GH_APP_ID set as ${org} organization secret`);
+    if (isOrg) {
+      setOrgSecret(owner, 'GH_APP_ID', appId);
+    } else {
+      setRepoSecret('GH_APP_ID', appId);
+    }
+    appIdSpinner.succeed(`GH_APP_ID set as ${secretLocation}`);
   } catch (error) {
     appIdSpinner.fail('Failed to set GH_APP_ID secret');
     logger.error((error as Error).message);
     process.exit(1);
   }
 
-  const keySpinner = ora(`Setting GH_APP_PRIVATE_KEY as ${org} organization secret...`).start();
+  const keySpinner = ora(`Setting GH_APP_PRIVATE_KEY as ${secretLocation}...`).start();
   try {
-    setOrgSecret(org, 'GH_APP_PRIVATE_KEY', fullPrivateKey);
-    keySpinner.succeed(`GH_APP_PRIVATE_KEY set as ${org} organization secret`);
+    if (isOrg) {
+      setOrgSecret(owner, 'GH_APP_PRIVATE_KEY', fullPrivateKey);
+    } else {
+      setRepoSecret('GH_APP_PRIVATE_KEY', fullPrivateKey);
+    }
+    keySpinner.succeed(`GH_APP_PRIVATE_KEY set as ${secretLocation}`);
   } catch (error) {
     keySpinner.fail('Failed to set GH_APP_PRIVATE_KEY secret');
     logger.error((error as Error).message);
@@ -383,17 +421,26 @@ export async function setupAppCommand(options: SetupAppOptions): Promise<void> {
   logger.newline();
 
   logger.info('What happens now:');
-  logger.log(`  • All repositories in ${org} can now use these secrets`);
+  if (isOrg) {
+    logger.log(`  • All repositories in ${owner} can now use these secrets`);
+  } else {
+    logger.log('  • This repository can now use your GitHub App');
+  }
   logger.log('  • Generated workflows will automatically use your GitHub App');
   logger.log('  • Commits and comments will appear as your app (e.g., "Claude[bot]")');
   logger.log('  • PRs created by Claude agents will trigger CI workflows');
   logger.newline();
 
   logger.info('Important reminders:');
-  logger.log('  • Make sure the app is installed on the repositories where you want to use it');
+  logger.log('  • Make sure the app is installed on this repository');
   logger.log('  • Re-compile your agents: gh claude compile --all');
   logger.newline();
 
-  logger.info('To install the app on more repositories:');
-  logger.log(`  Go to: https://github.com/organizations/${org}/settings/installations`);
+  if (isOrg) {
+    logger.info('To install the app on more repositories:');
+    logger.log(`  Go to: https://github.com/organizations/${owner}/settings/installations`);
+  } else {
+    logger.info('To use in other repositories:');
+    logger.log('  Run: gh claude setup-app (in each repository)');
+  }
 }
