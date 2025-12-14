@@ -178,6 +178,7 @@ echo '{
 }' > /tmp/audit/validation-status.json
 echo '[]' > /tmp/audit/permission-issues.json`,
       },
+      this.generateTokenGenerationStep(),
       {
         name: 'Check secrets',
         id: 'check-secrets',
@@ -215,7 +216,7 @@ mv /tmp/audit/validation-status.tmp /tmp/audit/validation-status.json`,
         name: 'Check user authorization',
         id: 'check-user',
         env: {
-          GITHUB_TOKEN: '${{ secrets.GITHUB_TOKEN }}',
+          GITHUB_TOKEN: '${{ steps.app-token.outputs.token }}',
         },
         run: `ACTOR="\${{ github.actor }}"
 
@@ -276,7 +277,7 @@ mv /tmp/audit/validation-status.tmp /tmp/audit/validation-status.json`,
         name: 'Check required labels',
         id: 'check-labels',
         env: {
-          GITHUB_TOKEN: '${{ secrets.GITHUB_TOKEN }}',
+          GITHUB_TOKEN: '${{ steps.app-token.outputs.token }}',
         },
         run: `REQUIRED_LABELS="${allowedLabels.join(' ')}"
 ISSUE_NUMBER="\${{ github.event.issue.number }}\${{ github.event.pull_request.number }}"
@@ -321,7 +322,7 @@ mv /tmp/audit/validation-status.tmp /tmp/audit/validation-status.json`,
       name: 'Check rate limit',
       id: 'check-rate-limit',
       env: {
-        GITHUB_TOKEN: '${{ secrets.GITHUB_TOKEN }}',
+        GITHUB_TOKEN: '${{ steps.app-token.outputs.token }}',
       },
       run: `RATE_LIMIT_MINUTES=${rateLimitMinutes}
 
@@ -389,6 +390,7 @@ echo "✓ All validation checks passed"`,
         name: 'Checkout repository',
         uses: 'actions/checkout@v4',
       },
+      this.generateTokenGenerationStep(),
       {
         name: 'Setup Bun',
         uses: 'oven-sh/setup-bun@v2',
@@ -480,7 +482,7 @@ echo "✓ All validation checks passed"`,
             steps.push({
               name: `Fetch ${outputType} context`,
               env: {
-                GITHUB_TOKEN: '${{ secrets.GITHUB_TOKEN }}',
+                GITHUB_TOKEN: '${{ steps.app-token.outputs.token }}',
               },
               run: contextScript.trim(),
             });
@@ -669,11 +671,12 @@ fi
         'inputs-data': '$' + '{{ steps.collect.outputs.inputs-data }}',
       },
       steps: [
+        this.generateTokenGenerationStep(),
         {
           name: 'Collect repository data',
           id: 'collect',
           env: {
-            GITHUB_TOKEN: '$' + '{{ secrets.GITHUB_TOKEN }}',
+            GITHUB_TOKEN: '$' + '{{ steps.app-token.outputs.token }}',
           },
           run: collectionScript,
         },
@@ -699,6 +702,7 @@ fi
           name: 'Checkout repository',
           uses: 'actions/checkout@v4',
         },
+        this.generateTokenGenerationStep(),
         {
           name: 'Download outputs artifact',
           uses: 'actions/download-artifact@v4',
@@ -715,7 +719,9 @@ fi
         {
           name: 'Validate and execute ${{ matrix.output-type }}',
           env: {
-            GITHUB_TOKEN: '${{ secrets.GITHUB_TOKEN }}',
+            GITHUB_TOKEN: '${{ steps.app-token.outputs.token }}',
+            GIT_USER: '${{ steps.app-token.outputs.git-user }}',
+            GIT_EMAIL: '${{ steps.app-token.outputs.git-email }}',
           },
           run: this.generateMatrixValidationScript(agent),
         },
@@ -777,10 +783,11 @@ fi
           },
           'continue-on-error': true,
         },
+        this.generateTokenGenerationStep(),
         {
           name: 'Report validation errors',
           env: {
-            GITHUB_TOKEN: '${{ secrets.GITHUB_TOKEN }}',
+            GITHUB_TOKEN: '${{ steps.app-token.outputs.token }}',
           },
           run: `
 # Check if there are any validation errors
@@ -997,6 +1004,11 @@ fi
       });
 
       steps.push({
+        ...this.generateTokenGenerationStep(),
+        if: "steps.audit-check.outputs.has-failures == 'true'",
+      });
+
+      steps.push({
         name: 'Setup Bun for diagnostic agent',
         if: "steps.audit-check.outputs.has-failures == 'true'",
         uses: 'oven-sh/setup-bun@v2',
@@ -1077,7 +1089,7 @@ fi
         name: 'Create failure issue',
         if: "steps.audit-check.outputs.has-failures == 'true'",
         env: {
-          GITHUB_TOKEN: '${{ secrets.GITHUB_TOKEN }}',
+          GITHUB_TOKEN: '${{ steps.app-token.outputs.token }}',
         },
         run: `
 # Build issue body
@@ -1158,7 +1170,114 @@ fi
     return {
       ANTHROPIC_API_KEY: '${{ secrets.ANTHROPIC_API_KEY }}',
       CLAUDE_CODE_OAUTH_TOKEN: '${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}',
-      GITHUB_TOKEN: '${{ secrets.GITHUB_TOKEN }}',
+      GITHUB_TOKEN: '${{ steps.app-token.outputs.token }}',
+      GH_TOKEN: '${{ steps.app-token.outputs.token }}',
+    };
+  }
+
+  /**
+   * Generates a step that creates a GitHub App token if GH_APP_ID and GH_APP_PRIVATE_KEY
+   * secrets are configured. Falls back to GITHUB_TOKEN if not configured.
+   *
+   * Outputs:
+   * - token: The GitHub token to use (app token or GITHUB_TOKEN)
+   * - git-user: The git user.name to use (app name[bot] or github-actions[bot])
+   * - git-email: The git user.email to use
+   */
+  private generateTokenGenerationStep(): WorkflowStep {
+    return {
+      name: 'Generate GitHub token',
+      id: 'app-token',
+      env: {
+        GH_APP_ID: '${{ secrets.GH_APP_ID }}',
+        GH_APP_PRIVATE_KEY: '${{ secrets.GH_APP_PRIVATE_KEY }}',
+        FALLBACK_TOKEN: '${{ secrets.GITHUB_TOKEN }}',
+      },
+      run: `# Check if GitHub App is configured
+if [ -z "$GH_APP_ID" ] || [ -z "$GH_APP_PRIVATE_KEY" ]; then
+  echo "No GitHub App configured, using default GITHUB_TOKEN"
+  echo "token=$FALLBACK_TOKEN" >> $GITHUB_OUTPUT
+  echo "git-user=github-actions[bot]" >> $GITHUB_OUTPUT
+  echo "git-email=github-actions[bot]@users.noreply.github.com" >> $GITHUB_OUTPUT
+  exit 0
+fi
+
+echo "GitHub App configured, generating installation token..."
+
+# Base64 URL-safe encoding function
+base64url() {
+  openssl base64 -A | tr '+/' '-_' | tr -d '='
+}
+
+# Generate JWT header
+HEADER=$(echo -n '{"alg":"RS256","typ":"JWT"}' | base64url)
+
+# Generate JWT payload (iat = now - 60s to account for clock drift, exp = now + 10 min)
+NOW=$(date +%s)
+IAT=$((NOW - 60))
+EXP=$((NOW + 600))
+PAYLOAD=$(echo -n "{\\"iat\\":$IAT,\\"exp\\":$EXP,\\"iss\\":\\"$GH_APP_ID\\"}" | base64url)
+
+# Sign the JWT with the private key
+UNSIGNED="$HEADER.$PAYLOAD"
+SIGNATURE=$(echo -n "$UNSIGNED" | openssl dgst -sha256 -sign <(echo "$GH_APP_PRIVATE_KEY") | base64url)
+JWT="$HEADER.$PAYLOAD.$SIGNATURE"
+
+# Get installation ID for this repository
+OWNER="\${{ github.repository_owner }}"
+REPO_NAME="\${{ github.event.repository.name }}"
+INSTALLATION_RESPONSE=$(curl -s -H "Authorization: Bearer $JWT" \\
+  -H "Accept: application/vnd.github+json" \\
+  -H "X-GitHub-Api-Version: 2022-11-28" \\
+  "https://api.github.com/repos/$OWNER/$REPO_NAME/installation")
+
+INSTALLATION_ID=$(echo "$INSTALLATION_RESPONSE" | jq -r '.id // empty')
+
+if [ -z "$INSTALLATION_ID" ]; then
+  echo "::warning::Failed to get installation ID. Is the GitHub App installed on this repository?"
+  echo "::warning::Response: $INSTALLATION_RESPONSE"
+  echo "Falling back to GITHUB_TOKEN"
+  echo "token=$FALLBACK_TOKEN" >> $GITHUB_OUTPUT
+  echo "git-user=github-actions[bot]" >> $GITHUB_OUTPUT
+  echo "git-email=github-actions[bot]@users.noreply.github.com" >> $GITHUB_OUTPUT
+  exit 0
+fi
+
+# Generate installation access token
+TOKEN_RESPONSE=$(curl -s -X POST \\
+  -H "Authorization: Bearer $JWT" \\
+  -H "Accept: application/vnd.github+json" \\
+  -H "X-GitHub-Api-Version: 2022-11-28" \\
+  "https://api.github.com/app/installations/$INSTALLATION_ID/access_tokens")
+
+TOKEN=$(echo "$TOKEN_RESPONSE" | jq -r '.token // empty')
+
+if [ -z "$TOKEN" ]; then
+  echo "::warning::Failed to generate installation token"
+  echo "::warning::Response: $TOKEN_RESPONSE"
+  echo "Falling back to GITHUB_TOKEN"
+  echo "token=$FALLBACK_TOKEN" >> $GITHUB_OUTPUT
+  echo "git-user=github-actions[bot]" >> $GITHUB_OUTPUT
+  echo "git-email=github-actions[bot]@users.noreply.github.com" >> $GITHUB_OUTPUT
+  exit 0
+fi
+
+# Mask the token in logs
+echo "::add-mask::$TOKEN"
+
+# Get app info for git identity
+APP_RESPONSE=$(curl -s -H "Authorization: Bearer $JWT" \\
+  -H "Accept: application/vnd.github+json" \\
+  -H "X-GitHub-Api-Version: 2022-11-28" \\
+  "https://api.github.com/app")
+
+APP_SLUG=$(echo "$APP_RESPONSE" | jq -r '.slug // "github-app"')
+APP_ID_NUM=$(echo "$APP_RESPONSE" | jq -r '.id // "0"')
+
+echo "✓ Generated GitHub App token for $APP_SLUG"
+echo "token=$TOKEN" >> $GITHUB_OUTPUT
+echo "git-user=$APP_SLUG[bot]" >> $GITHUB_OUTPUT
+echo "git-email=$APP_ID_NUM+$APP_SLUG[bot]@users.noreply.github.com" >> $GITHUB_OUTPUT`,
     };
   }
 

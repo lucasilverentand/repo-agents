@@ -140,9 +140,9 @@ if [ -n "$PR_FILES" ]; then
     # Validation passed - execute
     echo "✓ $PR_NAME validation passed"
 
-    # Configure git
-    git config user.name "github-actions[bot]"
-    git config user.email "github-actions[bot]@users.noreply.github.com"
+    # Configure git with dynamic identity (from GitHub App or default)
+    git config user.name "\${GIT_USER:-github-actions[bot]}"
+    git config user.email "\${GIT_EMAIL:-github-actions[bot]@users.noreply.github.com}"
 
     # Return to main branch before creating new branch
     git checkout main 2>/dev/null || git checkout master 2>/dev/null || true

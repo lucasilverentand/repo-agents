@@ -71,8 +71,10 @@ describe('WorkflowGenerator', () => {
       const steps = workflow.jobs['claude-agent'].steps;
 
       expect(steps[0].uses).toBe('actions/checkout@v4');
-      expect(steps[1].uses).toBe('oven-sh/setup-bun@v2');
-      expect(steps[1].with['bun-version']).toBe('latest');
+      // steps[1] is the token generation step
+      expect(steps[1].id).toBe('app-token');
+      expect(steps[2].uses).toBe('oven-sh/setup-bun@v2');
+      expect(steps[2].with['bun-version']).toBe('latest');
     });
 
     it('should include agent instructions in the run script', () => {
@@ -144,7 +146,8 @@ describe('WorkflowGenerator', () => {
 
       expect(runStep).toBeDefined();
       expect(runStep.env.ANTHROPIC_API_KEY).toContain('secrets.ANTHROPIC_API_KEY');
-      expect(runStep.env.GITHUB_TOKEN).toContain('secrets.GITHUB_TOKEN');
+      // GITHUB_TOKEN now comes from the app-token step (which falls back to secrets.GITHUB_TOKEN)
+      expect(runStep.env.GITHUB_TOKEN).toContain('steps.app-token.outputs.token');
     });
 
     it('should include issue context variables in run script', () => {

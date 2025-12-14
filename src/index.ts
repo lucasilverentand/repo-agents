@@ -8,6 +8,7 @@ import { compileCommand } from './cli/commands/compile';
 import { validateCommand } from './cli/commands/validate';
 import { listCommand } from './cli/commands/list';
 import { authCommand } from './cli/commands/auth';
+import { setupAppCommand } from './cli/commands/setup-app';
 
 const packageJson = JSON.parse(readFileSync(join(__dirname, '../package.json'), 'utf-8'));
 
@@ -54,5 +55,15 @@ program
   )
   .option('--force', 'Overwrite existing token')
   .action(authCommand);
+
+program
+  .command('setup-app')
+  .description('Configure a GitHub App for branded Claude agent identity and CI triggering')
+  .option('--force', 'Overwrite existing GitHub App secrets')
+  .option(
+    '--org <organization>',
+    'Organization name (auto-detected from current repo if not specified)'
+  )
+  .action(setupAppCommand);
 
 program.parse();
