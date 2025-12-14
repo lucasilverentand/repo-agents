@@ -1065,12 +1065,9 @@ fi
       });
 
       // Create GitHub issue with the diagnosis
-      const labelsArg =
-        auditLabels.length > 0 ? `--label "${auditLabels.join(',')}"` : '';
+      const labelsArg = auditLabels.length > 0 ? `--label "${auditLabels.join(',')}"` : '';
       const assigneesArg =
-        auditAssignees.length > 0
-          ? `--assignee "${auditAssignees.join(',')}"`
-          : '';
+        auditAssignees.length > 0 ? `--assignee "${auditAssignees.join(',')}"` : '';
 
       steps.push({
         name: 'Create failure issue',
