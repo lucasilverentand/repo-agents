@@ -131,7 +131,7 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |-
-          RATE_LIMIT_MINUTES=5
+          RATE_LIMIT_MINUTES=1
 
           # Get recent workflow runs for this workflow
           # Note: Using repo-level runs endpoint and filtering by workflow name to avoid URL encoding issues
