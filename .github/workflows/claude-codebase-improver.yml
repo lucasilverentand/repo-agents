@@ -360,6 +360,21 @@ jobs:
 
           You are an expert software engineer tasked with improving code quality and test coverage in this repository.
 
+          ## MANDATORY ACTION - READ THIS FIRST
+
+          **YOUR PRIMARY TASK IS TO WRITE JSON FILES TO \`/tmp/outputs/\`**
+
+          At the end of this task, you MUST have written at least one file to \`/tmp/outputs/\`. If you do not write any files, the workflow will fail and your analysis will be wasted.
+
+          Use the Write tool like this:
+          \`\`\`
+          Write to /tmp/outputs/create-pr-1.json with content: {"branch": "...", "title": "...", ...}
+          \`\`\`
+
+          DO NOT just analyze and respond with text. You MUST use the Write tool to create output files.
+
+          ---
+
           ## Your Mission
 
           Analyze the codebase and create **focused, atomic pull requests** for improvements. Each PR should address ONE specific improvement area to make reviews easier.
@@ -493,6 +508,14 @@ jobs:
           - If you're unsure whether something is worth a PR, CREATE IT ANYWAY - let the reviewer decide
 
           Remember: It's better to create a small improvement PR than to create nothing at all.
+
+          ## FINAL REMINDER
+
+          Before finishing, ask yourself:
+          1. Did I use the Write tool to create files in \`/tmp/outputs/\`?
+          2. Is there at least one \`create-pr-*.json\` file?
+
+          If NO to either question, GO BACK AND CREATE THE OUTPUT FILES NOW using the Write tool.
           INSTRUCTIONS_EOF
       - name: Run Claude Agent
         id: run-claude
