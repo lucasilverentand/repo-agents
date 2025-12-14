@@ -22,6 +22,7 @@ name: Codebase Improver
 permissions:
   contents: write
   issues: read
+  pull-requests: write
 jobs:
   pre-flight:
     runs-on: ubuntu-latest
@@ -1051,7 +1052,7 @@ jobs:
           ## Agent Configuration
           - Agent name: Codebase Improver
           - Triggers: {"schedule":[{"cron":"0 6 * * 1"}],"workflow_dispatch":{"inputs":{"focus_area":{"description":"Focus area for improvements","required":false,"default":"all","type":"choice","options":["all","testing","code-quality","performance"]},"max_prs":{"description":"Maximum number of PRs to create","required":false,"default":"3","type":"string"}}}}
-          - Permissions: {"contents":"write","issues":"read"}
+          - Permissions: {"contents":"write","issues":"read","pull_requests":"write"}
           - Outputs: ["create-pr","add-label"]
 
           ## Instructions

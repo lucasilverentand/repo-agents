@@ -22,7 +22,7 @@ on:
         type: string
 permissions:
   contents: write
-  pull-requests: write
+  pull_requests: write
   issues: read
 outputs:
   create-pr: { max: 5 }
