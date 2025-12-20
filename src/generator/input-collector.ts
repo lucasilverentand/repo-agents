@@ -90,6 +90,28 @@ export class InputCollector {
     return scriptParts.join('\n');
   }
 
+  /**
+   * Normalizes state array to a single valid GitHub API state value.
+   * GitHub API only accepts 'open', 'closed', or 'all' - not comma-separated values.
+   */
+  private normalizeState(states?: string[]): string {
+    if (!states || states.length === 0) {
+      return 'all';
+    }
+    if (states.includes('all')) {
+      return 'all';
+    }
+    // If multiple states are requested, use 'all' and filter client-side if needed
+    if (states.length > 1) {
+      return 'all';
+    }
+    // For 'merged', we need to use 'closed' state and filter for merged_at
+    if (states[0] === 'merged') {
+      return 'closed';
+    }
+    return states[0];
+  }
+
   private generateTimeFilterScript(since: string): string {
     return `# Calculate time filter based on 'since' configuration
 if [ "${since}" = "last-run" ]; then
@@ -125,7 +147,8 @@ fi`;
 
   private generateIssuesScript(config: any): string {
     const limit = config.limit || 100;
-    const states = config.states?.join(',') || 'open,closed';
+    // GitHub API only accepts 'open', 'closed', or 'all' - not comma-separated values
+    const state = this.normalizeState(config.states);
     const labels = config.labels?.join(',') || '';
     const excludeLabels = config.exclude_labels?.join(',') || '';
 
@@ -134,10 +157,8 @@ echo "## 📋 Issues" >> /tmp/issues_section.md
 echo "" >> /tmp/issues_section.md
 
 ISSUES_COUNT=0
-ISSUES_JSON=$(gh api "repos/\${{ github.repository }}/issues" \\
+ISSUES_JSON=$(gh api "repos/\${{ github.repository }}/issues?state=${state}&per_page=${limit}" \\
   --paginate \\
-  -f state="${states}" \\
-  -f per_page="${limit}" \\
   --jq '[.[] | select(.pull_request == null and (.updated_at >= "'$SINCE_DATE'"))]' 2>/dev/null || echo "[]")
 
 # Filter by labels if specified
@@ -167,7 +188,8 @@ fi`;
 
   private generatePullRequestsScript(config: any): string {
     const limit = config.limit || 100;
-    const states = config.states?.includes('all') ? 'all' : config.states?.join(',') || 'open';
+    // GitHub API only accepts 'open', 'closed', or 'all' - not comma-separated values
+    const state = this.normalizeState(config.states);
     const labels = config.labels?.join(',') || '';
     const excludeLabels = config.exclude_labels?.join(',') || '';
 
@@ -176,25 +198,18 @@ echo "## 🔀 Pull Requests" >> /tmp/prs_section.md
 echo "" >> /tmp/prs_section.md
 
 PRS_COUNT=0
-PRS_JSON=$(gh api "repos/\${{ github.repository }}/pulls" \\
+PRS_JSON=$(gh api "repos/\${{ github.repository }}/pulls?state=${state}&per_page=${limit}" \\
   --paginate \\
-  -f state="${states}" \\
-  -f per_page="${limit}" \\
   --jq '[.[] | select(.updated_at >= "'$SINCE_DATE'")]' 2>/dev/null || echo "[]")
 
 # Filter by labels if specified
 ${labels ? `PRS_JSON=$(echo "$PRS_JSON" | jq '[.[] | select(.labels | map(.name) | contains(["${labels.split(',').join('","')}"]) | any)]')` : ''}
 ${excludeLabels ? `PRS_JSON=$(echo "$PRS_JSON" | jq '[.[] | select(.labels | map(.name) | contains(["${excludeLabels.split(',').join('","')}"]) | any | not)]')` : ''}
 
-# Filter merged PRs if requested
+# Filter merged PRs if only merged is requested
 ${
-  config.states?.includes('merged')
-    ? `
-MERGED_PRS=$(echo "$PRS_JSON" | jq '[.[] | select(.merged_at != null)]')
-if [ "${states}" = "merged" ]; then
-  PRS_JSON="$MERGED_PRS"
-fi
-`
+  config.states?.length === 1 && config.states[0] === 'merged'
+    ? `PRS_JSON=$(echo "$PRS_JSON" | jq '[.[] | select(.merged_at != null)]')`
     : ''
 }
 
@@ -346,8 +361,7 @@ echo "## 🚀 Releases" >> /tmp/releases_section.md
 echo "" >> /tmp/releases_section.md
 
 RELEASES_COUNT=0
-RELEASES_JSON=$(gh api "repos/\${{ github.repository }}/releases" \\
-  -f per_page="${limit}" \\
+RELEASES_JSON=$(gh api "repos/\${{ github.repository }}/releases?per_page=${limit}" \\
   --jq '[.[] | select(.created_at >= "'$SINCE_DATE'")]' 2>/dev/null || echo "[]")
 
 ${!config.prerelease ? `# Exclude prereleases\nRELEASES_JSON=$(echo "$RELEASES_JSON" | jq '[.[] | select(.prerelease == false)]')` : ''}
@@ -383,8 +397,7 @@ echo "## ⚙️ Workflow Runs" >> /tmp/workflows_section.md
 echo "" >> /tmp/workflows_section.md
 
 WORKFLOWS_COUNT=0
-RUNS_JSON=$(gh api "repos/\${{ github.repository }}/actions/runs" \\
-  -f per_page="${limit}" \\
+RUNS_JSON=$(gh api "repos/\${{ github.repository }}/actions/runs?per_page=${limit}" \\
   --jq '[.workflow_runs[] | select(.created_at >= "'$SINCE_DATE'")]' 2>/dev/null || echo "[]")
 
 # Filter by status

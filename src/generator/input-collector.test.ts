@@ -121,8 +121,8 @@ describe('InputCollector', () => {
       expect(script).toContain('# Collect Issues');
       expect(script).toContain('## 📋 Issues');
       expect(script).toContain('repos/${{ github.repository }}/issues');
-      expect(script).toContain('state="open,closed"');
-      expect(script).toContain('per_page="50"');
+      // Multiple states are normalized to 'all' since GitHub API doesn't support comma-separated
+      expect(script).toContain('issues?state=all&per_page=50');
     });
 
     it('should filter issues by labels', () => {
@@ -153,14 +153,15 @@ describe('InputCollector', () => {
       expect(script).toContain('| not');
     });
 
-    it('should default to open,closed states', () => {
+    it('should default to all states when none specified', () => {
       const config: InputConfig = {
         issues: {},
       };
 
       const script = collector.generateCollectionScript(config);
 
-      expect(script).toContain('state="open,closed"');
+      // Default to 'all' when no states specified
+      expect(script).toContain('issues?state=all&per_page=');
     });
 
     it('should filter pull requests from issues', () => {
@@ -188,8 +189,8 @@ describe('InputCollector', () => {
       expect(script).toContain('# Collect Pull Requests');
       expect(script).toContain('## 🔀 Pull Requests');
       expect(script).toContain('repos/${{ github.repository }}/pulls');
-      expect(script).toContain('state="open"');
-      expect(script).toContain('per_page="25"');
+      // State and per_page are now URL query parameters
+      expect(script).toContain('pulls?state=open&per_page=25');
     });
 
     it('should handle merged state filtering', () => {
@@ -201,7 +202,8 @@ describe('InputCollector', () => {
 
       const script = collector.generateCollectionScript(config);
 
-      expect(script).toContain('merged');
+      // 'merged' state uses 'closed' API state and filters for merged_at
+      expect(script).toContain('pulls?state=closed&per_page=');
       expect(script).toContain('merged_at != null');
     });
 
@@ -327,8 +329,8 @@ describe('InputCollector', () => {
 
       expect(script).toContain('# Collect Releases');
       expect(script).toContain('## 🚀 Releases');
-      expect(script).toContain('repos/${{ github.repository }}/releases');
-      expect(script).toContain('per_page="10"');
+      // per_page is now a URL query parameter
+      expect(script).toContain('repos/${{ github.repository }}/releases?per_page=10');
     });
 
     it('should exclude prereleases by default', () => {
@@ -369,8 +371,8 @@ describe('InputCollector', () => {
 
       expect(script).toContain('# Collect Workflow Runs');
       expect(script).toContain('## ⚙️ Workflow Runs');
-      expect(script).toContain('repos/${{ github.repository }}/actions/runs');
-      expect(script).toContain('per_page="15"');
+      // per_page is now a URL query parameter
+      expect(script).toContain('repos/${{ github.repository }}/actions/runs?per_page=15');
       expect(script).toContain('failure');
     });
 
