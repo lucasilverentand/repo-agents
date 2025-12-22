@@ -1,15 +1,19 @@
 import type { OutputConfig } from '../../types/index';
 import type { OutputHandler, RuntimeContext } from './base';
 
-class CreatePRHandler implements OutputHandler {
+class CreatePrHandler implements OutputHandler {
+  readonly name = 'create-pr';
+
   getContextScript(_runtime: RuntimeContext): string | null {
     // No dynamic context needed for create-pr
     return null;
   }
 
   generateSkill(config: OutputConfig): string {
-    const maxConstraint = config.max || 'unlimited';
-    const signCommits = config.sign || false;
+    const maxConstraint = config.max || 5;
+    const allowedPaths = config.allowed_paths
+      ? `\n- Allowed file paths: ${(config.allowed_paths as string[]).join(', ')}`
+      : '';
 
     return `## Skill: Create Pull Request
 
@@ -43,10 +47,9 @@ Create a pull request with code changes.
   - \`content\` (required): Complete file content
 
 **Constraints**:
-- Maximum PRs: ${maxConstraint}
+- Maximum PRs: ${maxConstraint}${allowedPaths}
 - Branch name must be valid (no spaces, special chars)
 - Files array must be non-empty
-${signCommits ? '- Commits must be signed (GPG signature required)' : ''}
 
 **Example**:
 Create \`/tmp/outputs/create-pr.json\` with:
@@ -54,7 +57,7 @@ Create \`/tmp/outputs/create-pr.json\` with:
 {
   "branch": "feature/fix-validation",
   "title": "Fix: Improve validation logic",
-  "body": "## Changes\\n\\n- Updated validation rules\\n- Added tests\\n\\n## Testing\\n\\nRan full test suite",
+  "body": "## Changes\n\n- Updated validation rules\n- Added tests\n\n## Testing\n\nRan full test suite",
   "base": "main",
   "files": [
     {
@@ -81,146 +84,133 @@ Create \`/tmp/outputs/create-pr.json\` with:
 - etc.`;
   }
 
-  generateValidationScript(config: OutputConfig, _runtime: RuntimeContext): string {
-    const signCommits = config.sign || false;
-    const maxPRs = config.max || 10;
+  generateValidationScript(config: OutputConfig, runtime: RuntimeContext): string {
+    const maxConstraint = config.max || 5;
+    const allowedPaths = runtime.allowedPaths || [];
 
     return `
 # Validate and execute create-pr output(s)
-# Find all create-pr JSON files (create-pr.json, create-pr-1.json, create-pr-2.json, etc.)
-PR_FILES=$(find /tmp/outputs -name "create-pr*.json" 2>/dev/null | sort || true)
+PR_FILES=$(find /tmp/outputs -name "create-pr*.json" 2>/dev/null || true)
 
 if [ -n "$PR_FILES" ]; then
-  PR_COUNT=0
-  MAX_PRS=${maxPRs}
+  # Count files
+  FILE_COUNT=$(echo "$PR_FILES" | wc -l)
+  echo "Found $FILE_COUNT create-pr output file(s)"
 
-  for PR_FILE in $PR_FILES; do
-    if [ $PR_COUNT -ge $MAX_PRS ]; then
-      echo "⚠️ Reached maximum PR limit ($MAX_PRS), skipping remaining files"
-      break
-    fi
+  # Check max constraint
+  if [ "$FILE_COUNT" -gt ${maxConstraint} ]; then
+    echo "- **create-pr**: Too many PR files ($FILE_COUNT). Maximum allowed: ${maxConstraint}" > /tmp/validation-errors/create-pr.txt
+    exit 0
+  fi
 
-    PR_NAME=$(basename "$PR_FILE" .json)
-    echo "Processing $PR_NAME..."
+  # Phase 1: Validate all files
+  VALIDATION_FAILED=false
+  for pr_file in $PR_FILES; do
+    echo "Validating $pr_file..."
 
     # Validate JSON structure
-    if ! jq empty "$PR_FILE" 2>/dev/null; then
-      echo "- **$PR_NAME**: Invalid JSON format" >> /tmp/validation-errors/create-pr.txt
+    if ! jq empty "$pr_file" 2>/dev/null; then
+      echo "- **create-pr**: Invalid JSON format in $pr_file" >> /tmp/validation-errors/create-pr.txt
+      VALIDATION_FAILED=true
       continue
     fi
 
-    # Extract fields
-    BRANCH=$(jq -r '.branch' "$PR_FILE")
-    TITLE=$(jq -r '.title' "$PR_FILE")
-    BODY=$(jq -r '.body' "$PR_FILE")
-    BASE=$(jq -r '.base // "main"' "$PR_FILE")
-    FILES=$(jq -r '.files' "$PR_FILE")
+    # Extract required fields
+    BRANCH=$(jq -r '.branch' "$pr_file")
+    TITLE=$(jq -r '.title' "$pr_file")
+    BODY=$(jq -r '.body' "$pr_file")
+    FILES_COUNT=$(jq '.files | length' "$pr_file")
 
     # Validate required fields
     if [ -z "$BRANCH" ] || [ "$BRANCH" = "null" ]; then
-      echo "- **$PR_NAME**: branch is required" >> /tmp/validation-errors/create-pr.txt
-      continue
-    elif [ -z "$TITLE" ] || [ "$TITLE" = "null" ]; then
-      echo "- **$PR_NAME**: title is required" >> /tmp/validation-errors/create-pr.txt
-      continue
-    elif [ -z "$BODY" ] || [ "$BODY" = "null" ]; then
-      echo "- **$PR_NAME**: body is required" >> /tmp/validation-errors/create-pr.txt
-      continue
-    elif [ "$FILES" = "null" ] || ! echo "$FILES" | jq -e 'type == "array"' >/dev/null 2>&1; then
-      echo "- **$PR_NAME**: files field must be an array" >> /tmp/validation-errors/create-pr.txt
-      continue
-    elif [ "$(echo "$FILES" | jq 'length')" -eq 0 ]; then
-      echo "- **$PR_NAME**: files array cannot be empty" >> /tmp/validation-errors/create-pr.txt
-      continue
-    elif [[ ! "$BRANCH" =~ ^[a-zA-Z0-9/_.-]+$ ]]; then
-      echo "- **$PR_NAME**: branch name contains invalid characters" >> /tmp/validation-errors/create-pr.txt
+      echo "- **create-pr**: Branch name is missing in $pr_file" >> /tmp/validation-errors/create-pr.txt
+      VALIDATION_FAILED=true
       continue
     fi
 
-    # Validation passed - execute
-    echo "✓ $PR_NAME validation passed"
-
-    # Configure git with dynamic identity (from GitHub App or default)
-    git config user.name "\${GIT_USER:-github-actions[bot]}"
-    git config user.email "\${GIT_EMAIL:-github-actions[bot]@users.noreply.github.com}"
-
-    # Return to main branch before creating new branch
-    git checkout main 2>/dev/null || git checkout master 2>/dev/null || true
-
-    # Check if PR already exists for this branch
-    if gh pr view "$BRANCH" --json state --jq '.state' 2>/dev/null | grep -q "OPEN"; then
-      echo "⏭️ PR already exists for branch '$BRANCH', skipping"
+    if [ -z "$TITLE" ] || [ "$TITLE" = "null" ]; then
+      echo "- **create-pr**: Title is missing in $pr_file" >> /tmp/validation-errors/create-pr.txt
+      VALIDATION_FAILED=true
       continue
     fi
 
-    # Delete existing remote branch if it exists (from previous failed attempts)
-    if git ls-remote --exit-code --heads origin "$BRANCH" >/dev/null 2>&1; then
-      echo "🗑️ Deleting existing remote branch '$BRANCH'"
-      git push origin --delete "$BRANCH" 2>/dev/null || true
-    fi
-
-    # Delete local branch if it exists
-    git branch -D "$BRANCH" 2>/dev/null || true
-
-    # Create and checkout new branch
-    if ! git checkout -b "$BRANCH" 2>/dev/null; then
-      echo "- **$PR_NAME**: Failed to create branch '$BRANCH'" >> /tmp/validation-errors/create-pr.txt
+    if [ -z "$BODY" ] || [ "$BODY" = "null" ]; then
+      echo "- **create-pr**: Body is missing in $pr_file" >> /tmp/validation-errors/create-pr.txt
+      VALIDATION_FAILED=true
       continue
     fi
 
-    # Create/update each file using jq to extract paths and contents safely
-    FILE_COUNT=$(jq '.files | length' "$PR_FILE")
-    for i in $(seq 0 $((FILE_COUNT - 1))); do
-      FILE_PATH=$(jq -r ".files[$i].path" "$PR_FILE")
-
-      # Create directory if needed
-      mkdir -p "$(dirname "$FILE_PATH")"
-
-      # Write file content directly using jq (handles special chars properly)
-      jq -r ".files[$i].content" "$PR_FILE" > "$FILE_PATH"
-
-      # Stage file
-      git add "$FILE_PATH"
-    done
-
-    # Commit changes
-    COMMIT_MESSAGE="$TITLE"
-    ${signCommits ? 'git commit -S -m "$COMMIT_MESSAGE"' : 'git commit -m "$COMMIT_MESSAGE"'} || {
-      echo "- **$PR_NAME**: Failed to commit changes" >> /tmp/validation-errors/create-pr.txt
-      git checkout main 2>/dev/null || git checkout master 2>/dev/null || true
+    if [ "$FILES_COUNT" -eq 0 ]; then
+      echo "- **create-pr**: Files array is empty in $pr_file" >> /tmp/validation-errors/create-pr.txt
+      VALIDATION_FAILED=true
       continue
-    }
+    fi
 
-    # Push branch
-    git push origin "$BRANCH" || {
-      echo "- **$PR_NAME**: Failed to push branch to remote" >> /tmp/validation-errors/create-pr.txt
-      git checkout main 2>/dev/null || git checkout master 2>/dev/null || true
-      continue
-    }
+    ${allowedPaths.length > 0 ? `
+    # Validate file paths against allowed patterns
+    FILE_PATHS=$(jq -r '.files[].path' "$pr_file")
+    while IFS= read -r file_path; do
+      ALLOWED=false
+      ${allowedPaths.map((pattern) => `if [[ "$file_path" == ${pattern} ]]; then ALLOWED=true; fi`).join('\n      ')}
+      if [ "$ALLOWED" = false ]; then
+        echo "- **create-pr**: File path '$file_path' is not in allowed paths (from $pr_file)" >> /tmp/validation-errors/create-pr.txt
+        VALIDATION_FAILED=true
+      fi
+    done <<< "$FILE_PATHS"
+    ` : ''}
 
-    # Create pull request
-    gh pr create \\
-      --title "$TITLE" \\
-      --body "$BODY" \\
-      --base "$BASE" \\
-      --head "$BRANCH" && {
-      echo "✅ Created PR: $TITLE"
-      PR_COUNT=$((PR_COUNT + 1))
-    } || {
-      echo "- **$PR_NAME**: Failed to create pull request via GitHub API" >> /tmp/validation-errors/create-pr.txt
-    }
-
-    # Return to main branch for next PR
-    git checkout main 2>/dev/null || git checkout master 2>/dev/null || true
+    echo "✓ Validation passed for $pr_file"
   done
 
-  echo "📊 Created $PR_COUNT PRs"
+  # Phase 2: Execute only if all validations passed
+  if [ "$VALIDATION_FAILED" = false ]; then
+    echo "✓ All create-pr validations passed - executing..."
+    for pr_file in $PR_FILES; do
+      BRANCH=$(jq -r '.branch' "$pr_file")
+      TITLE=$(jq -r '.title' "$pr_file")
+      BODY=$(jq -r '.body' "$pr_file")
+      BASE=$(jq -r '.base // "main"' "$pr_file")
+
+      # Create and checkout new branch
+      git checkout -b "$BRANCH" "$BASE" || {
+        echo "- **create-pr**: Failed to create branch '$BRANCH' from $pr_file" >> /tmp/validation-errors/create-pr.txt
+        continue
+      }
+
+      # Write all files
+      jq -c '.files[]' "$pr_file" | while read -r file_obj; do
+        FILE_PATH=$(echo "$file_obj" | jq -r '.path')
+        FILE_CONTENT=$(echo "$file_obj" | jq -r '.content')
+        mkdir -p "$(dirname "$FILE_PATH")"
+        echo "$FILE_CONTENT" > "$FILE_PATH"
+        git add "$FILE_PATH"
+      done
+
+      # Commit changes
+      git commit -m "$TITLE" || {
+        echo "- **create-pr**: Failed to commit changes from $pr_file" >> /tmp/validation-errors/create-pr.txt
+        continue
+      }
+
+      # Push branch
+      git push origin "$BRANCH" || {
+        echo "- **create-pr**: Failed to push branch '$BRANCH' from $pr_file" >> /tmp/validation-errors/create-pr.txt
+        continue
+      }
+
+      # Create PR
+      gh pr create --title "$TITLE" --body "$BODY" --base "$BASE" || {
+        echo "- **create-pr**: Failed to create PR from $pr_file" >> /tmp/validation-errors/create-pr.txt
+      }
+    done
+  else
+    echo "✗ create-pr validation failed - skipping execution (atomic operation)"
+  fi
 fi
 `;
   }
 }
 
-// Register the handler
-export const handler = new CreatePRHandler();
+// Export handler for registration
+export const handler = new CreatePrHandler();
 
-export default handler;

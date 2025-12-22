@@ -2,34 +2,43 @@ import type { OutputConfig } from '../../types/index';
 import type { OutputHandler, RuntimeContext } from './base';
 
 class RemoveLabelHandler implements OutputHandler {
+  readonly name = 'remove-label';
+
   getContextScript(runtime: RuntimeContext): string | null {
-    // Fetch available labels from the repository (same as add-label)
-    // Note: If both add-label and remove-label are enabled, this will be duplicated
-    // but that's okay as the context appending is idempotent
+    const issueOrPrNumber = runtime.issueNumber || runtime.prNumber;
+
     return `
-# Fetch available labels for context
-LABELS_JSON=$(gh api "repos/${runtime.repository}/labels" --jq '[.[].name]' 2>/dev/null || echo '[]')
-LABELS_LIST=$(echo "$LABELS_JSON" | jq -r 'join(", ")' 2>/dev/null || echo "No labels available")
+# Fetch current labels on the issue/PR
+if [ -n "${issueOrPrNumber}" ]; then
+  echo "" >> /tmp/context.txt
+  echo "## Current Labels" >> /tmp/context.txt
+  echo "" >> /tmp/context.txt
+  echo "The following labels are currently on this issue/PR:" >> /tmp/context.txt
 
-cat >> /tmp/context.txt << 'LABELS_EOF'
-
-## Available Repository Labels
-
-The following labels are available in this repository:
-$LABELS_LIST
-
-LABELS_EOF
+  CURRENT_LABELS=$(gh api "repos/${runtime.repository}/issues/${issueOrPrNumber}/labels" --jq '.[].name' || echo "Failed to fetch labels")
+  if [ "$CURRENT_LABELS" = "Failed to fetch labels" ]; then
+    echo "Failed to fetch current labels" >> /tmp/context.txt
+  else
+    echo "$CURRENT_LABELS" | while read -r label; do
+      echo "- \`$label\`" >> /tmp/context.txt
+    done
+  fi
+fi
 `;
   }
 
-  generateSkill(_config: OutputConfig): string {
+  generateSkill(config: OutputConfig): string {
+    const maxConstraint = config.max || 'unlimited';
+
     return `## Skill: Remove Labels
 
 Remove one or more labels from the current issue or pull request.
 
-**Available labels**: See the "Available Repository Labels" section in the context above for the complete list of labels.
+**Current labels**: See the "Current Labels" section in the context above.
 
 **File to create**: \`/tmp/outputs/remove-label.json\`
+
+For multiple removal operations, use numbered suffixes: \`remove-label-1.json\`, \`remove-label-2.json\`, etc.
 
 **JSON Schema**:
 \`\`\`json
@@ -42,8 +51,9 @@ Remove one or more labels from the current issue or pull request.
 - \`labels\` (required): Array of label names to remove
 
 **Constraints**:
+- Maximum operations: ${maxConstraint}
 - Labels array must be non-empty
-- Attempting to remove non-existent labels will be silently ignored
+- Only labels that are currently on the issue/PR can be removed
 
 **Example**:
 Create \`/tmp/outputs/remove-label.json\` with:
@@ -53,60 +63,86 @@ Create \`/tmp/outputs/remove-label.json\` with:
 }
 \`\`\`
 
-**Important**: Use the Write tool to create this file. Only removes specified labels, keeps all others.`;
+**Important**: Use the Write tool to create this file.`;
   }
 
-  generateValidationScript(_config: OutputConfig, runtime: RuntimeContext): string {
+  generateValidationScript(config: OutputConfig, runtime: RuntimeContext): string {
     const issueOrPrNumber = runtime.issueNumber || runtime.prNumber;
+    const maxConstraint = config.max;
 
     return `
-# Validate and execute remove-label output
-if [ -f "/tmp/outputs/remove-label.json" ]; then
-  echo "Validating remove-label output..."
+# Validate and execute remove-label output(s)
+REMOVE_LABEL_FILES=$(find /tmp/outputs -name "remove-label*.json" 2>/dev/null || true)
 
-  # Validate JSON structure
-  if ! jq empty /tmp/outputs/remove-label.json 2>/dev/null; then
-    echo "- **remove-label**: Invalid JSON format" > /tmp/validation-errors/remove-label.txt
-  else
-    # Extract labels array
-    LABELS_ARRAY=$(jq -r '.labels' /tmp/outputs/remove-label.json 2>/dev/null)
+if [ -n "$REMOVE_LABEL_FILES" ]; then
+  # Count files
+  FILE_COUNT=$(echo "$REMOVE_LABEL_FILES" | wc -l)
+  echo "Found $FILE_COUNT remove-label output file(s)"
 
-    # Validate labels is an array
-    if [ "$LABELS_ARRAY" = "null" ] || ! echo "$LABELS_ARRAY" | jq -e 'type == "array"' >/dev/null 2>&1; then
-      echo "- **remove-label**: labels field must be an array" > /tmp/validation-errors/remove-label.txt
-    elif [ "$(echo "$LABELS_ARRAY" | jq 'length')" -eq 0 ]; then
-      echo "- **remove-label**: labels array cannot be empty" > /tmp/validation-errors/remove-label.txt
-    else
-      # Validation passed - execute
-      echo "✓ remove-label validation passed"
+  # Check max constraint
+  ${
+    maxConstraint
+      ? `
+  if [ "$FILE_COUNT" -gt ${maxConstraint} ]; then
+    echo "- **remove-label**: Too many files ($FILE_COUNT). Maximum allowed: ${maxConstraint}" > /tmp/validation-errors/remove-label.txt
+    exit 0
+  fi`
+      : ''
+  }
 
-      # Check if we have an issue/PR number
-      ISSUE_NUMBER="${issueOrPrNumber}"
-      if [ -z "$ISSUE_NUMBER" ]; then
-        echo "- **remove-label**: No issue or PR number available" > /tmp/validation-errors/remove-label.txt
-      else
-        # Get current labels
-        CURRENT_LABELS=$(gh api "repos/${runtime.repository}/issues/$ISSUE_NUMBER" --jq '.labels[].name' 2>/dev/null | jq -R . | jq -s .)
+  # Check if we have an issue/PR number
+  ISSUE_NUMBER="${issueOrPrNumber}"
+  if [ -z "$ISSUE_NUMBER" ]; then
+    echo "- **remove-label**: No issue or PR number available" >> /tmp/validation-errors/remove-label.txt
+    exit 0
+  fi
 
-        # Filter out labels to remove
-        LABELS_TO_REMOVE=$(echo "$LABELS_ARRAY" | jq -r '.[]' | jq -R . | jq -s .)
-        REMAINING_LABELS=$(echo "$CURRENT_LABELS" | jq --argjson remove "$LABELS_TO_REMOVE" '[.[] | select(. as $label | $remove | index($label) | not)]')
+  # Phase 1: Validate all files
+  VALIDATION_FAILED=false
+  for label_file in $REMOVE_LABEL_FILES; do
+    echo "Validating $label_file..."
 
-        # Update labels via GitHub API
-        echo "$REMAINING_LABELS" | gh api "repos/${runtime.repository}/issues/$ISSUE_NUMBER/labels" \\
-          -X PUT \\
-          --input - || {
-          echo "- **remove-label**: Failed to remove labels via GitHub API" > /tmp/validation-errors/remove-label.txt
-        }
-      fi
+    # Validate JSON structure
+    if ! jq empty "$label_file" 2>/dev/null; then
+      echo "- **remove-label**: Invalid JSON format in $label_file" >> /tmp/validation-errors/remove-label.txt
+      VALIDATION_FAILED=true
+      continue
     fi
+
+    # Extract labels array
+    LABELS=$(jq -r '.labels[]' "$label_file" 2>/dev/null)
+
+    # Validate labels array is non-empty
+    if [ -z "$LABELS" ]; then
+      echo "- **remove-label**: Labels array is empty or missing in $label_file" >> /tmp/validation-errors/remove-label.txt
+      VALIDATION_FAILED=true
+      continue
+    fi
+
+    echo "✓ Validation passed for $label_file"
+  done
+
+  # Phase 2: Execute only if all validations passed
+  if [ "$VALIDATION_FAILED" = false ]; then
+    echo "✓ All remove-label validations passed - executing..."
+    for label_file in $REMOVE_LABEL_FILES; do
+      LABELS=$(jq -r '.labels[]' "$label_file")
+
+      # Remove each label via GitHub API
+      while IFS= read -r label; do
+        gh api -X DELETE "repos/${runtime.repository}/issues/$ISSUE_NUMBER/labels/$(echo "$label" | jq -sRr @uri)" || {
+          echo "- **remove-label**: Failed to remove label '$label' from $label_file" >> /tmp/validation-errors/remove-label.txt
+        }
+      done <<< "$LABELS"
+    done
+  else
+    echo "✗ remove-label validation failed - skipping execution (atomic operation)"
   fi
 fi
 `;
   }
 }
 
-// Register the handler
+// Export handler for registration
 export const handler = new RemoveLabelHandler();
 
-export default handler;

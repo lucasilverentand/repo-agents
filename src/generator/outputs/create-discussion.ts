@@ -2,9 +2,22 @@ import type { OutputConfig } from '../../types/index';
 import type { OutputHandler, RuntimeContext } from './base';
 
 class CreateDiscussionHandler implements OutputHandler {
-  getContextScript(_runtime: RuntimeContext): string | null {
-    // No dynamic context needed for create-discussion
-    return null;
+  readonly name = 'create-discussion';
+
+  getContextScript(runtime: RuntimeContext): string | null {
+    return `
+# Fetch available discussion categories
+echo "" >> /tmp/context.txt
+echo "## Available Discussion Categories" >> /tmp/context.txt
+echo "" >> /tmp/context.txt
+echo "The following discussion categories are available:" >> /tmp/context.txt
+
+CATEGORIES=$(gh api graphql -f query='query { repository(owner: "${runtime.repository.split('/')[0]}", name: "${runtime.repository.split('/')[1]}") { discussionCategories(first: 20) { nodes { id name slug description } } } }' --jq '.data.repository.discussionCategories.nodes[] | "- \\`" + .slug + "\\` (" + .name + "): " + (.description // "No description")' || echo "Failed to fetch categories")
+echo "$CATEGORIES" >> /tmp/context.txt
+
+# Save category IDs for validation
+gh api graphql -f query='query { repository(owner: "${runtime.repository.split('/')[0]}", name: "${runtime.repository.split('/')[1]}") { discussionCategories(first: 20) { nodes { id slug } } } }' --jq '.data.repository.discussionCategories.nodes[] | .slug + ":" + .id' > /tmp/discussion-categories.txt 2>/dev/null || true
+`;
   }
 
   generateSkill(config: OutputConfig): string {
@@ -12,7 +25,7 @@ class CreateDiscussionHandler implements OutputHandler {
 
     return `## Skill: Create Discussion
 
-Create a new discussion in the repository.
+Create a new GitHub discussion.
 
 **File to create**: \`/tmp/outputs/create-discussion.json\`
 
@@ -28,34 +41,26 @@ For multiple discussions, use numbered suffixes: \`create-discussion-1.json\`, \
 \`\`\`
 
 **Fields**:
-- \`title\` (required): Clear, descriptive discussion title
-- \`body\` (required): Detailed content with context
-- \`category\` (required): Discussion category name (e.g., "Announcements", "General", "Q&A")
+- \`title\` (required): Discussion title
+- \`body\` (required): Discussion body in markdown
+- \`category\` (required): Category slug (see available categories above)
 
 **Constraints**:
 - Maximum discussions: ${maxConstraint}
 - Title must be non-empty
-- Body should provide sufficient context
-- Category must exist in the repository
-
-**Common Categories**:
-- "Announcements" - For project announcements and updates
-- "General" - General discussions
-- "Ideas" - Feature ideas and suggestions
-- "Q&A" - Questions and answers
-- "Show and tell" - Share your work
+- Category must exist in repository
 
 **Example**:
 Create \`/tmp/outputs/create-discussion.json\` with:
 \`\`\`json
 {
-  "title": "Weekly Activity Report - 2025-01-15",
-  "body": "## Summary\\n\\nHere's what happened this week...\\n\\n## Highlights\\n\\n- Feature X shipped\\n- 10 issues closed",
-  "category": "Announcements"
+  "title": "Ideas for improving documentation",
+  "body": "## Proposal\n\nI think we should add more examples to the API documentation.\n\n## Benefits\n\n- Easier onboarding\n- Fewer support questions",
+  "category": "ideas"
 }
 \`\`\`
 
-**Important**: Use the Write tool to create this file. Only create discussions when necessary.`;
+**Important**: Use the Write tool to create this file.`;
   }
 
   generateValidationScript(config: OutputConfig, runtime: RuntimeContext): string {
@@ -81,31 +86,8 @@ if [ -n "$DISCUSSION_FILES" ]; then
       : ''
   }
 
-  # Phase 1: Fetch repository discussion categories (needed for validation)
-  echo "Fetching discussion categories..."
-  REPO_OWNER=$(echo "${runtime.repository}" | cut -d'/' -f1)
-  REPO_NAME=$(echo "${runtime.repository}" | cut -d'/' -f2)
-
-  CATEGORIES_QUERY='query($owner: String!, $repo: String!) {
-    repository(owner: $owner, name: $repo) {
-      discussionCategories(first: 50) {
-        nodes {
-          id
-          name
-        }
-      }
-    }
-  }'
-
-  CATEGORIES_DATA=$(gh api graphql \\
-    -f query="$CATEGORIES_QUERY" \\
-    -f owner="$REPO_OWNER" \\
-    -f repo="$REPO_NAME" \\
-    --jq '.data.repository.discussionCategories.nodes' 2>/dev/null || echo '[]')
-
-  # Phase 2: Validate all files
+  # Phase 1: Validate all files
   VALIDATION_FAILED=false
-
   for discussion_file in $DISCUSSION_FILES; do
     echo "Validating $discussion_file..."
 
@@ -116,35 +98,26 @@ if [ -n "$DISCUSSION_FILES" ]; then
       continue
     fi
 
-    # Extract fields
+    # Extract required fields
     TITLE=$(jq -r '.title' "$discussion_file")
     BODY=$(jq -r '.body' "$discussion_file")
     CATEGORY=$(jq -r '.category' "$discussion_file")
 
     # Validate required fields
     if [ -z "$TITLE" ] || [ "$TITLE" = "null" ]; then
-      echo "- **create-discussion**: title is required in $discussion_file" >> /tmp/validation-errors/create-discussion.txt
-      VALIDATION_FAILED=true
-      continue
-    elif [ -z "$BODY" ] || [ "$BODY" = "null" ]; then
-      echo "- **create-discussion**: body is required in $discussion_file" >> /tmp/validation-errors/create-discussion.txt
-      VALIDATION_FAILED=true
-      continue
-    elif [ -z "$CATEGORY" ] || [ "$CATEGORY" = "null" ]; then
-      echo "- **create-discussion**: category is required in $discussion_file" >> /tmp/validation-errors/create-discussion.txt
-      VALIDATION_FAILED=true
-      continue
-    elif [ \${#TITLE} -gt 256 ]; then
-      echo "- **create-discussion**: title exceeds 256 characters in $discussion_file" >> /tmp/validation-errors/create-discussion.txt
+      echo "- **create-discussion**: Title is missing in $discussion_file" >> /tmp/validation-errors/create-discussion.txt
       VALIDATION_FAILED=true
       continue
     fi
 
-    # Validate category exists
-    CATEGORY_ID=$(echo "$CATEGORIES_DATA" | jq -r --arg cat "$CATEGORY" '.[] | select(.name == $cat) | .id')
+    if [ -z "$BODY" ] || [ "$BODY" = "null" ]; then
+      echo "- **create-discussion**: Body is missing in $discussion_file" >> /tmp/validation-errors/create-discussion.txt
+      VALIDATION_FAILED=true
+      continue
+    fi
 
-    if [ -z "$CATEGORY_ID" ] || [ "$CATEGORY_ID" = "null" ]; then
-      echo "- **create-discussion**: Category '$CATEGORY' does not exist in repository (in $discussion_file)" >> /tmp/validation-errors/create-discussion.txt
+    if [ -z "$CATEGORY" ] || [ "$CATEGORY" = "null" ]; then
+      echo "- **create-discussion**: Category is missing in $discussion_file" >> /tmp/validation-errors/create-discussion.txt
       VALIDATION_FAILED=true
       continue
     fi
@@ -152,53 +125,26 @@ if [ -n "$DISCUSSION_FILES" ]; then
     echo "✓ Validation passed for $discussion_file"
   done
 
-  # Phase 3: Execute only if all validations passed
+  # Phase 2: Execute only if all validations passed
   if [ "$VALIDATION_FAILED" = false ]; then
     echo "✓ All create-discussion validations passed - executing..."
-
     for discussion_file in $DISCUSSION_FILES; do
       TITLE=$(jq -r '.title' "$discussion_file")
       BODY=$(jq -r '.body' "$discussion_file")
       CATEGORY=$(jq -r '.category' "$discussion_file")
 
-      # Get category ID
-      CATEGORY_ID=$(echo "$CATEGORIES_DATA" | jq -r --arg cat "$CATEGORY" '.[] | select(.name == $cat) | .id')
+      # Get category ID from slug
+      CATEGORY_ID=$(grep "^$CATEGORY:" /tmp/discussion-categories.txt | cut -d: -f2)
 
-      # Get repository ID (needed for GraphQL mutation)
-      REPO_ID_QUERY='query($owner: String!, $repo: String!) {
-        repository(owner: $owner, name: $repo) {
-          id
-        }
-      }'
-
-      REPO_ID=$(gh api graphql \\
-        -f query="$REPO_ID_QUERY" \\
-        -f owner="$REPO_OWNER" \\
-        -f repo="$REPO_NAME" \\
-        --jq '.data.repository.id' 2>/dev/null)
+      if [ -z "$CATEGORY_ID" ]; then
+        echo "- **create-discussion**: Category '$CATEGORY' not found in repository" >> /tmp/validation-errors/create-discussion.txt
+        continue
+      fi
 
       # Create discussion via GraphQL API
-      CREATE_MUTATION='mutation($repositoryId: ID!, $categoryId: ID!, $title: String!, $body: String!) {
-        createDiscussion(input: {repositoryId: $repositoryId, categoryId: $categoryId, title: $title, body: $body}) {
-          discussion {
-            url
-          }
-        }
-      }'
-
-      RESULT=$(gh api graphql \\
-        -f query="$CREATE_MUTATION" \\
-        -f repositoryId="$REPO_ID" \\
-        -f categoryId="$CATEGORY_ID" \\
-        -f title="$TITLE" \\
-        -f body="$BODY" 2>/dev/null || echo "")
-
-      if [ -n "$RESULT" ]; then
-        DISCUSSION_URL=$(echo "$RESULT" | jq -r '.data.createDiscussion.discussion.url')
-        echo "✓ Created discussion: $DISCUSSION_URL"
-      else
-        echo "- **create-discussion**: Failed to create discussion from $discussion_file via GitHub API" >> /tmp/validation-errors/create-discussion.txt
-      fi
+      gh api graphql -f query="mutation { createDiscussion(input: { repositoryId: \"${runtime.repository}\", categoryId: \"$CATEGORY_ID\", title: \"$TITLE\", body: \"$BODY\" }) { discussion { id } } }" || {
+        echo "- **create-discussion**: Failed to create discussion from $discussion_file" >> /tmp/validation-errors/create-discussion.txt
+      }
     done
   else
     echo "✗ create-discussion validation failed - skipping execution (atomic operation)"
@@ -208,7 +154,6 @@ fi
   }
 }
 
-// Register the handler
+// Export handler for registration
 export const handler = new CreateDiscussionHandler();
 
-export default handler;

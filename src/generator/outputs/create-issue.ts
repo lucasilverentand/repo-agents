@@ -2,9 +2,30 @@ import type { OutputConfig } from '../../types/index';
 import type { OutputHandler, RuntimeContext } from './base';
 
 class CreateIssueHandler implements OutputHandler {
-  getContextScript(_runtime: RuntimeContext): string | null {
-    // No dynamic context needed for create-issue
-    return null;
+  readonly name = 'create-issue';
+
+  getContextScript(runtime: RuntimeContext): string | null {
+    return `
+# Fetch available repository labels for new issues
+echo "" >> /tmp/context.txt
+echo "## Available Repository Labels" >> /tmp/context.txt
+echo "" >> /tmp/context.txt
+echo "The following labels are available in this repository:" >> /tmp/context.txt
+
+LABELS_LIST=$(gh api "repos/${runtime.repository}/labels?per_page=100" --jq '.[] | "- \\`" + .name + "\\`: " + .description' || echo "Failed to fetch labels")
+echo "$LABELS_LIST" >> /tmp/context.txt
+
+if [ "$LABELS_LIST" = "Failed to fetch labels" ]; then
+  echo "" >> /tmp/context.txt
+  echo "**Note**: Could not fetch labels. Labels are optional for new issues." >> /tmp/context.txt
+else
+  echo "" >> /tmp/context.txt
+  echo "**Important**: Only use labels that already exist." >> /tmp/context.txt
+fi
+
+# Save labels list for validation
+gh api "repos/${runtime.repository}/labels?per_page=100" --jq '.[].name' > /tmp/available-labels.txt 2>/dev/null || true
+`;
   }
 
   generateSkill(config: OutputConfig): string {
@@ -12,7 +33,7 @@ class CreateIssueHandler implements OutputHandler {
 
     return `## Skill: Create Issue
 
-Create a new issue in the repository.
+Create a new GitHub issue.
 
 **File to create**: \`/tmp/outputs/create-issue.json\`
 
@@ -23,33 +44,34 @@ For multiple issues, use numbered suffixes: \`create-issue-1.json\`, \`create-is
 {
   "title": "string",
   "body": "string",
-  "labels": ["string"] (optional),
-  "assignees": ["string"] (optional)
+  "labels": ["string"],
+  "assignees": ["string"]
 }
 \`\`\`
 
 **Fields**:
-- \`title\` (required): Clear, descriptive issue title
-- \`body\` (required): Detailed description with context
-- \`labels\` (optional): Array of label names (must exist in repository)
+- \`title\` (required): Issue title
+- \`body\` (required): Issue description in markdown
+- \`labels\` (optional): Array of label names to add
 - \`assignees\` (optional): Array of GitHub usernames to assign
 
 **Constraints**:
 - Maximum issues: ${maxConstraint}
 - Title must be non-empty
-- Body should provide sufficient context
+- Labels must exist in repository (see available labels above)
 
 **Example**:
 Create \`/tmp/outputs/create-issue.json\` with:
 \`\`\`json
 {
-  "title": "Add support for custom configurations",
-  "body": "## Description\\n\\nThis issue tracks the work to add custom configuration support...\\n\\n## Acceptance Criteria\\n\\n- [ ] Configuration file parsing\\n- [ ] Validation logic\\n- [ ] Documentation",
-  "labels": ["enhancement", "good first issue"]
+  "title": "Bug: Application crashes on startup",
+  "body": "## Description\n\nThe application crashes when starting up on macOS 14.\n\n## Steps to Reproduce\n\n1. Launch app\n2. Crash occurs immediately",
+  "labels": ["bug", "priority: high"],
+  "assignees": ["maintainer"]
 }
 \`\`\`
 
-**Important**: Use the Write tool to create this file. Only create issues when necessary.`;
+**Important**: Use the Write tool to create this file.`;
   }
 
   generateValidationScript(config: OutputConfig, runtime: RuntimeContext): string {
@@ -77,8 +99,6 @@ if [ -n "$ISSUE_FILES" ]; then
 
   # Phase 1: Validate all files
   VALIDATION_FAILED=false
-  EXISTING_LABELS=""
-
   for issue_file in $ISSUE_FILES; do
     echo "Validating $issue_file..."
 
@@ -89,39 +109,32 @@ if [ -n "$ISSUE_FILES" ]; then
       continue
     fi
 
-    # Extract fields
+    # Extract required fields
     TITLE=$(jq -r '.title' "$issue_file")
     BODY=$(jq -r '.body' "$issue_file")
-    LABELS=$(jq -r '.labels // [] | @json' "$issue_file")
 
     # Validate required fields
     if [ -z "$TITLE" ] || [ "$TITLE" = "null" ]; then
-      echo "- **create-issue**: title is required in $issue_file" >> /tmp/validation-errors/create-issue.txt
+      echo "- **create-issue**: Title is missing in $issue_file" >> /tmp/validation-errors/create-issue.txt
       VALIDATION_FAILED=true
       continue
-    elif [ -z "$BODY" ] || [ "$BODY" = "null" ]; then
-      echo "- **create-issue**: body is required in $issue_file" >> /tmp/validation-errors/create-issue.txt
-      VALIDATION_FAILED=true
-      continue
-    elif [ \${#TITLE} -gt 256 ]; then
-      echo "- **create-issue**: title exceeds 256 characters in $issue_file" >> /tmp/validation-errors/create-issue.txt
+    fi
+
+    if [ -z "$BODY" ] || [ "$BODY" = "null" ]; then
+      echo "- **create-issue**: Body is missing in $issue_file" >> /tmp/validation-errors/create-issue.txt
       VALIDATION_FAILED=true
       continue
     fi
 
     # Validate labels if provided
-    if [ "$LABELS" != "[]" ]; then
-      # Fetch existing labels only once
-      if [ -z "$EXISTING_LABELS" ]; then
-        EXISTING_LABELS=$(gh api "repos/${runtime.repository}/labels" --jq '[.[].name]' 2>/dev/null || echo '[]')
-      fi
-
-      for label in $(echo "$LABELS" | jq -r '.[]'); do
-        if ! echo "$EXISTING_LABELS" | jq -e --arg label "$label" 'index($label)' >/dev/null 2>&1; then
-          echo "- **create-issue**: Label '$label' does not exist in repository (in $issue_file)" >> /tmp/validation-errors/create-issue.txt
+    LABELS=$(jq -r '.labels[]' "$issue_file" 2>/dev/null)
+    if [ -n "$LABELS" ] && [ -f /tmp/available-labels.txt ]; then
+      while IFS= read -r label; do
+        if ! grep -Fxq "$label" /tmp/available-labels.txt; then
+          echo "- **create-issue**: Label '$label' does not exist in repository (from $issue_file)" >> /tmp/validation-errors/create-issue.txt
           VALIDATION_FAILED=true
         fi
-      done
+      done <<< "$LABELS"
     fi
 
     echo "✓ Validation passed for $issue_file"
@@ -130,24 +143,18 @@ if [ -n "$ISSUE_FILES" ]; then
   # Phase 2: Execute only if all validations passed
   if [ "$VALIDATION_FAILED" = false ]; then
     echo "✓ All create-issue validations passed - executing..."
-
     for issue_file in $ISSUE_FILES; do
       TITLE=$(jq -r '.title' "$issue_file")
       BODY=$(jq -r '.body' "$issue_file")
-      LABELS=$(jq -r '.labels // [] | @json' "$issue_file")
-      ASSIGNEES=$(jq -r '.assignees // [] | @json' "$issue_file")
-
-      # Build API payload
-      PAYLOAD=$(jq -n \\
-        --arg title "$TITLE" \\
-        --arg body "$BODY" \\
-        --argjson labels "$LABELS" \\
-        --argjson assignees "$ASSIGNEES" \\
-        '{title: $title, body: $body, labels: $labels, assignees: $assignees}')
+      LABELS=$(jq -r '.labels[]' "$issue_file" 2>/dev/null | tr '\n' ',' | sed 's/,$//')
+      ASSIGNEES=$(jq -r '.assignees[]' "$issue_file" 2>/dev/null | tr '\n' ',' | sed 's/,$//')
 
       # Create issue via GitHub API
-      gh api "repos/${runtime.repository}/issues" \\
-        --input - <<< "$PAYLOAD" || {
+      GH_CMD="gh api repos/${runtime.repository}/issues -f title=\"$TITLE\" -f body=\"$BODY\""
+      [ -n "$LABELS" ] && GH_CMD="$GH_CMD -f labels=\"$LABELS\""
+      [ -n "$ASSIGNEES" ] && GH_CMD="$GH_CMD -f assignees=\"$ASSIGNEES\""
+
+      eval "$GH_CMD" || {
         echo "- **create-issue**: Failed to create issue from $issue_file via GitHub API" >> /tmp/validation-errors/create-issue.txt
       }
     done
@@ -159,7 +166,6 @@ fi
   }
 }
 
-// Register the handler
+// Export handler for registration
 export const handler = new CreateIssueHandler();
 
-export default handler;
