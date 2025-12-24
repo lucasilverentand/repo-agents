@@ -2,6 +2,8 @@ import type { OutputConfig } from '../../types/index';
 import type { OutputHandler, RuntimeContext } from './base';
 
 class UpdateFileHandler implements OutputHandler {
+  name = 'update-file' as const;
+
   getContextScript(runtime: RuntimeContext): string | null {
     // Include allowed paths in context if specified
     if (!runtime.allowedPaths || runtime.allowedPaths.length === 0) {

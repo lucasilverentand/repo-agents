@@ -2,6 +2,8 @@ import type { OutputConfig } from '../../types/index';
 import type { OutputHandler, RuntimeContext } from './base';
 
 class CreateIssueHandler implements OutputHandler {
+  name = 'create-issue' as const;
+
   getContextScript(_runtime: RuntimeContext): string | null {
     // No dynamic context needed for create-issue
     return null;

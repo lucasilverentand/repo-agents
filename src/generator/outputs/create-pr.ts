@@ -2,6 +2,8 @@ import type { OutputConfig } from '../../types/index';
 import type { OutputHandler, RuntimeContext } from './base';
 
 class CreatePRHandler implements OutputHandler {
+  name = 'create-pr' as const;
+
   getContextScript(_runtime: RuntimeContext): string | null {
     // No dynamic context needed for create-pr
     return null;

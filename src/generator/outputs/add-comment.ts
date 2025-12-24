@@ -2,6 +2,8 @@ import type { OutputConfig } from '../../types/index';
 import type { OutputHandler, RuntimeContext } from './base';
 
 class AddCommentHandler implements OutputHandler {
+  name = 'add-comment' as const;
+
   getContextScript(_runtime: RuntimeContext): string | null {
     // No dynamic context needed for add-comment
     return null;

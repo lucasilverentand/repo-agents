@@ -2,6 +2,8 @@ import type { OutputConfig } from '../../types/index';
 import type { OutputHandler, RuntimeContext } from './base';
 
 class ClosePRHandler implements OutputHandler {
+  name = 'close-pr' as const;
+
   getContextScript(_runtime: RuntimeContext): string | null {
     // No dynamic context needed for close-pr
     return null;

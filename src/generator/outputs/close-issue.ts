@@ -2,6 +2,8 @@ import type { OutputConfig } from '../../types/index';
 import type { OutputHandler, RuntimeContext } from './base';
 
 class CloseIssueHandler implements OutputHandler {
+  name = 'close-issue' as const;
+
   getContextScript(_runtime: RuntimeContext): string | null {
     // No dynamic context needed for close-issue
     return null;

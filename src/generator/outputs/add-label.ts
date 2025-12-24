@@ -2,6 +2,8 @@ import type { OutputConfig } from '../../types/index';
 import type { OutputHandler, RuntimeContext } from './base';
 
 class AddLabelHandler implements OutputHandler {
+  name = 'add-label' as const;
+
   getContextScript(runtime: RuntimeContext): string | null {
     // Fetch available labels from the repository
     return `

@@ -20,6 +20,11 @@ export interface RuntimeContext {
  */
 export interface OutputHandler {
   /**
+   * The output type name (e.g., 'add-comment', 'create-pr')
+   */
+  name: string;
+
+  /**
    * Returns bash script to fetch dynamic context and append to context file
    * @param runtime - Runtime context with repository, issue/PR numbers, etc.
    * @returns Bash script string or null if no dynamic context needed

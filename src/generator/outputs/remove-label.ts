@@ -2,6 +2,8 @@ import type { OutputConfig } from '../../types/index';
 import type { OutputHandler, RuntimeContext } from './base';
 
 class RemoveLabelHandler implements OutputHandler {
+  name = 'remove-label' as const;
+
   getContextScript(runtime: RuntimeContext): string | null {
     // Fetch available labels from the repository (same as add-label)
     // Note: If both add-label and remove-label are enabled, this will be duplicated
