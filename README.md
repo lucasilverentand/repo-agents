@@ -222,7 +222,8 @@ gh claude init [--examples]      # Initialize in repository
 gh claude compile [--all]        # Compile agents to workflows
 gh claude validate [--all]       # Validate agent definitions
 gh claude list [--details]       # List all agents
-gh claude setup-token           # Configure authentication
+gh claude setup-token            # Configure Claude API authentication
+gh claude setup-app              # Configure GitHub App (optional)
 ```
 
 **[→ Full CLI Reference](https://lucasilverentand.github.io/gh-claude/cli/init/)**

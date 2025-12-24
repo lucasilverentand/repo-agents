@@ -14,6 +14,18 @@ gh-claude supports two authentication methods:
 
 Both methods work identically in workflows. Choose based on your access type.
 
+## GitHub Token (Optional Enhancement)
+
+In addition to Claude API authentication, you can optionally configure a **GitHub App** to enhance your agents with:
+
+- **Branded Identity**: Commits/comments appear as your app (e.g., "MyApp[bot]")
+- **CI Triggering**: PRs created by agents can trigger CI workflows
+- **Fine-grained Permissions**: More control over repository access
+
+**[→ Learn how to set up a GitHub App](../../cli/setup-app/)**
+
+This is **optional** - agents work fine with the default `GITHUB_TOKEN`, but the GitHub App provides additional capabilities.
+
 ## Quick Setup
 
 The easiest way to set up authentication:
@@ -374,6 +386,65 @@ GitHub Actions automatically logs:
 
 Access via: Repository Settings → Actions → General → Audit log
 
+## GitHub App Setup (Optional)
+
+For enhanced capabilities, you can configure a GitHub App:
+
+```bash
+gh claude setup-app
+```
+
+### Benefits of Using a GitHub App
+
+**Branded Identity**
+- Commits appear as "YourApp[bot]" instead of "github-actions[bot]"
+- Comments show your custom app name
+- Professional appearance for public repositories
+
+**CI Triggering**
+- PRs created by agents can trigger your CI workflows
+- Default GITHUB_TOKEN cannot trigger workflows (security limitation)
+- Essential for agents that create PRs with code changes
+
+**Fine-grained Permissions**
+- Control exactly which repos the app can access
+- More granular than repository-level GITHUB_TOKEN
+- Better audit trail of app activities
+
+### When to Use a GitHub App
+
+**Use a GitHub App when:**
+- Your agents create pull requests that should trigger CI
+- You want a branded identity for your automation
+- You're using agents across multiple repositories
+- You need more granular permission control
+
+**Default GITHUB_TOKEN is fine when:**
+- Your agents only comment or label issues/PRs
+- You don't need CI triggering on created PRs
+- You're testing or starting out
+- You don't need custom branding
+
+### Setting Up
+
+See the [setup-app CLI reference](../../cli/setup-app/) for complete setup instructions.
+
+Quick setup:
+
+```bash
+# Single repository
+gh claude setup-app
+
+# Organization-wide (all repos)
+gh claude setup-app --org your-org-name
+```
+
+After setup, recompile your agents to use the new token:
+
+```bash
+gh claude compile --all
+```
+
 ## Next Steps
 
 After setting up authentication:
@@ -381,3 +452,4 @@ After setting up authentication:
 - [Create your first agent](../agent-definition/)
 - [Understand security model](../../reference/security/)
 - [Explore examples](../../examples/issue-triage/)
+- [Configure a GitHub App (optional)](../../cli/setup-app/)

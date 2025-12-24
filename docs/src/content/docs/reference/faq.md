@@ -256,6 +256,49 @@ git push
 
 The updated workflow takes effect immediately for new triggers.
 
+### Should I use a GitHub App for my agents?
+
+It depends on your use case. A GitHub App is **optional** but provides valuable benefits:
+
+**Use a GitHub App when:**
+- Your agents create pull requests that need to trigger CI workflows
+- You want branded identity (e.g., "MyApp[bot]" instead of "github-actions[bot]")
+- You're deploying agents across multiple repositories
+- You need fine-grained permission control
+
+**The default GITHUB_TOKEN is sufficient when:**
+- Your agents only comment, label, or close issues/PRs
+- You're just getting started or testing
+- You don't need CI triggering on created PRs
+- You don't require custom branding
+
+**To set up a GitHub App:**
+
+```bash
+gh claude setup-app
+```
+
+This command guides you through creating and configuring a GitHub App, including:
+- Setting up required permissions
+- Generating and storing credentials
+- Installing the app on your repositories
+
+After setup, recompile your agents:
+
+```bash
+gh claude compile --all
+```
+
+**Key benefits explained:**
+
+1. **CI Triggering**: The default `GITHUB_TOKEN` cannot trigger workflows (GitHub security feature). If your agent creates a PR with code changes, you typically want CI to run. A GitHub App token can trigger workflows.
+
+2. **Branded Identity**: Commits and comments appear as your app name (e.g., "CodeReviewer[bot]") instead of the generic "github-actions[bot]". This looks more professional and makes it clear which automation performed the action.
+
+3. **Cross-repository**: Install once on your org, use across all repos. The default `GITHUB_TOKEN` is repo-specific.
+
+**[→ See full setup guide](../../cli/setup-app/)**
+
 ### Can multiple agents run on the same trigger?
 
 Yes, you can have multiple agents that respond to the same event:
