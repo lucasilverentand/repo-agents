@@ -1,14 +1,31 @@
 import { writeFile } from 'fs/promises';
 import yaml from 'js-yaml';
-import type { AgentDefinition, WorkflowStep, Output } from '../types';
+import type { AgentDefinition, WorkflowStep, Output, TriggerConfig } from '../types';
 import { agentNameToWorkflowName } from '../cli/utils/files';
 import { getOutputHandler } from './outputs';
 import type { RuntimeContext } from './outputs/base';
 import { inputCollector } from './input-collector';
 
+// Types for generated GitHub Actions workflow structures
+interface GitHubWorkflowJob {
+  'runs-on': string;
+  needs?: string | string[];
+  if?: string;
+  outputs?: Record<string, string>;
+  strategy?: Record<string, unknown>;
+  steps: WorkflowStep[];
+}
+
+interface GitHubWorkflow {
+  name: string;
+  on: TriggerConfig;
+  permissions?: Record<string, string>;
+  jobs: Record<string, GitHubWorkflowJob>;
+}
+
 export class WorkflowGenerator {
   generate(agent: AgentDefinition): string {
-    const workflow: any = {
+    const workflow: GitHubWorkflow = {
       name: agent.name,
       on: this.generateTriggers(agent),
     };
@@ -130,8 +147,8 @@ export class WorkflowGenerator {
     return formatted.join('\n');
   }
 
-  private generateTriggers(agent: AgentDefinition): any {
-    const triggers: any = {};
+  private generateTriggers(agent: AgentDefinition): TriggerConfig {
+    const triggers: TriggerConfig = {};
 
     if (agent.on.issues) {
       triggers.issues = agent.on.issues;
@@ -160,12 +177,12 @@ export class WorkflowGenerator {
     return triggers;
   }
 
-  private generateValidationSteps(agent: AgentDefinition): any[] {
+  private generateValidationSteps(agent: AgentDefinition): WorkflowStep[] {
     const allowedUsers = [...(agent.allowed_users || []), ...(agent.allowed_actors || [])];
     const allowedLabels = agent.trigger_labels || [];
     const rateLimitMinutes = agent.rate_limit_minutes ?? 5;
 
-    const steps: any[] = [
+    const steps: WorkflowStep[] = [
       {
         name: 'Initialize audit tracking',
         id: 'init-audit',
@@ -655,7 +672,7 @@ fi
     return skills.join('\n');
   }
 
-  private generateCollectInputsJob(agent: AgentDefinition): any {
+  private generateCollectInputsJob(agent: AgentDefinition): GitHubWorkflowJob {
     if (!agent.inputs) {
       throw new Error('generateCollectInputsJob called without inputs configuration');
     }
@@ -684,7 +701,7 @@ fi
     };
   }
 
-  private generateExecuteOutputsJob(agent: AgentDefinition): any {
+  private generateExecuteOutputsJob(agent: AgentDefinition): GitHubWorkflowJob {
     const outputTypes = Object.keys(agent.outputs || {});
 
     return {
@@ -765,7 +782,7 @@ fi
     return scripts.join('\n');
   }
 
-  private generateReportResultsJob(agent: AgentDefinition): any {
+  private generateReportResultsJob(agent: AgentDefinition): GitHubWorkflowJob {
     const runtime = this.createRuntimeContext(agent);
 
     return {
@@ -825,7 +842,7 @@ fi
     };
   }
 
-  private generateAuditReportJob(agent: AgentDefinition): any {
+  private generateAuditReportJob(agent: AgentDefinition): GitHubWorkflowJob {
     const hasOutputs = agent.outputs && Object.keys(agent.outputs).length > 0;
     const auditConfig = agent.audit || {};
     const createIssues = auditConfig.create_issues !== false; // Default true
@@ -836,7 +853,7 @@ fi
       ? ['pre-flight', 'claude-agent', 'execute-outputs']
       : ['pre-flight', 'claude-agent'];
 
-    const steps: any[] = [
+    const steps: WorkflowStep[] = [
       {
         name: 'Download validation audit',
         uses: 'actions/download-artifact@v4',

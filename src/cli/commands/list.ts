@@ -5,7 +5,7 @@ import yaml from 'js-yaml';
 import { logger } from '../utils/logger';
 import { findMarkdownFiles, fileExists, agentNameToWorkflowName } from '../utils/files';
 import { agentParser } from '../../parser';
-import { AgentDefinition } from '../../types';
+import { AgentDefinition, OutputConfig } from '../../types';
 
 interface ListOptions {
   format?: 'table' | 'json' | 'yaml';
@@ -19,7 +19,7 @@ interface AgentInfo {
   compiled: boolean;
   lastModified: Date;
   permissions?: string[];
-  outputs?: Record<string, any>;
+  outputs?: Record<string, OutputConfig | boolean>;
 }
 
 export async function listCommand(options: ListOptions): Promise<void> {

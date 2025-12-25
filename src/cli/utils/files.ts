@@ -14,7 +14,7 @@ export async function findMarkdownFiles(directory: string): Promise<string[]> {
     }
 
     return files.sort();
-  } catch (error) {
+  } catch (_error) {
     return [];
   }
 }

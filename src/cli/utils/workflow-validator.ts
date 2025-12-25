@@ -16,7 +16,7 @@ export interface ValidationError {
 
 class WorkflowValidator {
   private ajv: Ajv;
-  private schema: any = null;
+  private schema: object | null = null;
 
   constructor() {
     this.ajv = new Ajv({
@@ -31,7 +31,7 @@ class WorkflowValidator {
    * Fetch the GitHub workflow schema from SchemaStore.
    * Uses a local cache to avoid repeated network requests.
    */
-  private async fetchSchema(): Promise<any> {
+  private async fetchSchema(): Promise<object> {
     if (this.schema) {
       return this.schema;
     }
@@ -70,7 +70,7 @@ class WorkflowValidator {
    */
   async validateWorkflow(workflowYaml: string): Promise<ValidationError[]> {
     // Parse YAML to JSON
-    let workflowJson: any;
+    let workflowJson: unknown;
     try {
       workflowJson = yaml.load(workflowYaml);
     } catch (error) {

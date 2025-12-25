@@ -78,7 +78,7 @@ export type Output =
 export interface OutputConfig {
   max?: number; // Maximum times this output can be used
   sign?: boolean; // Whether to sign commits (for code changes)
-  [key: string]: any; // Allow custom settings
+  [key: string]: unknown; // Allow custom settings
 }
 
 export interface Tool {

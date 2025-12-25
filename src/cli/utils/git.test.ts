@@ -1,17 +1,25 @@
+import { describe, it, expect, beforeEach, mock } from 'bun:test';
+
+// Create mock functions
+const mockExecSync = mock(() => Buffer.from(''));
+const mockExistsSync = mock(() => false);
+
+// Mock modules before importing the module under test
+mock.module('child_process', () => ({
+  execSync: mockExecSync,
+}));
+
+mock.module('fs', () => ({
+  existsSync: mockExistsSync,
+}));
+
+// Import after mocking
 import { isGitRepository, hasGitHubRemote, getGitHubRepo, hasGitHubDirectory } from './git';
-import { execSync } from 'child_process';
-import { existsSync } from 'fs';
-
-// Mock child_process
-jest.mock('child_process');
-jest.mock('fs');
-
-const mockExecSync = execSync as jest.MockedFunction<typeof execSync>;
-const mockExistsSync = existsSync as jest.MockedFunction<typeof existsSync>;
 
 describe('git utilities', () => {
   beforeEach(() => {
-    jest.clearAllMocks();
+    mockExecSync.mockReset();
+    mockExistsSync.mockReset();
   });
 
   describe('isGitRepository', () => {
@@ -51,7 +59,7 @@ describe('git utilities', () => {
 
   describe('hasGitHubRemote', () => {
     it('should return true for HTTPS GitHub remote', () => {
-      mockExecSync.mockReturnValue(Buffer.from('https://github.com/owner/repo.git'));
+      mockExecSync.mockReturnValue('https://github.com/owner/repo.git');
 
       const result = hasGitHubRemote('/path/to/repo');
 
@@ -63,7 +71,7 @@ describe('git utilities', () => {
     });
 
     it('should return true for SSH GitHub remote', () => {
-      mockExecSync.mockReturnValue(Buffer.from('git@github.com:owner/repo.git'));
+      mockExecSync.mockReturnValue('git@github.com:owner/repo.git');
 
       const result = hasGitHubRemote('/path/to/repo');
 
@@ -71,7 +79,7 @@ describe('git utilities', () => {
     });
 
     it('should return false for non-GitHub remote', () => {
-      mockExecSync.mockReturnValue(Buffer.from('https://gitlab.com/owner/repo.git'));
+      mockExecSync.mockReturnValue('https://gitlab.com/owner/repo.git');
 
       const result = hasGitHubRemote('/path/to/repo');
 
@@ -89,7 +97,7 @@ describe('git utilities', () => {
     });
 
     it('should use current working directory by default', () => {
-      mockExecSync.mockReturnValue(Buffer.from('https://github.com/owner/repo.git'));
+      mockExecSync.mockReturnValue('https://github.com/owner/repo.git');
 
       hasGitHubRemote();
 
@@ -102,7 +110,7 @@ describe('git utilities', () => {
 
   describe('getGitHubRepo', () => {
     it('should extract owner and repo from HTTPS URL', () => {
-      mockExecSync.mockReturnValue(Buffer.from('https://github.com/octocat/hello-world.git\n'));
+      mockExecSync.mockReturnValue('https://github.com/octocat/hello-world.git\n');
 
       const result = getGitHubRepo('/path/to/repo');
 
@@ -113,7 +121,7 @@ describe('git utilities', () => {
     });
 
     it('should extract owner and repo from HTTPS URL without .git', () => {
-      mockExecSync.mockReturnValue(Buffer.from('https://github.com/octocat/hello-world\n'));
+      mockExecSync.mockReturnValue('https://github.com/octocat/hello-world\n');
 
       const result = getGitHubRepo('/path/to/repo');
 
@@ -124,7 +132,7 @@ describe('git utilities', () => {
     });
 
     it('should extract owner and repo from SSH URL', () => {
-      mockExecSync.mockReturnValue(Buffer.from('git@github.com:octocat/hello-world.git\n'));
+      mockExecSync.mockReturnValue('git@github.com:octocat/hello-world.git\n');
 
       const result = getGitHubRepo('/path/to/repo');
 
@@ -135,7 +143,7 @@ describe('git utilities', () => {
     });
 
     it('should extract owner and repo from SSH URL without .git', () => {
-      mockExecSync.mockReturnValue(Buffer.from('git@github.com:octocat/hello-world\n'));
+      mockExecSync.mockReturnValue('git@github.com:octocat/hello-world\n');
 
       const result = getGitHubRepo('/path/to/repo');
 
@@ -146,7 +154,7 @@ describe('git utilities', () => {
     });
 
     it('should handle repos with hyphens and underscores', () => {
-      mockExecSync.mockReturnValue(Buffer.from('https://github.com/my-org/my_repo-name.git\n'));
+      mockExecSync.mockReturnValue('https://github.com/my-org/my_repo-name.git\n');
 
       const result = getGitHubRepo('/path/to/repo');
 
@@ -157,7 +165,7 @@ describe('git utilities', () => {
     });
 
     it('should return null for non-GitHub URL', () => {
-      mockExecSync.mockReturnValue(Buffer.from('https://gitlab.com/owner/repo.git\n'));
+      mockExecSync.mockReturnValue('https://gitlab.com/owner/repo.git\n');
 
       const result = getGitHubRepo('/path/to/repo');
 
@@ -175,7 +183,7 @@ describe('git utilities', () => {
     });
 
     it('should return null for malformed URL', () => {
-      mockExecSync.mockReturnValue(Buffer.from('invalid-url'));
+      mockExecSync.mockReturnValue('invalid-url');
 
       const result = getGitHubRepo('/path/to/repo');
 
@@ -183,7 +191,7 @@ describe('git utilities', () => {
     });
 
     it('should use current working directory by default', () => {
-      mockExecSync.mockReturnValue(Buffer.from('https://github.com/owner/repo.git'));
+      mockExecSync.mockReturnValue('https://github.com/owner/repo.git');
 
       getGitHubRepo();
 
@@ -229,7 +237,7 @@ describe('git utilities', () => {
           return Buffer.from('.git');
         }
         if (cmd === 'git remote get-url origin') {
-          return Buffer.from('https://github.com/owner/repo.git');
+          return 'https://github.com/owner/repo.git';
         }
         return Buffer.from('');
       });

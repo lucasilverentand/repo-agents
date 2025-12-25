@@ -43,72 +43,81 @@ describe('OutputHandlerRegistry', () => {
       const handler = registry.getHandler('add-comment');
 
       expect(handler).toBeDefined();
-      expect(handler.name).toBe('add-comment');
-      expect(handler.execute).toBeDefined();
+      expect(typeof handler.getContextScript).toBe('function');
+      expect(typeof handler.generateSkill).toBe('function');
+      expect(typeof handler.generateValidationScript).toBe('function');
     });
 
     it('should retrieve add-label handler', () => {
       const handler = registry.getHandler('add-label');
 
       expect(handler).toBeDefined();
-      expect(handler.name).toBe('add-label');
-      expect(handler.execute).toBeDefined();
+      expect(typeof handler.getContextScript).toBe('function');
+      expect(typeof handler.generateSkill).toBe('function');
+      expect(typeof handler.generateValidationScript).toBe('function');
     });
 
     it('should retrieve remove-label handler', () => {
       const handler = registry.getHandler('remove-label');
 
       expect(handler).toBeDefined();
-      expect(handler.name).toBe('remove-label');
-      expect(handler.execute).toBeDefined();
+      expect(typeof handler.getContextScript).toBe('function');
+      expect(typeof handler.generateSkill).toBe('function');
+      expect(typeof handler.generateValidationScript).toBe('function');
     });
 
     it('should retrieve create-issue handler', () => {
       const handler = registry.getHandler('create-issue');
 
       expect(handler).toBeDefined();
-      expect(handler.name).toBe('create-issue');
-      expect(handler.execute).toBeDefined();
+      expect(typeof handler.getContextScript).toBe('function');
+      expect(typeof handler.generateSkill).toBe('function');
+      expect(typeof handler.generateValidationScript).toBe('function');
     });
 
     it('should retrieve create-discussion handler', () => {
       const handler = registry.getHandler('create-discussion');
 
       expect(handler).toBeDefined();
-      expect(handler.name).toBe('create-discussion');
-      expect(handler.execute).toBeDefined();
+      expect(typeof handler.getContextScript).toBe('function');
+      expect(typeof handler.generateSkill).toBe('function');
+      expect(typeof handler.generateValidationScript).toBe('function');
     });
 
     it('should retrieve create-pr handler', () => {
       const handler = registry.getHandler('create-pr');
 
       expect(handler).toBeDefined();
-      expect(handler.name).toBe('create-pr');
-      expect(handler.execute).toBeDefined();
+      expect(typeof handler.getContextScript).toBe('function');
+      expect(typeof handler.generateSkill).toBe('function');
+      expect(typeof handler.generateValidationScript).toBe('function');
     });
 
     it('should retrieve update-file handler', () => {
       const handler = registry.getHandler('update-file');
 
       expect(handler).toBeDefined();
-      expect(handler.name).toBe('update-file');
-      expect(handler.execute).toBeDefined();
+      expect(typeof handler.getContextScript).toBe('function');
+      expect(typeof handler.generateSkill).toBe('function');
+      expect(typeof handler.generateValidationScript).toBe('function');
     });
 
     it('should retrieve close-issue handler', () => {
       const handler = registry.getHandler('close-issue');
 
       expect(handler).toBeDefined();
-      expect(handler.name).toBe('close-issue');
-      expect(handler.execute).toBeDefined();
+      expect(typeof handler.getContextScript).toBe('function');
+      expect(typeof handler.generateSkill).toBe('function');
+      expect(typeof handler.generateValidationScript).toBe('function');
     });
 
     it('should retrieve close-pr handler', () => {
       const handler = registry.getHandler('close-pr');
 
       expect(handler).toBeDefined();
-      expect(handler.name).toBe('close-pr');
-      expect(handler.execute).toBeDefined();
+      expect(typeof handler.getContextScript).toBe('function');
+      expect(typeof handler.generateSkill).toBe('function');
+      expect(typeof handler.generateValidationScript).toBe('function');
     });
 
     it('should throw error for unregistered handler', () => {
@@ -149,7 +158,7 @@ describe('OutputHandlerRegistry', () => {
   });
 
   describe('handler properties', () => {
-    it('should verify all handlers have required properties', () => {
+    it('should verify all handlers have required interface methods', () => {
       const outputs: Output[] = [
         'add-comment',
         'add-label',
@@ -165,9 +174,9 @@ describe('OutputHandlerRegistry', () => {
       outputs.forEach((output) => {
         const handler = registry.getHandler(output);
 
-        expect(handler.name).toBe(output);
-        expect(typeof handler.execute).toBe('function');
-        expect(handler.execute.length).toBeGreaterThan(0); // Should accept parameters
+        expect(typeof handler.getContextScript).toBe('function');
+        expect(typeof handler.generateSkill).toBe('function');
+        expect(typeof handler.generateValidationScript).toBe('function');
       });
     });
   });
@@ -178,9 +187,12 @@ describe('OutputHandlerRegistry', () => {
       const handler2 = getOutputHandler('create-pr');
       const handler3 = getOutputHandler('update-file');
 
-      expect(handler1.name).toBe('add-comment');
-      expect(handler2.name).toBe('create-pr');
-      expect(handler3.name).toBe('update-file');
+      expect(handler1).toBeDefined();
+      expect(handler2).toBeDefined();
+      expect(handler3).toBeDefined();
+      expect(typeof handler1.generateSkill).toBe('function');
+      expect(typeof handler2.generateSkill).toBe('function');
+      expect(typeof handler3.generateSkill).toBe('function');
     });
 
     it('should maintain handler consistency across calls', () => {

@@ -1,6 +1,69 @@
+import { describe, it, expect, beforeAll } from 'bun:test';
 import { workflowValidator } from './workflow-validator';
 
+// Mock fetch to avoid network dependency
+const mockSchema = {
+  $schema: 'http://json-schema.org/draft-07/schema#',
+  type: 'object',
+  required: ['on', 'jobs'],
+  properties: {
+    name: { type: 'string' },
+    on: {
+      oneOf: [
+        { type: 'string', enum: ['push', 'pull_request', 'workflow_dispatch'] },
+        {
+          type: 'object',
+          properties: {
+            push: { type: 'object' },
+            pull_request: { type: 'object' },
+            schedule: { type: 'array' },
+            workflow_dispatch: { type: 'object' },
+          },
+          additionalProperties: false,
+        },
+      ],
+    },
+    permissions: { type: 'object' },
+    jobs: {
+      type: 'object',
+      additionalProperties: {
+        type: 'object',
+        required: ['runs-on', 'steps'],
+        properties: {
+          'runs-on': { type: 'string' },
+          needs: {},
+          if: { type: 'string' },
+          outputs: { type: 'object' },
+          env: { type: 'object' },
+          steps: {
+            type: 'array',
+            items: {
+              type: 'object',
+              properties: {
+                name: { type: 'string' },
+                id: { type: 'string' },
+                uses: { type: 'string' },
+                run: { type: 'string' },
+                env: { type: 'object' },
+                with: { type: 'object' },
+              },
+            },
+          },
+        },
+      },
+    },
+  },
+};
+
 describe('WorkflowValidator', () => {
+  beforeAll(() => {
+    // Mock global fetch
+    globalThis.fetch = (() =>
+      Promise.resolve({
+        ok: true,
+        json: () => Promise.resolve(mockSchema),
+      } as Response)) as typeof fetch;
+  });
   describe('validateWorkflow', () => {
     it('should validate a valid workflow', async () => {
       const validWorkflow = `

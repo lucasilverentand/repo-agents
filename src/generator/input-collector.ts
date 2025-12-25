@@ -1,4 +1,12 @@
-import type { InputConfig } from '../types';
+import type {
+  InputConfig,
+  IssuesInputConfig,
+  PullRequestsInputConfig,
+  DiscussionsInputConfig,
+  CommitsInputConfig,
+  ReleasesInputConfig,
+  WorkflowRunsInputConfig,
+} from '../types';
 
 export class InputCollector {
   /**
@@ -145,7 +153,7 @@ else
 fi`;
   }
 
-  private generateIssuesScript(config: any): string {
+  private generateIssuesScript(config: IssuesInputConfig): string {
     const limit = config.limit || 100;
     // GitHub API only accepts 'open', 'closed', or 'all' - not comma-separated values
     const state = this.normalizeState(config.states);
@@ -186,7 +194,7 @@ else
 fi`;
   }
 
-  private generatePullRequestsScript(config: any): string {
+  private generatePullRequestsScript(config: PullRequestsInputConfig): string {
     const limit = config.limit || 100;
     // GitHub API only accepts 'open', 'closed', or 'all' - not comma-separated values
     const state = this.normalizeState(config.states);
@@ -235,7 +243,7 @@ else
 fi`;
   }
 
-  private generateDiscussionsScript(config: any): string {
+  private generateDiscussionsScript(config: DiscussionsInputConfig): string {
     const limit = config.limit || 100;
     const categories = config.categories?.map((c: string) => `"${c}"`).join(',') || '';
 
@@ -303,7 +311,7 @@ else
 fi`;
   }
 
-  private generateCommitsScript(config: any): string {
+  private generateCommitsScript(config: CommitsInputConfig): string {
     const branches = config.branches || ['main', 'master'];
     const limit = config.limit || 100;
 
@@ -353,7 +361,7 @@ else
 fi`;
   }
 
-  private generateReleasesScript(config: any): string {
+  private generateReleasesScript(config: ReleasesInputConfig): string {
     const limit = config.limit || 20;
 
     return `# Collect Releases
@@ -388,7 +396,7 @@ else
 fi`;
   }
 
-  private generateWorkflowRunsScript(config: any): string {
+  private generateWorkflowRunsScript(config: WorkflowRunsInputConfig): string {
     const limit = config.limit || 50;
     const statuses = config.status?.join(',') || 'failure';
 

@@ -70,7 +70,7 @@ function getTokenFromKeychain(): string | null {
     }
 
     return null;
-  } catch (error) {
+  } catch (_error) {
     return null;
   }
 }
@@ -107,7 +107,7 @@ async function runClaudeSetupToken(): Promise<boolean> {
     });
 
     return result.status === 0;
-  } catch (error) {
+  } catch (_error) {
     return false;
   }
 }
@@ -122,7 +122,7 @@ function setGitHubSecret(secretName: string, secretValue: string): void {
       input: secretValue,
       stdio: ['pipe', 'inherit', 'inherit'],
     });
-  } catch (error) {
+  } catch (_error) {
     throw new Error(
       'Failed to set GitHub secret. Make sure gh CLI is installed and authenticated.'
     );
@@ -143,7 +143,7 @@ function getExistingSecrets(): { hasApiKey: boolean; hasAccessToken: boolean } {
       hasApiKey: secrets.some((s: { name: string }) => s.name === 'ANTHROPIC_API_KEY'),
       hasAccessToken: secrets.some((s: { name: string }) => s.name === 'CLAUDE_CODE_OAUTH_TOKEN'),
     };
-  } catch (error) {
+  } catch (_error) {
     return { hasApiKey: false, hasAccessToken: false };
   }
 }
