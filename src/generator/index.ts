@@ -5,6 +5,7 @@ import { agentNameToWorkflowName } from '../cli/utils/files';
 import { getOutputHandler } from './outputs';
 import type { RuntimeContext } from './outputs/base';
 import { inputCollector } from './input-collector';
+import { logger } from '../cli/utils/logger';
 
 // Types for generated GitHub Actions workflow structures
 interface GitHubWorkflowJob {
@@ -506,7 +507,7 @@ echo "✓ All validation checks passed"`,
           }
         } catch {
           // Handler not found - skip
-          console.warn(`Warning: No handler found for output type: ${outputType}`);
+          logger.warn(`No handler found for output type: ${outputType}`);
         }
       }
     }
@@ -665,7 +666,7 @@ fi
         skills.push('');
       } catch {
         // Handler not found - skip
-        console.warn(`Warning: No handler found for output type: ${outputType}`);
+        logger.warn(`No handler found for output type: ${outputType}`);
       }
     }
 
@@ -775,7 +776,7 @@ fi
 `);
       } catch {
         // Handler not found - skip
-        console.warn(`Warning: No handler found for output type: ${outputType}`);
+        logger.warn(`No handler found for output type: ${outputType}`);
       }
     }
 
