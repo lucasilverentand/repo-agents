@@ -25,7 +25,7 @@ interface GitHubWorkflow {
 
 export class WorkflowGenerator {
   generate(agent: AgentDefinition): string {
-    const workflow: GitHubWorkflow = {
+    const workflow: Partial<GitHubWorkflow> & { name: string; on: TriggerConfig } = {
       name: agent.name,
       on: this.generateTriggers(agent),
     };

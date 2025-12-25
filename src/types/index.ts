@@ -115,10 +115,11 @@ export interface WorkflowStep {
   name?: string;
   id?: string;
   uses?: string;
-  with?: Record<string, string>;
+  with?: Record<string, string | boolean>;
   run?: string;
   env?: Record<string, string>;
   if?: string;
+  'continue-on-error'?: boolean;
 }
 
 // Input Configuration Types

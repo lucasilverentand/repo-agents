@@ -39,7 +39,7 @@ class WorkflowValidator {
     // Try to load from cache first
     try {
       const cached = await readFile(SCHEMA_CACHE_PATH, 'utf-8');
-      this.schema = JSON.parse(cached);
+      this.schema = JSON.parse(cached) as object;
       return this.schema;
     } catch {
       // Cache miss or read error, fetch from network
@@ -51,7 +51,7 @@ class WorkflowValidator {
       throw new Error(`Failed to fetch workflow schema: ${response.statusText}`);
     }
 
-    this.schema = await response.json();
+    this.schema = (await response.json()) as object;
 
     // Cache for future use
     try {

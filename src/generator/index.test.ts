@@ -106,7 +106,9 @@ describe('WorkflowGenerator', () => {
       const workflow = yaml.load(result) as ParsedWorkflow;
       // Find the "Add agent instructions" step
       const steps = workflow.jobs['claude-agent'].steps;
-      const instructionsStep = steps.find((step: WorkflowStep) => step.name === 'Add agent instructions');
+      const instructionsStep = steps.find(
+        (step: WorkflowStep) => step.name === 'Add agent instructions'
+      );
 
       expect(instructionsStep).toBeDefined();
       expect(instructionsStep?.run).toContain('Test Instructions');
@@ -214,7 +216,9 @@ describe('WorkflowGenerator', () => {
       const result = generator.generate(agent);
       const workflow = yaml.load(result) as ParsedWorkflow;
       const steps = workflow.jobs['claude-agent'].steps;
-      const instructionsStep = steps.find((step: WorkflowStep) => step.name === 'Add agent instructions');
+      const instructionsStep = steps.find(
+        (step: WorkflowStep) => step.name === 'Add agent instructions'
+      );
 
       expect(instructionsStep).toBeDefined();
       expect(instructionsStep?.run).toContain('\\`code\\`');
@@ -265,7 +269,9 @@ describe('WorkflowGenerator', () => {
         const result = generator.generate(agent);
         const workflow = yaml.load(result) as ParsedWorkflow;
         const steps = workflow.jobs['pre-flight'].steps;
-        const userStep = steps.find((step: WorkflowStep) => step.name === 'Check user authorization');
+        const userStep = steps.find(
+          (step: WorkflowStep) => step.name === 'Check user authorization'
+        );
 
         expect(userStep).toBeDefined();
         expect(userStep?.run).toContain('github.actor');
@@ -317,7 +323,9 @@ describe('WorkflowGenerator', () => {
         const result = generator.generate(agent);
         const workflow = yaml.load(result) as ParsedWorkflow;
         const steps = workflow.jobs['pre-flight'].steps;
-        const userStep = steps.find((step: WorkflowStep) => step.name === 'Check user authorization');
+        const userStep = steps.find(
+          (step: WorkflowStep) => step.name === 'Check user authorization'
+        );
 
         expect(userStep).toBeDefined();
         expect(userStep?.run).toContain('user1 user2');
@@ -368,7 +376,9 @@ describe('WorkflowGenerator', () => {
         const result = generator.generate(agent);
         const workflow = yaml.load(result) as ParsedWorkflow;
         const steps = workflow.jobs['claude-agent'].steps;
-        const skillsStep = steps.find((step: WorkflowStep) => step.name === 'Create Claude skills file');
+        const skillsStep = steps.find(
+          (step: WorkflowStep) => step.name === 'Create Claude skills file'
+        );
 
         expect(skillsStep).toBeUndefined();
       });
@@ -386,7 +396,9 @@ describe('WorkflowGenerator', () => {
         const result = generator.generate(agent);
         const workflow = yaml.load(result) as ParsedWorkflow;
         const steps = workflow.jobs['claude-agent'].steps;
-        const skillsStep = steps.find((step: WorkflowStep) => step.name === 'Create Claude skills file');
+        const skillsStep = steps.find(
+          (step: WorkflowStep) => step.name === 'Create Claude skills file'
+        );
 
         expect(skillsStep).toBeDefined();
         expect(skillsStep?.run).toContain('CLAUDE.md');
@@ -406,7 +418,9 @@ describe('WorkflowGenerator', () => {
         const result = generator.generate(agent);
         const workflow = yaml.load(result) as ParsedWorkflow;
         const steps = workflow.jobs['claude-agent'].steps;
-        const outputsStep = steps.find((step: WorkflowStep) => step.name === 'Create outputs directory');
+        const outputsStep = steps.find(
+          (step: WorkflowStep) => step.name === 'Create outputs directory'
+        );
 
         expect(outputsStep).toBeDefined();
         expect(outputsStep?.run).toContain('/tmp/outputs');
