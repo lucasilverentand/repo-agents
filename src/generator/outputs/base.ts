@@ -10,6 +10,12 @@ export interface RuntimeContext {
   issueNumber?: string;
   /** Pull request number if triggered by PR event */
   prNumber?: string;
+  /**
+   * Combined issue or PR number for use in bash scripts.
+   * Uses concatenation of both template strings so the correct one
+   * is used at workflow runtime (whichever is non-empty).
+   */
+  issueOrPrNumber: string;
   /** Allowed paths glob patterns for file operations */
   allowedPaths?: string[];
 }

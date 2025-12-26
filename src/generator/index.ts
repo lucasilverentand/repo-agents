@@ -641,6 +641,9 @@ fi
       repository: '${{ github.repository }}',
       issueNumber: '${{ github.event.issue.number }}',
       prNumber: '${{ github.event.pull_request.number }}',
+      // Concatenate both template strings - at workflow runtime, only one will be non-empty
+      // This allows the same workflow to work for both issue and PR events
+      issueOrPrNumber: '${{ github.event.issue.number }}${{ github.event.pull_request.number }}',
       allowedPaths: agent.allowed_paths,
     };
   }
@@ -823,7 +826,7 @@ if [ -d "/tmp/all-validation-errors" ] && [ "$(ls -A /tmp/all-validation-errors 
   done
 
   # Post comment if we have issue/PR number
-  ISSUE_OR_PR_NUMBER="${runtime.issueNumber || runtime.prNumber}"
+  ISSUE_OR_PR_NUMBER="${runtime.issueOrPrNumber}"
   if [ -n "$ISSUE_OR_PR_NUMBER" ]; then
     echo -e "$ERROR_MSG" | gh api "repos/${runtime.repository}/issues/$ISSUE_OR_PR_NUMBER/comments" \\
       -X POST \\
