@@ -29,18 +29,17 @@ gh claude --version
 
 You should see the version number displayed.
 
-## Setting Up API Key
+## Authentication
 
-gh-claude requires an Anthropic API key to use Claude. You'll need to add this as a repository secret:
-
-1. Get your API key from [Anthropic Console](https://console.anthropic.com/)
-2. Add it to your repository:
+Configure Claude API access:
 
 ```bash
-gh secret set ANTHROPIC_API_KEY
+gh claude setup-token
 ```
 
-When prompted, paste your API key.
+This guides you through adding your Anthropic API key as a repository secret.
+
+**[Complete Authentication Guide](/gh-claude/guide/authentication/)** - OAuth, GitHub App setup, and advanced options.
 
 ## Next Steps
 

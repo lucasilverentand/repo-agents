@@ -162,3 +162,10 @@ security:
   require_outputs: false
   require_permissions: false
 ```
+
+## See Also
+
+- [Authentication](/gh-claude/guide/authentication/) - API key setup
+- [Quick Reference](/gh-claude/reference/quick-reference/) - All configuration options
+- [Agent Definition](/gh-claude/guide/agent-definition/) - Per-agent configuration
+- [Cost Estimation](/gh-claude/guide/cost-estimation/) - Model cost comparison

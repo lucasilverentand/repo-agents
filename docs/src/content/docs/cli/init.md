@@ -74,7 +74,17 @@ With `--examples`, creates starter agent templates:
 
 After initialization:
 
-1. Configure your [Anthropic API key](../../getting-started/installation/#setting-up-api-key)
+1. Configure authentication with [setup-token](../setup-token/)
 2. Review or customize example agents
 3. [Compile](../compile/) agents to workflows
 4. Commit and push changes
+
+## See It In Action
+
+- [Issue Triage Example](/gh-claude/examples/issue-triage/) - Complete triage agent
+- [PR Review Example](/gh-claude/examples/pr-review/) - Code review agent
+
+## See Also
+
+- [Quick Start](/gh-claude/getting-started/quick-start/) - Full getting started guide
+- [Agent Definition](/gh-claude/guide/agent-definition/) - How to write agents

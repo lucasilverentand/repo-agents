@@ -84,7 +84,9 @@ outputs:
   add-label: true
 ```
 
-## Next Steps
+## See Also
 
-- Learn about [Outputs](../outputs/)
-- Review [Security](../../reference/security/)
+- [Outputs Overview](/gh-claude/guide/outputs/) - Actions your agent can take
+- [Security Best Practices](/gh-claude/guide/security-best-practices/) - Secure permission patterns
+- [Agent Definition](/gh-claude/guide/agent-definition/) - Complete agent configuration
+- [Quick Reference](/gh-claude/reference/quick-reference/) - Permission lookup table

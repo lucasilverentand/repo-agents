@@ -650,12 +650,12 @@ If files are being modified incorrectly:
 
 ## Related Outputs
 
-- [Pull Requests (create-pr, close-pr)](./pull-requests.md) - Alternative for code review
-- [Comments (add-comment)](./comments.md) - For explaining changes
-- [Issues (create-issue, close-issue)](./issues.md) - For coordinating changes
+- [Pull Requests (create-pr, close-pr)](./pull-requests/) - Alternative for code review
+- [Comments (add-comment)](./comments/) - For explaining changes
+- [Issues (create-issue, close-issue)](./issues/) - For coordinating changes
 
 ## Next Steps
 
-- Learn about [Permissions](../permissions/)
+- Learn about [Permissions](../../guide/permissions/)
 - Review [Security Best Practices](../../reference/security/)
 - Explore [Examples](../../examples/issue-triage/)

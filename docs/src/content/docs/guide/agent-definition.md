@@ -258,6 +258,12 @@ Keep the tone friendly and professional!
 
 ## Next Steps
 
-- Learn about [Triggers](../../triggers/)
-- Explore [Outputs](../outputs/)
-- Review [Examples](../../examples/issue-triage/)
+- [Triggers](/gh-claude/triggers/) - When your agent runs
+- [Outputs](/gh-claude/guide/outputs/) - What your agent can do
+- [Examples](/gh-claude/examples/) - See complete agents
+
+## See Also
+
+- [Quick Reference](/gh-claude/reference/quick-reference/) - All frontmatter fields
+- [Permissions](/gh-claude/guide/permissions/) - GitHub permission configuration
+- [Security Best Practices](/gh-claude/guide/security-best-practices/) - Secure agent configuration

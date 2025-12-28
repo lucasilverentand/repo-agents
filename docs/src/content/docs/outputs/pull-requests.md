@@ -633,13 +633,13 @@ If PRs modify files outside `allowed-paths`:
 
 ## Related Outputs
 
-- [Comments (add-comment)](./comments.md) - Pair with PRs for feedback
-- [Labels (add-label, remove-label)](./labels.md) - For PR organization
-- [Files (update-file)](./files.md) - For file modifications without PRs
-- [Issues (create-issue, close-issue)](./issues.md) - For issue management
+- [Comments (add-comment)](./comments/) - Pair with PRs for feedback
+- [Labels (add-label, remove-label)](./labels/) - For PR organization
+- [Files (update-file)](./files/) - For file modifications without PRs
+- [Issues (create-issue, close-issue)](./issues/) - For issue management
 
 ## Next Steps
 
-- Learn about [Permissions](../permissions/)
-- Explore [File Modifications](./files.md)
+- Learn about [Permissions](../../guide/permissions/)
+- Explore [File Modifications](./files/)
 - Review [Security Best Practices](../../reference/security/)

@@ -477,9 +477,9 @@ Refine agent logic to:
 
 ## Related Outputs
 
-- [Comments (add-comment)](./comments.md) - Pair with issue management
-- [Labels (add-label, remove-label)](./labels.md) - For issue organization
-- [Pull Requests (create-pr, close-pr)](./pull-requests.md) - For PR management
+- [Comments (add-comment)](./comments/) - Pair with issue management
+- [Labels (add-label, remove-label)](./labels/) - For issue organization
+- [Pull Requests (create-pr, close-pr)](./pull-requests/) - For PR management
 
 ## Next Steps
 

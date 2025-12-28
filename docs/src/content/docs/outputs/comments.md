@@ -265,12 +265,12 @@ If your agent posts more comments than expected:
 
 ## Related Outputs
 
-- [Labels (add-label, remove-label)](./labels.md) - Pair with comments for issue management
-- [Issues (create-issue, close-issue)](./issues.md) - For creating new issues
-- [Pull Requests (create-pr, close-pr)](./pull-requests.md) - For PR management
+- [Labels (add-label, remove-label)](./labels/) - Pair with comments for issue management
+- [Issues (create-issue, close-issue)](./issues/) - For creating new issues
+- [Pull Requests (create-pr, close-pr)](./pull-requests/) - For PR management
 
 ## Next Steps
 
-- Learn about [Permissions](../permissions/)
-- Explore [Labels output](./labels.md)
+- Learn about [Permissions](../../guide/permissions/)
+- Explore [Labels output](./labels/)
 - Review [Security Best Practices](../../reference/security/)
