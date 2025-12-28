@@ -121,4 +121,10 @@ jobs:
 ## Next Steps
 
 - [Compile](../compile/) validated agents
-- Review [Agent Definition](../../guide/agent-definition/)
+- Review [Agent Definition](/gh-claude/guide/agent-definition/)
+
+## See Also
+
+- [Testing Strategies](/gh-claude/guide/testing-strategies/) - Safe development workflow
+- [Troubleshooting](/gh-claude/guide/troubleshooting/) - Common validation errors
+- [Quick Reference](/gh-claude/reference/quick-reference/) - Valid field values

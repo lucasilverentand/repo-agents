@@ -81,4 +81,14 @@ The compiled workflow includes:
 
 - [Validate](../validate/) agents before compiling
 - [List](../list/) all agents
-- Learn about [Agent Definition](../../guide/agent-definition/)
+- Learn about [Agent Definition](/gh-claude/guide/agent-definition/)
+
+## See It In Action
+
+- [Issue Triage Example](/gh-claude/examples/issue-triage/) - Complete agent workflow
+- [Daily Summary Example](/gh-claude/examples/daily-summary/) - Scheduled agent
+
+## See Also
+
+- [Testing Strategies](/gh-claude/guide/testing-strategies/) - Safe development workflow
+- [Troubleshooting](/gh-claude/guide/troubleshooting/) - Common issues
