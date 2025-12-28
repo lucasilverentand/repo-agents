@@ -39,7 +39,10 @@ export default defineConfig({
           label: 'Authentication & Security',
           items: [
             { label: 'Authentication', slug: 'guide/authentication' },
+            { label: 'Security Overview', slug: 'reference/security' },
             { label: 'Security Best Practices', slug: 'guide/security-best-practices' },
+            { label: 'Security Model', slug: 'reference/security-model' },
+            { label: 'Security Checklist', slug: 'reference/security-checklist' },
           ],
         },
         {
@@ -107,7 +110,6 @@ export default defineConfig({
             { label: 'Overview', slug: 'reference' },
             { label: 'Quick Reference', slug: 'reference/quick-reference' },
             { label: 'Configuration', slug: 'reference/configuration' },
-            { label: 'Security', slug: 'reference/security' },
             { label: 'FAQ', slug: 'reference/faq' },
           ],
         },
@@ -116,6 +118,8 @@ export default defineConfig({
           collapsed: true,
           items: [
             { label: 'Advanced Topics', slug: 'guide/advanced' },
+            { label: 'Multi-Agent Patterns', slug: 'guide/multi-agent-patterns' },
+            { label: 'Testing Strategies', slug: 'guide/testing-strategies' },
             { label: 'Troubleshooting', slug: 'guide/troubleshooting' },
           ],
         },
