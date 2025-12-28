@@ -170,8 +170,8 @@ ISSUES_JSON=$(gh api "repos/\${{ github.repository }}/issues?state=${state}&per_
   --jq '[.[] | select(.pull_request == null and (.updated_at >= "'$SINCE_DATE'"))]' 2>/dev/null || echo "[]")
 
 # Filter by labels if specified
-${labels ? `ISSUES_JSON=$(echo "$ISSUES_JSON" | jq '[.[] | select(.labels | map(.name) | contains(["${labels.split(',').join('","')}"]) | any)]')` : ''}
-${excludeLabels ? `ISSUES_JSON=$(echo "$ISSUES_JSON" | jq '[.[] | select(.labels | map(.name) | contains(["${excludeLabels.split(',').join('","')}"]) | any | not)]')` : ''}
+${labels ? `ISSUES_JSON=$(echo "$ISSUES_JSON" | jq '[.[] | select(.labels | type == "array" and (map(.name) | contains(["${labels.split(',').join('","')}"]) | any))]')` : ''}
+${excludeLabels ? `ISSUES_JSON=$(echo "$ISSUES_JSON" | jq '[.[] | select(.labels | type == "array" and (map(.name) | contains(["${excludeLabels.split(',').join('","')}"]) | any | not))]')` : ''}
 
 ISSUES_COUNT=$(echo "$ISSUES_JSON" | jq 'length')
 TOTAL_ITEMS=$((TOTAL_ITEMS + ISSUES_COUNT))
@@ -211,8 +211,8 @@ PRS_JSON=$(gh api "repos/\${{ github.repository }}/pulls?state=${state}&per_page
   --jq '[.[] | select(.updated_at >= "'$SINCE_DATE'")]' 2>/dev/null || echo "[]")
 
 # Filter by labels if specified
-${labels ? `PRS_JSON=$(echo "$PRS_JSON" | jq '[.[] | select(.labels | map(.name) | contains(["${labels.split(',').join('","')}"]) | any)]')` : ''}
-${excludeLabels ? `PRS_JSON=$(echo "$PRS_JSON" | jq '[.[] | select(.labels | map(.name) | contains(["${excludeLabels.split(',').join('","')}"]) | any | not)]')` : ''}
+${labels ? `PRS_JSON=$(echo "$PRS_JSON" | jq '[.[] | select(.labels | type == "array" and (map(.name) | contains(["${labels.split(',').join('","')}"]) | any))]')` : ''}
+${excludeLabels ? `PRS_JSON=$(echo "$PRS_JSON" | jq '[.[] | select(.labels | type == "array" and (map(.name) | contains(["${excludeLabels.split(',').join('","')}"]) | any | not))]')` : ''}
 
 # Filter merged PRs if only merged is requested
 ${
