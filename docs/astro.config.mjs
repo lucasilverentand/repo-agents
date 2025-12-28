@@ -32,6 +32,7 @@ export default defineConfig({
             { label: 'How It Works', slug: 'guide/how-it-works' },
             { label: 'Agent Definition', slug: 'guide/agent-definition' },
             { label: 'Permissions', slug: 'guide/permissions' },
+            { label: 'Cost Estimation', slug: 'guide/cost-estimation' },
           ],
         },
         {
