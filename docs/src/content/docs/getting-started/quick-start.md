@@ -19,12 +19,12 @@ This creates:
 - `.github/claude.yml` - Configuration file
 - Example agent templates
 
-## 2. Configure API Key
+## 2. Configure Authentication
 
-Add your Anthropic API key as a repository secret:
+Set up Claude API access (if not already done during [installation](/gh-claude/getting-started/installation/#authentication)):
 
 ```bash
-gh secret set ANTHROPIC_API_KEY
+gh claude setup-token
 ```
 
 ## 3. Create Your First Agent
