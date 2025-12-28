@@ -398,12 +398,12 @@ Improve consistency by:
 
 ## Related Outputs
 
-- [Comments (add-comment)](./comments.md) - Pair with labels for issue triage
-- [Issues (create-issue, close-issue)](./issues.md) - For issue management workflows
-- [Pull Requests (create-pr, close-pr)](./pull-requests.md) - For PR workflows
+- [Comments (add-comment)](./comments/) - Pair with labels for issue triage
+- [Issues (create-issue, close-issue)](./issues/) - For issue management workflows
+- [Pull Requests (create-pr, close-pr)](./pull-requests/) - For PR workflows
 
 ## Next Steps
 
 - Learn about [Triggers](../../triggers/) to control when label operations run
-- Explore [Issue Management](./issues.md)
+- Explore [Issue Management](./issues/)
 - Review [Security Best Practices](../../reference/security/)

@@ -43,30 +43,30 @@ permissions:
 ## Available Output Types
 
 ### Comments
-- [**add-comment**](./comments.md) - Post comments on issues or pull requests
+- [**add-comment**](./comments/) - Post comments on issues or pull requests
   - Configuration: `max` (maximum number of comments)
 
 ### Labels
-- [**add-label**](./labels.md) - Add labels to issues or pull requests
-- [**remove-label**](./labels.md) - Remove labels from issues or pull requests
+- [**add-label**](./labels/) - Add labels to issues or pull requests
+- [**remove-label**](./labels/) - Remove labels from issues or pull requests
 
 ### Issues
-- [**create-issue**](./issues.md) - Create new issues
+- [**create-issue**](./issues/) - Create new issues
   - Configuration: `max` (maximum number to create)
-- [**close-issue**](./issues.md) - Close issues
+- [**close-issue**](./issues/) - Close issues
 
 ### Pull Requests
-- [**create-pr**](./pull-requests.md) - Create pull requests
+- [**create-pr**](./pull-requests/) - Create pull requests
   - Configuration: `sign` (sign commits), `max` (maximum to create)
-- [**close-pr**](./pull-requests.md) - Close pull requests
+- [**close-pr**](./pull-requests/) - Close pull requests
 
 ### Files
-- [**update-file**](./files.md) - Modify files in the repository
+- [**update-file**](./files/) - Modify files in the repository
   - Configuration: `sign` (sign commits)
   - Requires: `allowed-paths` allowlist
 
 ### Discussions
-- [**create-discussion**](./discussions.md) - Create discussions
+- [**create-discussion**](./discussions/) - Create discussions
   - Configuration: `max` (maximum number to create)
 
 ## Quick Examples
@@ -193,6 +193,6 @@ When using `allowed-paths` with `update-file` or `create-pr`, use glob patterns:
 ## Next Steps
 
 - Explore specific output types in the sections above
-- Learn about [Permissions](../permissions/)
+- Learn about [Permissions](../../guide/permissions/)
 - Review [Security Considerations](../../reference/security/)
 - See [Examples](../../examples/issue-triage/)

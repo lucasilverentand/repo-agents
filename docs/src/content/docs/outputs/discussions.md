@@ -482,12 +482,12 @@ Verify the category:
 
 ## Related Outputs
 
-- [Comments (add-comment)](./comments.md) - For direct engagement
-- [Issues (create-issue, close-issue)](./issues.md) - For bug tracking
-- [Pull Requests (create-pr, close-pr)](./pull-requests.md) - For code changes
+- [Comments (add-comment)](./comments/) - For direct engagement
+- [Issues (create-issue, close-issue)](./issues/) - For bug tracking
+- [Pull Requests (create-pr, close-pr)](./pull-requests/) - For code changes
 
 ## Next Steps
 
-- Learn about [Permissions](../permissions/)
+- Learn about [Permissions](../../guide/permissions/)
 - Explore [Triggers](../../triggers/) to control when discussions are created
 - Review [Security Best Practices](../../reference/security/)
