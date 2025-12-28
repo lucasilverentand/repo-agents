@@ -23,7 +23,6 @@ export default defineConfig({
           items: [
             { label: 'Installation', slug: 'getting-started/installation' },
             { label: 'Quick Start', slug: 'getting-started/quick-start' },
-            { label: 'Authentication', slug: 'guide/authentication' },
           ],
         },
         {
@@ -33,13 +32,25 @@ export default defineConfig({
             { label: 'How It Works', slug: 'guide/how-it-works' },
             { label: 'Agent Definition', slug: 'guide/agent-definition' },
             { label: 'Permissions', slug: 'guide/permissions' },
-            { label: 'Triggers Overview', slug: 'triggers' },
           ],
         },
         {
-          label: 'Agent Gallery',
+          label: 'Authentication & Security',
           items: [
-            { label: 'Overview', slug: 'agents/overview' },
+            { label: 'Authentication', slug: 'guide/authentication' },
+            { label: 'Security Best Practices', slug: 'guide/security-best-practices' },
+          ],
+        },
+        {
+          label: 'Triggers',
+          items: [
+            { label: 'Overview', slug: 'triggers' },
+            { label: 'Issues', slug: 'triggers/issues' },
+            { label: 'Pull Requests', slug: 'triggers/pull-requests' },
+            { label: 'Discussions', slug: 'triggers/discussions' },
+            { label: 'Schedule', slug: 'triggers/schedule' },
+            { label: 'Workflow Dispatch', slug: 'triggers/workflow-dispatch' },
+            { label: 'Repository Dispatch', slug: 'triggers/repository-dispatch' },
           ],
         },
         {
@@ -69,20 +80,16 @@ export default defineConfig({
           ],
         },
         {
-          label: 'Triggers',
-          collapsed: true,
+          label: 'Examples',
           items: [
-            { label: 'Issues', slug: 'triggers/issues' },
-            { label: 'Pull Requests', slug: 'triggers/pull-requests' },
-            { label: 'Discussions', slug: 'triggers/discussions' },
-            { label: 'Schedule', slug: 'triggers/schedule' },
-            { label: 'Workflow Dispatch', slug: 'triggers/workflow-dispatch' },
-            { label: 'Repository Dispatch', slug: 'triggers/repository-dispatch' },
+            { label: 'Overview', slug: 'examples' },
+            { label: 'Issue Triage', slug: 'examples/issue-triage' },
+            { label: 'PR Review', slug: 'examples/pr-review' },
+            { label: 'Daily Summary', slug: 'examples/daily-summary' },
           ],
         },
         {
           label: 'CLI Reference',
-          collapsed: true,
           items: [
             { label: 'Overview', slug: 'cli' },
             { label: 'init', slug: 'cli/init' },
@@ -94,30 +101,30 @@ export default defineConfig({
           ],
         },
         {
-          label: 'Examples',
-          items: [
-            { label: 'Overview', slug: 'examples' },
-            { label: 'Issue Triage', slug: 'examples/issue-triage' },
-            { label: 'PR Review', slug: 'examples/pr-review' },
-            { label: 'Daily Summary', slug: 'examples/daily-summary' },
-          ],
-        },
-        {
-          label: 'Advanced',
-          items: [
-            { label: 'Advanced Topics', slug: 'guide/advanced' },
-            { label: 'Troubleshooting', slug: 'guide/troubleshooting' },
-          ],
-        },
-        {
           label: 'Reference',
-          collapsed: true,
           items: [
             { label: 'Overview', slug: 'reference' },
             { label: 'Quick Reference', slug: 'reference/quick-reference' },
             { label: 'Configuration', slug: 'reference/configuration' },
             { label: 'Security', slug: 'reference/security' },
             { label: 'FAQ', slug: 'reference/faq' },
+          ],
+        },
+        {
+          label: 'Advanced',
+          collapsed: true,
+          items: [
+            { label: 'Advanced Topics', slug: 'guide/advanced' },
+            { label: 'Troubleshooting', slug: 'guide/troubleshooting' },
+          ],
+        },
+        {
+          label: 'Agent Gallery',
+          collapsed: true,
+          items: [
+            { label: 'Overview', slug: 'agents' },
+            { label: 'Available Agents', slug: 'agents/gallery' },
+            { label: 'Roadmap', slug: 'agents/roadmap' },
           ],
         },
       ],
