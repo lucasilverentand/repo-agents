@@ -1,11 +1,13 @@
 import { defineConfig } from 'astro/config';
 import starlight from '@astrojs/starlight';
 import starlightThemeRapide from 'starlight-theme-rapide';
+import react from '@astrojs/react';
 
 export default defineConfig({
   site: 'https://lucasilverentand.github.io',
   base: '/gh-claude',
   integrations: [
+    react(),
     starlight({
       title: 'gh-claude',
       description: 'GitHub CLI extension for creating Claude-powered GitHub Actions workflows',
