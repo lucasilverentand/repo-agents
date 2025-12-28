@@ -29,6 +29,7 @@ export default defineConfig({
         {
           label: 'Core Concepts',
           items: [
+            { label: 'Overview', slug: 'guide' },
             { label: 'How It Works', slug: 'guide/how-it-works' },
             { label: 'Agent Definition', slug: 'guide/agent-definition' },
             { label: 'Permissions', slug: 'guide/permissions' },
@@ -83,15 +84,19 @@ export default defineConfig({
           label: 'CLI Reference',
           collapsed: true,
           items: [
+            { label: 'Overview', slug: 'cli' },
             { label: 'init', slug: 'cli/init' },
             { label: 'compile', slug: 'cli/compile' },
             { label: 'validate', slug: 'cli/validate' },
             { label: 'list', slug: 'cli/list' },
+            { label: 'setup-token', slug: 'cli/setup-token' },
+            { label: 'setup-app', slug: 'cli/setup-app' },
           ],
         },
         {
           label: 'Examples',
           items: [
+            { label: 'Overview', slug: 'examples' },
             { label: 'Issue Triage', slug: 'examples/issue-triage' },
             { label: 'PR Review', slug: 'examples/pr-review' },
             { label: 'Daily Summary', slug: 'examples/daily-summary' },
@@ -108,6 +113,7 @@ export default defineConfig({
           label: 'Reference',
           collapsed: true,
           items: [
+            { label: 'Overview', slug: 'reference' },
             { label: 'Quick Reference', slug: 'reference/quick-reference' },
             { label: 'Configuration', slug: 'reference/configuration' },
             { label: 'Security', slug: 'reference/security' },
