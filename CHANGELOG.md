@@ -5,6 +5,21 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.4.0](https://github.com/lucasilverentand/gh-claude/compare/v0.3.0...v0.4.0) (2025-12-29)
+
+
+### Features
+
+* add footer with workflow and job link to agent-generated comments and discussions ([a48c8f0](https://github.com/lucasilverentand/gh-claude/commit/a48c8f0b6aab8332e91b7f35e8f7db581cbf4e15))
+
+
+### Bug Fixes
+
+* handle boolean .labels in jq filter to prevent iteration error ([#75](https://github.com/lucasilverentand/gh-claude/issues/75)) ([bab07b2](https://github.com/lucasilverentand/gh-claude/commit/bab07b2f0dec1cffb5eb5a1ec7891c65760d8023)), closes [#61](https://github.com/lucasilverentand/gh-claude/issues/61)
+* resolve failing unit tests ([fc6ebc8](https://github.com/lucasilverentand/gh-claude/commit/fc6ebc8fbd7484b015bb74030ebeaac4129936f4))
+* use concatenated template for issue/PR number detection ([d553ee7](https://github.com/lucasilverentand/gh-claude/commit/d553ee7f98d002710f0d4e33fbb0e464b8f377ab))
+* use concatenated template for issue/PR number detection ([0b5d4ca](https://github.com/lucasilverentand/gh-claude/commit/0b5d4cae402aaf2e1f07685fe67b4e2890c2b8ea))
+
 ## [0.3.0](https://github.com/lucasilverentand/gh-claude/compare/v0.2.0...v0.3.0) (2025-12-25)
 
 
