@@ -9,7 +9,8 @@ dist/
 build/
 *.tsbuildinfo
 
-# Docs build output
+# Build output - Astro
+.astro/
 docs/dist/
 docs/.astro/
 
