@@ -715,7 +715,7 @@ jobs:
           echo "git-user=$APP_SLUG[bot]" >> $GITHUB_OUTPUT
           echo "git-email=$APP_ID_NUM+$APP_SLUG[bot]@users.noreply.github.com" >> $GITHUB_OUTPUT
       - name: Download outputs artifact
-        uses: actions/download-artifact@v4
+        uses: actions/download-artifact@v7
         with:
           name: agent-outputs
           path: /tmp/outputs
@@ -917,7 +917,7 @@ jobs:
     if: always()
     steps:
       - name: Download all validation results
-        uses: actions/download-artifact@v4
+        uses: actions/download-artifact@v7
         with:
           pattern: validation-results-*
           path: /tmp/all-validation-errors
@@ -1059,19 +1059,19 @@ jobs:
     if: always()
     steps:
       - name: Download validation audit
-        uses: actions/download-artifact@v4
+        uses: actions/download-artifact@v7
         with:
           name: validation-audit
           path: /tmp/audit-data/validation
         continue-on-error: true
       - name: Download execution metrics
-        uses: actions/download-artifact@v4
+        uses: actions/download-artifact@v7
         with:
           name: audit-metrics
           path: /tmp/audit-data/metrics
         continue-on-error: true
       - name: Download output validation results
-        uses: actions/download-artifact@v4
+        uses: actions/download-artifact@v7
         with:
           pattern: validation-results-*
           path: /tmp/audit-data/outputs
