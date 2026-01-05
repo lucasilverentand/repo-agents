@@ -136,7 +136,7 @@ describe('InputCollector', () => {
 
       expect(script).toContain('bug');
       expect(script).toContain('enhancement');
-      expect(script).toContain('contains');
+      expect(script).toContain('any(IN(');
     });
 
     it('should exclude issues by labels', () => {
