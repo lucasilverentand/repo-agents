@@ -329,4 +329,3 @@ describe('agentFrontmatterSchema', () => {
     });
   });
 });
-
