@@ -111,7 +111,7 @@ describe('WorkflowGenerator', () => {
 
       expect(workflow.jobs['collect-inputs']).toBeDefined();
       expect(workflow.jobs['collect-inputs'].steps).toBeDefined();
-      
+
       // Claude agent should depend on both pre-flight and collect-inputs
       expect(workflow.jobs['claude-agent'].needs).toEqual(['pre-flight', 'collect-inputs']);
       expect(workflow.jobs['claude-agent'].if).toContain('collect-inputs.outputs.has-inputs');
@@ -136,7 +136,7 @@ describe('WorkflowGenerator', () => {
       const workflow = yaml.load(result) as ParsedWorkflow;
 
       expect(workflow.jobs['collect-inputs']).toBeDefined();
-      
+
       // Verify the collect-inputs job has steps for PR collection
       const collectSteps = workflow.jobs['collect-inputs'].steps;
       const collectScript = collectSteps.find((s) => s.name === 'Collect repository data');
@@ -240,7 +240,7 @@ describe('WorkflowGenerator', () => {
       const workflow = yaml.load(result) as ParsedWorkflow;
 
       expect(workflow.jobs['claude-agent']).toBeDefined();
-      
+
       // Verify skills documentation step exists
       const createSkillsStep = workflow.jobs['claude-agent'].steps.find(
         (s) => s.name === 'Create Claude skills file'
@@ -378,7 +378,7 @@ describe('WorkflowGenerator', () => {
       const outputPath = await generator.writeWorkflow(agent, tempDir);
 
       expect(outputPath).toContain('claude-test-agent.yml');
-      
+
       const content = readFileSync(outputPath, 'utf-8');
       expect(content).toContain('name: Test Agent');
     });
@@ -421,7 +421,7 @@ describe('WorkflowGenerator', () => {
       const workflow = yaml.load(result) as ParsedWorkflow;
 
       expect(workflow.jobs['collect-inputs']).toBeDefined();
-      
+
       // Should check min_items in the collection script
       const collectSteps = workflow.jobs['collect-inputs'].steps;
       const collectScript = collectSteps.find((s) => s.name === 'Collect repository data');
@@ -478,11 +478,10 @@ describe('WorkflowGenerator', () => {
       const workflow = yaml.load(result) as ParsedWorkflow;
 
       expect(workflow.jobs['execute-outputs']).toBeDefined();
-      
+
       // Verify matrix strategy includes all output types
       const executeJob = workflow.jobs['execute-outputs'];
       expect(executeJob.strategy).toBeDefined();
     });
   });
 });
-
