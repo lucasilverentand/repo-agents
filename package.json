@@ -49,7 +49,7 @@
     "@typescript-eslint/parser": "^8.49.0",
     "astro": "^5.16.4",
     "eslint": "^9.39.1",
-    "globals": "^16.5.0",
+    "globals": "^17.0.0",
     "jest": "^30.2.0",
     "prettier": "^3.3.2",
     "sharp": "^0.34.5",
