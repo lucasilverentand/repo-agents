@@ -67,7 +67,7 @@ export class AgentParser {
     } catch (error) {
       if (error instanceof ZodError) {
         return {
-          errors: error.issues.map((err) => ({
+          errors: error.errors.map((err) => ({
             field: err.path.join('.'),
             message: err.message,
             severity: 'error' as const,

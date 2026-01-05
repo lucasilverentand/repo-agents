@@ -38,7 +38,7 @@
     "gray-matter": "^4.0.3",
     "js-yaml": "^4.1.0",
     "ora": "^9.0.0",
-    "zod": "^4.3.5"
+    "zod": "^3.25.76"
   },
   "devDependencies": {
     "@astrojs/starlight": "^0.37.0",

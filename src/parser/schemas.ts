@@ -33,7 +33,7 @@ const triggerConfigSchema = z.object({
     .optional(),
   workflow_dispatch: z
     .object({
-      inputs: z.record(z.string(), workflowInputSchema).optional(),
+      inputs: z.record(workflowInputSchema).optional(),
     })
     .optional(),
   repository_dispatch: z
@@ -67,21 +67,21 @@ const outputConfigSchema = z
   })
   .passthrough(); // Allow additional properties
 
-const outputValueSchema = z.union([outputConfigSchema, z.boolean()]);
-
 const outputSchema = z
-  .object({
-    'add-comment': outputValueSchema,
-    'add-label': outputValueSchema,
-    'remove-label': outputValueSchema,
-    'create-issue': outputValueSchema,
-    'create-discussion': outputValueSchema,
-    'create-pr': outputValueSchema,
-    'update-file': outputValueSchema,
-    'close-issue': outputValueSchema,
-    'close-pr': outputValueSchema,
-  })
-  .partial()
+  .record(
+    z.enum([
+      'add-comment',
+      'add-label',
+      'remove-label',
+      'create-issue',
+      'create-discussion',
+      'create-pr',
+      'update-file',
+      'close-issue',
+      'close-pr',
+    ]),
+    z.union([outputConfigSchema, z.boolean()])
+  )
   .optional();
 
 const toolSchema = z
@@ -89,7 +89,7 @@ const toolSchema = z
     z.object({
       name: z.string(),
       description: z.string(),
-      parameters: z.record(z.string(), z.unknown()).optional(),
+      parameters: z.record(z.unknown()).optional(),
     })
   )
   .optional();
