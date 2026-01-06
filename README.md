@@ -1,7 +1,6 @@
 # gh-claude
 
-[![CI](https://github.com/lucasilverentand/gh-claude/workflows/CI/badge.svg)](https://github.com/lucasilverentand/gh-claude/actions/workflows/ci.yml)
-[![Release](https://github.com/lucasilverentand/gh-claude/workflows/Release/badge.svg)](https://github.com/lucasilverentand/gh-claude/actions/workflows/release.yml)
+[![Build & Test](https://github.com/lucasilverentand/gh-claude/actions/workflows/ci.yml/badge.svg)](https://github.com/lucasilverentand/gh-claude/actions/workflows/ci.yml)
 [![codecov](https://codecov.io/gh/lucasilverentand/gh-claude/branch/main/graph/badge.svg)](https://codecov.io/gh/lucasilverentand/gh-claude)
 [![Docs](https://github.com/lucasilverentand/gh-claude/workflows/Deploy%20Docs/badge.svg)](https://lucasilverentand.github.io/gh-claude)
 
