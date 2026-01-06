@@ -9,6 +9,8 @@ permissions:
 outputs:
   add-comment: { max: 1 }
   add-label: true
+allowed-actors:
+  - claude-of-luca[bot]
 trigger_labels: []
 rate_limit_minutes: 1
 ---
