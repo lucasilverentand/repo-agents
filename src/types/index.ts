@@ -320,3 +320,80 @@ export interface PermissionIssue {
   message: string;
   context?: Record<string, unknown>;
 }
+
+// Dispatcher Types
+export interface DispatcherConfig {
+  selfHeal?: {
+    createIssue?: boolean;
+    disableOnError?: boolean;
+    issueLabels?: string[];
+    issueAssignees?: string[];
+  };
+}
+
+export type TriggerEventType =
+  | 'issues'
+  | 'pull_request'
+  | 'discussion'
+  | 'schedule'
+  | 'workflow_dispatch'
+  | 'repository_dispatch';
+
+export interface RoutingRule {
+  agentName: string;
+  workflowFile: string;
+  triggers: Array<{
+    eventType: TriggerEventType;
+    eventActions?: string[]; // For event-based triggers (issues, pull_request, discussion)
+    schedule?: string; // For schedule triggers (cron expression)
+    dispatchTypes?: string[]; // For repository_dispatch
+  }>;
+}
+
+export interface DispatchContext {
+  dispatchId: string;
+  dispatchedAt: string;
+  dispatcherRunId: string;
+  dispatcherRunUrl: string;
+  eventName: string;
+  eventAction?: string;
+  repository: string;
+  ref: string;
+  sha: string;
+  actor: string;
+  issue?: {
+    number: number;
+    title: string;
+    body: string;
+    author: string;
+    labels: string[];
+    state: string;
+    url: string;
+  };
+  pullRequest?: {
+    number: number;
+    title: string;
+    body: string;
+    author: string;
+    labels: string[];
+    baseBranch: string;
+    headBranch: string;
+    state: string;
+    url: string;
+  };
+  discussion?: {
+    number: number;
+    title: string;
+    body: string;
+    author: string;
+    category: string;
+    url: string;
+  };
+  schedule?: {
+    cron: string;
+  };
+  repositoryDispatch?: {
+    eventType: string;
+    clientPayload: Record<string, unknown>;
+  };
+}

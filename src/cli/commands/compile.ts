@@ -1,39 +1,25 @@
 import { join } from 'path';
-import { mkdir } from 'fs/promises';
+import { mkdir, writeFile } from 'fs/promises';
 import ora from 'ora';
 import chalk from 'chalk';
 import { logger } from '../utils/logger';
-import { findMarkdownFiles, fileExists } from '../utils/files';
+import { findMarkdownFiles, fileExists, DISPATCHER_WORKFLOW_NAME } from '../utils/files';
 import { agentParser } from '../../parser';
 import { workflowGenerator } from '../../generator';
-import { CompileResult } from '../../types';
+import { dispatcherGenerator } from '../../generator/dispatcher';
+import type { AgentDefinition, CompileResult, ValidationError } from '../../types';
 import { workflowValidator } from '../utils/workflow-validator';
 
 interface CompileOptions {
-  all?: boolean;
   dryRun?: boolean;
   outputDir?: string;
 }
 
-export async function compileCommand(
-  file: string | undefined,
-  options: CompileOptions
-): Promise<void> {
+export async function compileCommand(options: CompileOptions): Promise<void> {
   const cwd = process.cwd();
   const agentsDir = join(cwd, '.github', 'claude-agents');
   const workflowsDir = options.outputDir || join(cwd, '.github', 'workflows');
 
-  if (options.all) {
-    await compileAll(agentsDir, workflowsDir, options.dryRun || false);
-  } else if (file) {
-    await compileSingle(file, workflowsDir, options.dryRun || false);
-  } else {
-    logger.error('Please specify a file or use --all to compile all agents');
-    process.exit(1);
-  }
-}
-
-async function compileAll(agentsDir: string, workflowsDir: string, dryRun: boolean): Promise<void> {
   const spinner = ora('Finding agent files...').start();
 
   const agentsDirExists = await fileExists(agentsDir);
@@ -54,164 +40,183 @@ async function compileAll(agentsDir: string, workflowsDir: string, dryRun: boole
 
   spinner.succeed(`Found ${files.length} agent file(s)`);
 
-  const results: CompileResult[] = [];
+  // Phase 1: Parse and validate all agents
+  const parsedAgents: { agent: AgentDefinition; filePath: string; errors: ValidationError[] }[] = [];
+  let hasErrors = false;
 
-  for (const file of files) {
-    const result = await compileSingle(file, workflowsDir, dryRun, false);
-    results.push(result);
-  }
+  for (const filePath of files) {
+    const fileName = filePath.split('/').pop() || filePath;
+    const parseSpinner = ora(`Parsing ${chalk.cyan(fileName)}...`).start();
 
-  logger.newline();
-  printSummary(results);
-}
+    const { agent, errors: parseErrors } = await agentParser.parseFile(filePath);
 
-async function compileSingle(
-  filePath: string,
-  workflowsDir: string,
-  dryRun: boolean,
-  _showSummary = true
-): Promise<CompileResult> {
-  const fileName = filePath.split('/').pop() || filePath;
-  const spinner = ora(`Compiling ${chalk.cyan(fileName)}...`).start();
+    if (!agent || parseErrors.some((e) => e.severity === 'error')) {
+      parseSpinner.fail(`Failed to parse ${fileName}`);
+      if (parseErrors.length > 0) {
+        logger.newline();
+        parseErrors.forEach((error) => {
+          const icon = error.severity === 'error' ? '✗' : '⚠';
+          const color = error.severity === 'error' ? chalk.red : chalk.yellow;
+          logger.log(color(`  ${icon} ${error.field}: ${error.message}`));
+        });
+      }
+      hasErrors = true;
+      continue;
+    }
 
-  const exists = await fileExists(filePath);
-  if (!exists) {
-    spinner.fail(`File not found: ${filePath}`);
-    return {
-      success: false,
-      inputPath: filePath,
-      errors: [{ field: 'file', message: 'File not found', severity: 'error' }],
-    };
-  }
+    const validationErrors = agentParser.validateAgent(agent);
+    const allErrors = [...parseErrors, ...validationErrors];
 
-  const { agent, errors: parseErrors } = await agentParser.parseFile(filePath);
-
-  if (!agent || parseErrors.some((e) => e.severity === 'error')) {
-    spinner.fail(`Failed to parse ${fileName}`);
-    if (parseErrors.length > 0) {
+    if (validationErrors.some((e) => e.severity === 'error')) {
+      parseSpinner.fail(`Validation failed for ${fileName}`);
       logger.newline();
-      parseErrors.forEach((error) => {
+      validationErrors.forEach((error) => {
         const icon = error.severity === 'error' ? '✗' : '⚠';
         const color = error.severity === 'error' ? chalk.red : chalk.yellow;
         logger.log(color(`  ${icon} ${error.field}: ${error.message}`));
       });
+      hasErrors = true;
+      continue;
     }
-    return {
-      success: false,
-      inputPath: filePath,
-      errors: parseErrors,
-    };
+
+    parseSpinner.succeed(`Parsed ${fileName}`);
+    parsedAgents.push({ agent, filePath, errors: allErrors });
   }
 
-  const validationErrors = agentParser.validateAgent(agent);
-  const allErrors = [...parseErrors, ...validationErrors];
-
-  if (validationErrors.some((e) => e.severity === 'error')) {
-    spinner.fail(`Validation failed for ${fileName}`);
+  if (hasErrors) {
     logger.newline();
-    validationErrors.forEach((error) => {
-      const icon = error.severity === 'error' ? '✗' : '⚠';
-      const color = error.severity === 'error' ? chalk.red : chalk.yellow;
-      logger.log(color(`  ${icon} ${error.field}: ${error.message}`));
-    });
-    return {
-      success: false,
-      inputPath: filePath,
-      errors: allErrors,
-    };
+    logger.error('Some agents failed to parse or validate. Fix the errors and try again.');
+    process.exit(1);
   }
 
-  // Validate generated workflow against GitHub Actions schema
-  spinner.text = `Validating workflow schema for ${fileName}...`;
-  const generatedWorkflow = workflowGenerator.generate(agent);
+  if (parsedAgents.length === 0) {
+    logger.error('No valid agents found');
+    process.exit(1);
+  }
+
+  const agents = parsedAgents.map((p) => p.agent);
+
+  // Phase 2: Generate dispatcher workflow
+  logger.newline();
+  const dispatcherSpinner = ora('Generating dispatcher workflow...').start();
+
+  const dispatcherWorkflow = dispatcherGenerator.generate(agents);
 
   try {
-    const schemaErrors = await workflowValidator.validateWorkflow(generatedWorkflow);
-
+    const schemaErrors = await workflowValidator.validateWorkflow(dispatcherWorkflow);
     if (schemaErrors.length > 0) {
-      spinner.fail(`Workflow schema validation failed for ${fileName}`);
+      dispatcherSpinner.fail('Dispatcher workflow schema validation failed');
       logger.newline();
       schemaErrors.forEach((error) => {
         logger.log(chalk.red(`  ✗ ${error.path}: ${error.message}`));
       });
-      return {
-        success: false,
-        inputPath: filePath,
-        errors: [
-          ...allErrors,
-          ...schemaErrors.map((e) => ({
-            field: e.path,
-            message: e.message,
-            severity: 'error' as const,
-          })),
-        ],
-      };
+      process.exit(1);
     }
-    spinner.text = `Compiling ${chalk.cyan(fileName)}...`;
   } catch (error) {
-    spinner.warn(`Could not validate workflow schema (${(error as Error).message})`);
-    logger.newline();
-    logger.warn('Continuing without schema validation...');
+    dispatcherSpinner.warn(`Could not validate dispatcher schema (${(error as Error).message})`);
   }
 
-  if (dryRun) {
-    spinner.succeed(`Validated ${fileName}`);
-    logger.newline();
-    logger.log(chalk.gray('--- Generated Workflow (dry-run) ---'));
-    logger.log(generatedWorkflow);
-    logger.log(chalk.gray('--- End of Generated Workflow ---'));
-    return {
-      success: true,
-      inputPath: filePath,
-      errors: allErrors,
-    };
-  }
+  dispatcherSpinner.succeed('Generated dispatcher workflow');
 
-  try {
-    await mkdir(workflowsDir, { recursive: true });
-    const outputPath = await workflowGenerator.writeWorkflow(agent, workflowsDir);
-    spinner.succeed(`Compiled ${fileName} → ${outputPath.split('/').pop()}`);
+  // Phase 3: Generate agent workflows
+  const results: CompileResult[] = [];
 
-    if (allErrors.some((e) => e.severity === 'warning')) {
-      logger.newline();
-      allErrors
-        .filter((e) => e.severity === 'warning')
-        .forEach((error) => {
-          logger.warn(`${error.field}: ${error.message}`);
+  for (const { agent, filePath, errors } of parsedAgents) {
+    const fileName = filePath.split('/').pop() || filePath;
+    const agentSpinner = ora(`Generating ${chalk.cyan(agent.name)} workflow...`).start();
+
+    const agentWorkflow = workflowGenerator.generateForDispatcher(agent);
+
+    try {
+      const schemaErrors = await workflowValidator.validateWorkflow(agentWorkflow);
+      if (schemaErrors.length > 0) {
+        agentSpinner.fail(`Workflow schema validation failed for ${agent.name}`);
+        logger.newline();
+        schemaErrors.forEach((error) => {
+          logger.log(chalk.red(`  ✗ ${error.path}: ${error.message}`));
         });
+        results.push({
+          success: false,
+          inputPath: filePath,
+          errors: [
+            ...errors,
+            ...schemaErrors.map((e) => ({
+              field: e.path,
+              message: e.message,
+              severity: 'error' as const,
+            })),
+          ],
+        });
+        continue;
+      }
+    } catch (error) {
+      agentSpinner.warn(`Could not validate schema for ${fileName} (${(error as Error).message})`);
     }
 
-    return {
+    agentSpinner.succeed(`Generated ${agent.name} workflow`);
+    results.push({
       success: true,
       inputPath: filePath,
-      outputPath,
-      errors: allErrors,
-    };
-  } catch (error) {
-    spinner.fail(`Failed to write workflow for ${fileName}`);
-    logger.error((error as Error).message);
-    return {
-      success: false,
-      inputPath: filePath,
-      errors: [
-        ...allErrors,
-        { field: 'output', message: (error as Error).message, severity: 'error' },
-      ],
-    };
+      errors,
+      // outputPath will be set below if not dry-run
+    });
   }
+
+  // Phase 4: Write workflows
+  if (options.dryRun) {
+    logger.newline();
+    logger.info('Dry run - not writing files');
+    logger.newline();
+
+    logger.log(chalk.gray('--- Dispatcher Workflow ---'));
+    logger.log(dispatcherWorkflow);
+    logger.log(chalk.gray('--- End Dispatcher Workflow ---'));
+
+    for (const { agent } of parsedAgents) {
+      logger.newline();
+      logger.log(chalk.gray(`--- ${agent.name} Workflow ---`));
+      logger.log(workflowGenerator.generateForDispatcher(agent));
+      logger.log(chalk.gray(`--- End ${agent.name} Workflow ---`));
+    }
+  } else {
+    await mkdir(workflowsDir, { recursive: true });
+
+    // Write dispatcher workflow
+    const dispatcherPath = join(workflowsDir, `${DISPATCHER_WORKFLOW_NAME}.yml`);
+    await writeFile(dispatcherPath, dispatcherWorkflow, 'utf-8');
+    logger.info(`Wrote dispatcher: ${chalk.cyan(`${DISPATCHER_WORKFLOW_NAME}.yml`)}`);
+
+    // Write agent workflows
+    for (let i = 0; i < parsedAgents.length; i++) {
+      const { agent } = parsedAgents[i];
+      const outputPath = await workflowGenerator.writeWorkflow(agent, workflowsDir, true);
+      results[i].outputPath = outputPath;
+    }
+  }
+
+  // Print summary
+  logger.newline();
+  printSummary(results, options.dryRun || false);
 }
 
-function printSummary(results: CompileResult[]): void {
+function printSummary(results: CompileResult[], dryRun: boolean): void {
   const successful = results.filter((r) => r.success).length;
   const failed = results.filter((r) => !r.success).length;
   const warnings = results.filter((r) => r.errors?.some((e) => e.severity === 'warning')).length;
 
   logger.info('Compilation Summary:');
-  logger.log(`  ${chalk.green('✓')} Successful: ${successful}`);
+  logger.log(`  ${chalk.green('✓')} Agents: ${successful}`);
+  logger.log(`  ${chalk.green('✓')} Dispatcher: 1`);
   if (failed > 0) {
     logger.log(`  ${chalk.red('✗')} Failed: ${failed}`);
   }
   if (warnings > 0) {
     logger.log(`  ${chalk.yellow('⚠')} Warnings: ${warnings}`);
+  }
+
+  if (!dryRun) {
+    logger.newline();
+    logger.info('Workflows generated successfully!');
+    logger.log('  The dispatcher handles all triggers and routes events to the appropriate agent.');
   }
 }

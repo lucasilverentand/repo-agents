@@ -1296,12 +1296,628 @@ echo "git-email=$APP_ID_NUM+$APP_SLUG[bot]@users.noreply.github.com" >> $GITHUB_
     };
   }
 
-  async writeWorkflow(agent: AgentDefinition, outputDir: string): Promise<string> {
+  /**
+   * Generate a workflow that can be called by the dispatcher via workflow_call.
+   * This is the primary generation mode - all agents are triggered through the dispatcher.
+   */
+  generateForDispatcher(agent: AgentDefinition): string {
+    // Helper to escape GitHub expressions in template literals
+    const ghExpr = (expr: string) => '$' + `{{ ${expr} }}`;
+
+    interface WorkflowCallTrigger {
+      workflow_call: {
+        inputs: {
+          'context-run-id': {
+            description: string;
+            required: boolean;
+            type: string;
+          };
+        };
+      };
+    }
+
+    const workflow: {
+      name: string;
+      on: WorkflowCallTrigger;
+      permissions?: Record<string, string>;
+      jobs: Record<string, GitHubWorkflowJob>;
+    } = {
+      name: agent.name,
+      on: {
+        workflow_call: {
+          inputs: {
+            'context-run-id': {
+              description: 'Run ID of the dispatcher workflow (for artifact download)',
+              required: true,
+              type: 'string',
+            },
+          },
+        },
+      },
+      jobs: {},
+    };
+
+    if (agent.permissions) {
+      workflow.permissions = Object.entries(agent.permissions).reduce(
+        (acc, [key, value]) => {
+          const kebabKey = key.replace(/_/g, '-');
+          acc[kebabKey] = value;
+          return acc;
+        },
+        {} as Record<string, string>
+      );
+    }
+
+    // Agent-specific validation (rate limit, labels, users) - secrets handled by dispatcher
+    const validationSteps = this.generateAgentValidationSteps(agent);
+
+    const preFlightOutputs: Record<string, string> = {
+      'should-run':
+        '$' + '{{ steps.set-output.outputs.should-run || steps.check-rate-limit.outputs.should-run }}',
+      'rate-limited': '$' + '{{ steps.check-rate-limit.outputs.rate-limited }}',
+      'app-token': '$' + '{{ steps.app-token.outputs.token }}',
+      'git-user': '$' + '{{ steps.app-token.outputs.git-user }}',
+      'git-email': '$' + '{{ steps.app-token.outputs.git-email }}',
+    };
+
+    workflow.jobs = {
+      'pre-flight': {
+        'runs-on': 'ubuntu-latest',
+        outputs: preFlightOutputs,
+        steps: [
+          {
+            name: 'Download dispatch context',
+            uses: 'actions/download-artifact@v4',
+            with: {
+              name: `dispatch-context-${ghExpr('inputs.context-run-id')}`,
+              path: '/tmp/dispatch-context/',
+              'run-id': ghExpr('inputs.context-run-id'),
+              'github-token': ghExpr('secrets.GITHUB_TOKEN'),
+            },
+          },
+          {
+            name: 'Load dispatch context',
+            id: 'load-context',
+            run: `if [ -f /tmp/dispatch-context/context.json ]; then
+  echo "Dispatch context loaded:"
+  cat /tmp/dispatch-context/context.json
+  # Export context values as outputs
+  echo "event-name=$(jq -r '.eventName' /tmp/dispatch-context/context.json)" >> $GITHUB_OUTPUT
+  echo "event-action=$(jq -r '.eventAction' /tmp/dispatch-context/context.json)" >> $GITHUB_OUTPUT
+else
+  echo "::error::Dispatch context not found"
+  exit 1
+fi`,
+          },
+          ...validationSteps,
+        ],
+      },
+    };
+
+    // Add collect-inputs job if inputs are configured
+    if (agent.inputs) {
+      workflow.jobs['collect-inputs'] = this.generateCollectInputsJob(agent);
+      workflow.jobs['claude-agent'] = {
+        'runs-on': 'ubuntu-latest',
+        needs: ['pre-flight', 'collect-inputs'],
+        if: "needs.pre-flight.outputs.should-run == 'true' && needs.collect-inputs.outputs.has-inputs == 'true'",
+        steps: this.generateClaudeAgentStepsForDispatcher(agent),
+      };
+    } else {
+      workflow.jobs['claude-agent'] = {
+        'runs-on': 'ubuntu-latest',
+        needs: 'pre-flight',
+        if: "needs.pre-flight.outputs.should-run == 'true'",
+        steps: this.generateClaudeAgentStepsForDispatcher(agent),
+      };
+    }
+
+    // Add execute-outputs job if outputs are configured
+    if (agent.outputs && Object.keys(agent.outputs).length > 0) {
+      workflow.jobs['execute-outputs'] = this.generateExecuteOutputsJob(agent);
+      workflow.jobs['report-results'] = this.generateReportResultsJob(agent);
+    }
+
+    // Always add audit report job
+    workflow.jobs['audit-report'] = this.generateAuditReportJob(agent);
+
+    const yamlContent = yaml.dump(workflow, {
+      lineWidth: -1,
+      noRefs: true,
+    });
+
+    return this.formatYaml(yamlContent);
+  }
+
+  /**
+   * Generate agent-specific validation steps (without shared validation handled by dispatcher).
+   * Includes: token generation, rate limit check, label check, user authorization.
+   */
+  private generateAgentValidationSteps(agent: AgentDefinition): WorkflowStep[] {
+    const allowedUsers = [...(agent.allowed_users || []), ...(agent.allowed_actors || [])];
+    const allowedLabels = agent.trigger_labels || [];
+    const rateLimitMinutes = agent.rate_limit_minutes ?? 5;
+
+    const steps: WorkflowStep[] = [
+      {
+        name: 'Initialize audit tracking',
+        id: 'init-audit',
+        run: `mkdir -p /tmp/audit
+echo '{
+  "secrets_check": true,
+  "user_authorization": false,
+  "labels_check": false,
+  "rate_limit_check": false
+}' > /tmp/audit/validation-status.json
+echo '[]' > /tmp/audit/permission-issues.json`,
+      },
+      this.generateTokenGenerationStep(),
+    ];
+
+    // User authorization check
+    if (allowedUsers.length > 0 || (agent.allowed_teams && agent.allowed_teams.length > 0)) {
+      const allowedUsersList = allowedUsers.length > 0 ? allowedUsers.join(' ') : '';
+      const allowedTeamsList =
+        agent.allowed_teams && agent.allowed_teams.length > 0 ? agent.allowed_teams.join(' ') : '';
+
+      steps.push({
+        name: 'Check user authorization',
+        id: 'check-user',
+        env: {
+          GITHUB_TOKEN: '${{ steps.app-token.outputs.token }}',
+        },
+        run: `ACTOR="\${{ github.actor }}"
+ALLOWED_USERS="${allowedUsersList}"
+ALLOWED_TEAMS="${allowedTeamsList}"
+
+USER_ALLOWED="false"
+
+# Check explicit user list
+if [ -n "\${ALLOWED_USERS}" ]; then
+  for user in \${ALLOWED_USERS}; do
+    if [ "\${ACTOR}" = "\${user}" ]; then
+      USER_ALLOWED="true"
+      echo "✓ User \${ACTOR} is in allowed users list"
+      break
+    fi
+  done
+fi
+
+# Check team membership
+if [ "\${USER_ALLOWED}" = "false" ] && [ -n "\${ALLOWED_TEAMS}" ]; then
+  for team in \${ALLOWED_TEAMS}; do
+    MEMBERSHIP=$(gh api "orgs/\${{ github.repository_owner }}/teams/\${team}/memberships/\${ACTOR}" --jq '.state' 2>/dev/null || echo "")
+    if [ "\${MEMBERSHIP}" = "active" ]; then
+      USER_ALLOWED="true"
+      echo "✓ User \${ACTOR} is a member of team \${team}"
+      break
+    fi
+  done
+fi
+
+if [ "\${USER_ALLOWED}" = "false" ]; then
+  echo "::error::User \${ACTOR} is not authorized to trigger this agent"
+  jq '. += [{
+    "timestamp": "'$(date -u +%Y-%m-%dT%H:%M:%SZ)'",
+    "issue_type": "missing_permission",
+    "severity": "error",
+    "message": "User not authorized to trigger agent",
+    "context": {"user": "'\${ACTOR}'"}
+  }]' /tmp/audit/permission-issues.json > /tmp/audit/permission-issues.tmp
+  mv /tmp/audit/permission-issues.tmp /tmp/audit/permission-issues.json
+  echo "validation-failed=true" >> $GITHUB_OUTPUT
+  exit 1
+fi
+
+jq '.user_authorization = true' /tmp/audit/validation-status.json > /tmp/audit/validation-status.tmp
+mv /tmp/audit/validation-status.tmp /tmp/audit/validation-status.json`,
+      });
+    } else {
+      // Default: check repository permission level
+      steps.push({
+        name: 'Check user authorization',
+        id: 'check-user',
+        env: {
+          GITHUB_TOKEN: '${{ steps.app-token.outputs.token }}',
+        },
+        run: `ACTOR="\${{ github.actor }}"
+USER_ASSOCIATION=$(gh api "repos/\${{ github.repository }}/collaborators/\${ACTOR}/permission" --jq '.permission' 2>/dev/null || echo "")
+
+if [ "\${USER_ASSOCIATION}" = "admin" ] || [ "\${USER_ASSOCIATION}" = "write" ]; then
+  echo "✓ User \${ACTOR} has \${USER_ASSOCIATION} permission"
+else
+  # Check if user is an org member
+  ORG_MEMBER=$(gh api "orgs/\${{ github.repository_owner }}/members/\${ACTOR}" 2>/dev/null && echo "true" || echo "false")
+  if [ "\${ORG_MEMBER}" = "true" ]; then
+    echo "✓ User \${ACTOR} is an organization member"
+  else
+    echo "::error::User \${ACTOR} does not have sufficient permissions"
+    jq '. += [{
+      "timestamp": "'$(date -u +%Y-%m-%dT%H:%M:%SZ)'",
+      "issue_type": "missing_permission",
+      "severity": "error",
+      "message": "User not authorized",
+      "context": {"user": "'\${ACTOR}'", "permission": "'\${USER_ASSOCIATION}'"}
+    }]' /tmp/audit/permission-issues.json > /tmp/audit/permission-issues.tmp
+    mv /tmp/audit/permission-issues.tmp /tmp/audit/permission-issues.json
+    echo "validation-failed=true" >> $GITHUB_OUTPUT
+    exit 1
+  fi
+fi
+
+jq '.user_authorization = true' /tmp/audit/validation-status.json > /tmp/audit/validation-status.tmp
+mv /tmp/audit/validation-status.tmp /tmp/audit/validation-status.json`,
+      });
+    }
+
+    // Label check (if configured)
+    if (allowedLabels.length > 0) {
+      steps.push({
+        name: 'Check required labels',
+        id: 'check-labels',
+        env: {
+          GITHUB_TOKEN: '${{ steps.app-token.outputs.token }}',
+        },
+        run: `REQUIRED_LABELS="${allowedLabels.join(' ')}"
+
+# Get issue/PR number from dispatch context
+ISSUE_NUMBER=$(jq -r '.issue.number // .pullRequest.number // empty' /tmp/dispatch-context/context.json)
+
+if [ -n "\${ISSUE_NUMBER}" ]; then
+  CURRENT_LABELS=$(jq -r '.issue.labels // .pullRequest.labels | .[]' /tmp/dispatch-context/context.json 2>/dev/null | tr '\\n' ' ' || echo "")
+
+  LABEL_FOUND="false"
+  for required in \${REQUIRED_LABELS}; do
+    if echo "\${CURRENT_LABELS}" | grep -qw "\${required}"; then
+      LABEL_FOUND="true"
+      echo "✓ Found required label: \${required}"
+      break
+    fi
+  done
+
+  if [ "\${LABEL_FOUND}" = "false" ]; then
+    echo "::notice::Required label not found. Need one of: \${REQUIRED_LABELS}"
+    jq '. += [{
+      "timestamp": "'$(date -u +%Y-%m-%dT%H:%M:%SZ)'",
+      "issue_type": "validation_error",
+      "severity": "error",
+      "message": "Required label not found",
+      "context": {"required_labels": "'\${REQUIRED_LABELS}'", "current_labels": "'\${CURRENT_LABELS}'"}
+    }]' /tmp/audit/permission-issues.json > /tmp/audit/permission-issues.tmp
+    mv /tmp/audit/permission-issues.tmp /tmp/audit/permission-issues.json
+    echo "validation-failed=true" >> $GITHUB_OUTPUT
+    exit 1
+  fi
+else
+  echo "::warning::No issue or PR number in context, skipping label check"
+fi
+
+jq '.labels_check = true' /tmp/audit/validation-status.json > /tmp/audit/validation-status.tmp
+mv /tmp/audit/validation-status.tmp /tmp/audit/validation-status.json`,
+      });
+    }
+
+    // Rate limit check
+    steps.push({
+      name: 'Check rate limit',
+      id: 'check-rate-limit',
+      env: {
+        GITHUB_TOKEN: '${{ steps.app-token.outputs.token }}',
+      },
+      run: `RATE_LIMIT_MINUTES=${rateLimitMinutes}
+
+# Get recent workflow runs for this workflow
+RECENT_RUNS=$(gh api "repos/\${{ github.repository }}/actions/runs" \\
+  --jq "[.workflow_runs[] | select(.name == \\"\${{ github.workflow }}\\" and .status == \\"completed\\" and .conclusion == \\"success\\")] | .[0:5] | .[].created_at" 2>/dev/null || echo "")
+
+if [ -n "\${RECENT_RUNS}" ]; then
+  CURRENT_TIME=$(date +%s)
+
+  for run_time in \${RECENT_RUNS}; do
+    RUN_TIMESTAMP=$(date -d "\${run_time}" +%s 2>/dev/null || date -j -f "%Y-%m-%dT%H:%M:%SZ" "\${run_time}" +%s 2>/dev/null || echo "0")
+    TIME_DIFF=$(( (CURRENT_TIME - RUN_TIMESTAMP) / 60 ))
+
+    if [ "\${TIME_DIFF}" -lt "\${RATE_LIMIT_MINUTES}" ]; then
+      echo "::notice::Rate limit: Agent ran \${TIME_DIFF} minutes ago. Minimum interval is \${RATE_LIMIT_MINUTES} minutes."
+      echo "should-run=false" >> $GITHUB_OUTPUT
+      echo "rate-limited=true" >> $GITHUB_OUTPUT
+      exit 0
+    fi
+  done
+fi
+echo "✓ Rate limit check passed"
+
+jq '.rate_limit_check = true' /tmp/audit/validation-status.json > /tmp/audit/validation-status.tmp
+mv /tmp/audit/validation-status.tmp /tmp/audit/validation-status.json`,
+    });
+
+    steps.push({
+      name: 'Set output',
+      id: 'set-output',
+      run: `echo "should-run=true" >> $GITHUB_OUTPUT
+echo "✓ All validation checks passed"`,
+    });
+
+    steps.push({
+      name: 'Upload validation audit data',
+      if: 'always()',
+      uses: 'actions/upload-artifact@v4',
+      with: {
+        name: 'validation-audit',
+        path: '/tmp/audit/',
+        'if-no-files-found': 'ignore',
+      },
+    });
+
+    return steps;
+  }
+
+  /**
+   * Generate Claude agent steps that use dispatch context instead of github.event.
+   */
+  private generateClaudeAgentStepsForDispatcher(agent: AgentDefinition): WorkflowStep[] {
+    const instructions = agent.markdown.replace(/`/g, '\\`').replace(/\$/g, '\\$');
+
+    const steps: WorkflowStep[] = [
+      {
+        name: 'Checkout repository',
+        uses: 'actions/checkout@v4',
+      },
+      {
+        name: 'Download dispatch context',
+        uses: 'actions/download-artifact@v4',
+        with: {
+          name: 'dispatch-context-${{ inputs.context-run-id }}',
+          path: '/tmp/dispatch-context/',
+          'run-id': '${{ inputs.context-run-id }}',
+          'github-token': '${{ secrets.GITHUB_TOKEN }}',
+        },
+      },
+      {
+        name: 'Setup Bun',
+        uses: 'oven-sh/setup-bun@v2',
+        with: {
+          'bun-version': 'latest',
+        },
+      },
+      {
+        name: 'Install Claude Code CLI',
+        run: 'bunx --bun @anthropic-ai/claude-code --version',
+      },
+    ];
+
+    // Create outputs directory if outputs are configured
+    if (agent.outputs && Object.keys(agent.outputs).length > 0) {
+      steps.push({
+        name: 'Create outputs directory',
+        run: 'mkdir -p /tmp/outputs /tmp/validation-errors',
+      });
+    }
+
+    // Prepare context file from dispatch context
+    steps.push({
+      name: 'Prepare context file',
+      id: 'prepare',
+      run: `# Build context from dispatch context artifact
+EVENT_NAME=$(jq -r '.eventName' /tmp/dispatch-context/context.json)
+REPOSITORY=$(jq -r '.repository' /tmp/dispatch-context/context.json)
+
+cat > /tmp/context.txt << CONTEXT_EOF
+GitHub Event: \${EVENT_NAME}
+Repository: \${REPOSITORY}
+CONTEXT_EOF
+
+# Add issue context if present
+if jq -e '.issue' /tmp/dispatch-context/context.json > /dev/null 2>&1; then
+  ISSUE_NUMBER=$(jq -r '.issue.number' /tmp/dispatch-context/context.json)
+  ISSUE_TITLE=$(jq -r '.issue.title' /tmp/dispatch-context/context.json)
+  ISSUE_AUTHOR=$(jq -r '.issue.author' /tmp/dispatch-context/context.json)
+  ISSUE_BODY=$(jq -r '.issue.body' /tmp/dispatch-context/context.json)
+
+  cat >> /tmp/context.txt << ISSUE_EOF
+Issue #\${ISSUE_NUMBER}: \${ISSUE_TITLE}
+Author: @\${ISSUE_AUTHOR}
+Body:
+\${ISSUE_BODY}
+ISSUE_EOF
+fi
+
+# Add PR context if present
+if jq -e '.pullRequest' /tmp/dispatch-context/context.json > /dev/null 2>&1; then
+  PR_NUMBER=$(jq -r '.pullRequest.number' /tmp/dispatch-context/context.json)
+  PR_TITLE=$(jq -r '.pullRequest.title' /tmp/dispatch-context/context.json)
+  PR_AUTHOR=$(jq -r '.pullRequest.author' /tmp/dispatch-context/context.json)
+  PR_BODY=$(jq -r '.pullRequest.body' /tmp/dispatch-context/context.json)
+
+  cat >> /tmp/context.txt << PR_EOF
+PR #\${PR_NUMBER}: \${PR_TITLE}
+Author: @\${PR_AUTHOR}
+Body:
+\${PR_BODY}
+PR_EOF
+fi
+
+# Add discussion context if present
+if jq -e '.discussion' /tmp/dispatch-context/context.json > /dev/null 2>&1; then
+  DISC_NUMBER=$(jq -r '.discussion.number' /tmp/dispatch-context/context.json)
+  DISC_TITLE=$(jq -r '.discussion.title' /tmp/dispatch-context/context.json)
+  DISC_AUTHOR=$(jq -r '.discussion.author' /tmp/dispatch-context/context.json)
+  DISC_BODY=$(jq -r '.discussion.body' /tmp/dispatch-context/context.json)
+  DISC_CATEGORY=$(jq -r '.discussion.category' /tmp/dispatch-context/context.json)
+
+  cat >> /tmp/context.txt << DISC_EOF
+Discussion #\${DISC_NUMBER}: \${DISC_TITLE}
+Category: \${DISC_CATEGORY}
+Author: @\${DISC_AUTHOR}
+Body:
+\${DISC_BODY}
+DISC_EOF
+fi`,
+    });
+
+    // Add collected inputs to context if available
+    if (agent.inputs) {
+      steps.push({
+        name: 'Add collected inputs to context',
+        if: "needs.collect-inputs.outputs.has-inputs == 'true'",
+        run:
+          "cat >> /tmp/context.txt << 'INPUTS_EOF'\n" +
+          '\n' +
+          '## Collected Inputs\n' +
+          '\n' +
+          'The following data has been collected from the repository:\n' +
+          '\n' +
+          '$' +
+          '{{ needs.collect-inputs.outputs.inputs-data }}\n' +
+          'INPUTS_EOF',
+      });
+    }
+
+    // Add dynamic context for outputs if configured
+    if (agent.outputs && Object.keys(agent.outputs).length > 0) {
+      const runtime = this.createRuntimeContext(agent);
+
+      for (const [outputType] of Object.entries(agent.outputs)) {
+        try {
+          const handler = getOutputHandler(outputType as Output);
+          const contextScript = handler.getContextScript(runtime);
+
+          if (contextScript) {
+            steps.push({
+              name: `Fetch ${outputType} context`,
+              env: {
+                GITHUB_TOKEN: '${{ needs.pre-flight.outputs.app-token }}',
+              },
+              run: contextScript.trim(),
+            });
+          }
+        } catch {
+          logger.warn(`No handler found for output type: ${outputType}`);
+        }
+      }
+    }
+
+    // Create Claude skills file if outputs are configured
+    if (agent.outputs && Object.keys(agent.outputs).length > 0) {
+      const skillsContent = this.generateSkillsFile(agent);
+      const escapedSkills = skillsContent.replace(/`/g, '\\`').replace(/\$/g, '\\$');
+
+      steps.push({
+        name: 'Create Claude skills file',
+        run:
+          "mkdir -p .claude && cat > .claude/CLAUDE.md << 'SKILLS_EOF'\n" +
+          escapedSkills +
+          '\n' +
+          'SKILLS_EOF',
+      });
+    }
+
+    // Add instructions to context file
+    steps.push({
+      name: 'Add agent instructions',
+      run:
+        "cat >> /tmp/context.txt << 'INSTRUCTIONS_EOF'\n" +
+        '\n' +
+        '---\n' +
+        '\n' +
+        instructions +
+        '\n' +
+        'INSTRUCTIONS_EOF',
+    });
+
+    // Run Claude with the prepared context
+    const allowedTools =
+      agent.outputs && Object.keys(agent.outputs).length > 0
+        ? 'Write(/tmp/outputs/*),Read,Glob,Grep'
+        : 'Read,Glob,Grep';
+
+    const claudeCommand =
+      agent.outputs && Object.keys(agent.outputs).length > 0
+        ? `bunx --bun @anthropic-ai/claude-code -p "$(cat /tmp/context.txt)" --allowedTools "${allowedTools}" --permission-mode bypassPermissions --output-format json > /tmp/claude-output.json`
+        : `bunx --bun @anthropic-ai/claude-code -p "$(cat /tmp/context.txt)" --allowedTools "${allowedTools}" --output-format json > /tmp/claude-output.json`;
+
+    steps.push({
+      name: 'Run Claude Agent',
+      id: 'run-claude',
+      env: this.generateEnvironment(agent),
+      run: claudeCommand,
+    });
+
+    // Add the rest of the steps (metrics extraction, output upload, etc.)
+    steps.push({
+      name: 'Extract execution metrics',
+      id: 'extract-metrics',
+      if: 'always()',
+      run: `if [ -f /tmp/claude-output.json ]; then
+  echo "=== Claude Execution Summary ==="
+
+  # Extract metrics using jq
+  COST=$(jq -r '.total_cost_usd // "N/A"' /tmp/claude-output.json)
+  TURNS=$(jq -r '.num_turns // "N/A"' /tmp/claude-output.json)
+  DURATION=$(jq -r '.duration_ms // "N/A"' /tmp/claude-output.json)
+  IS_ERROR=$(jq -r '.is_error // false' /tmp/claude-output.json)
+
+  echo "Cost: \\$\${COST}"
+  echo "Turns: \${TURNS}"
+  echo "Duration: \${DURATION}ms"
+  echo "Error: \${IS_ERROR}"
+
+  # Set outputs for downstream jobs
+  echo "cost=\${COST}" >> $GITHUB_OUTPUT
+  echo "turns=\${TURNS}" >> $GITHUB_OUTPUT
+  echo "duration=\${DURATION}" >> $GITHUB_OUTPUT
+  echo "is-error=\${IS_ERROR}" >> $GITHUB_OUTPUT
+
+  if [ "\${IS_ERROR}" = "true" ]; then
+    echo "claude-error=true" >> $GITHUB_OUTPUT
+    echo "::warning::Claude execution completed with errors"
+  fi
+else
+  echo "::warning::Claude output file not found"
+  echo "cost=N/A" >> $GITHUB_OUTPUT
+  echo "turns=N/A" >> $GITHUB_OUTPUT
+  echo "duration=N/A" >> $GITHUB_OUTPUT
+  echo "is-error=true" >> $GITHUB_OUTPUT
+  echo "claude-error=true" >> $GITHUB_OUTPUT
+fi`,
+    });
+
+    // Upload outputs if configured
+    if (agent.outputs && Object.keys(agent.outputs).length > 0) {
+      steps.push({
+        name: 'Upload outputs',
+        if: 'always()',
+        uses: 'actions/upload-artifact@v4',
+        with: {
+          name: 'claude-outputs',
+          path: '/tmp/outputs/',
+          'if-no-files-found': 'ignore',
+        },
+      });
+    }
+
+    // Upload Claude execution data
+    steps.push({
+      name: 'Upload Claude execution data',
+      if: 'always()',
+      uses: 'actions/upload-artifact@v4',
+      with: {
+        name: 'claude-execution',
+        path: '/tmp/claude-output.json',
+        'if-no-files-found': 'ignore',
+      },
+    });
+
+    return steps;
+  }
+
+  async writeWorkflow(agent: AgentDefinition, outputDir: string, dispatcherMode = true): Promise<string> {
     const workflowName = agentNameToWorkflowName(agent.name);
     const fileName = `${workflowName}.yml`;
     const filePath = `${outputDir}/${fileName}`;
 
-    const content = this.generate(agent);
+    // Always use dispatcher mode since that's the only supported mode now
+    const content = dispatcherMode ? this.generateForDispatcher(agent) : this.generate(agent);
     await writeFile(filePath, content, 'utf-8');
 
     return filePath;

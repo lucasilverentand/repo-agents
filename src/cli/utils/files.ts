@@ -38,3 +38,5 @@ export function toKebabCase(str: string): string {
 export function agentNameToWorkflowName(agentName: string): string {
   return `claude-${toKebabCase(agentName)}`;
 }
+
+export const DISPATCHER_WORKFLOW_NAME = 'claude-dispatcher';

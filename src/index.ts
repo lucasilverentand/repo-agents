@@ -29,9 +29,8 @@ program
   .action(initCommand);
 
 program
-  .command('compile [file]')
-  .description('Compile agent markdown files to GitHub Actions workflows')
-  .option('-a, --all', 'Compile all agents')
+  .command('compile')
+  .description('Compile all agent markdown files to GitHub Actions workflows (generates dispatcher + agent workflows)')
   .option('-d, --dry-run', 'Show what would be generated without writing files')
   .option('-o, --output-dir <dir>', 'Output directory for workflows')
   .action(compileCommand);
