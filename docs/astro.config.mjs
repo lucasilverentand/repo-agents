@@ -2,11 +2,13 @@ import { defineConfig } from 'astro/config';
 import starlight from '@astrojs/starlight';
 import starlightThemeRapide from 'starlight-theme-rapide';
 import react from '@astrojs/react';
+import mermaid from 'astro-mermaid';
 
 export default defineConfig({
   site: 'https://lucasilverentand.github.io',
   base: '/gh-claude',
   integrations: [
+    mermaid(),
     starlight({
       title: 'gh-claude',
       description: 'GitHub CLI extension for creating Claude-powered GitHub Actions workflows',
@@ -31,6 +33,7 @@ export default defineConfig({
           items: [
             { label: 'Overview', slug: 'guide' },
             { label: 'How It Works', slug: 'guide/how-it-works' },
+            { label: 'Execution Flow', slug: 'guide/agent-execution-flow' },
             { label: 'Agent Definition', slug: 'guide/agent-definition' },
             { label: 'Permissions', slug: 'guide/permissions' },
             { label: 'Cost Estimation', slug: 'guide/cost-estimation' },

@@ -1,6 +1,8 @@
 {
 	"dependencies": {
 		"@astrojs/react": "^4.4.2",
+		"astro-mermaid": "^1.2.0",
+		"mermaid": "^11.12.2",
 		"react": "^19.2.3",
 		"react-dom": "^19.2.3"
 	}
