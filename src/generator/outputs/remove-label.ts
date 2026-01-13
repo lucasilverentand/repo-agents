@@ -1,27 +1,12 @@
 import type { OutputConfig } from '../../types/index';
+import { generateLabelsContextScript } from './base';
 import type { OutputHandler, RuntimeContext } from './base';
 
 class RemoveLabelHandler implements OutputHandler {
-  name = 'remove-label' as const;
+  name = 'remove-label';
 
   getContextScript(runtime: RuntimeContext): string | null {
-    // Fetch available labels from the repository (same as add-label)
-    // Note: If both add-label and remove-label are enabled, this will be duplicated
-    // but that's okay as the context appending is idempotent
-    return `
-# Fetch available labels for context
-LABELS_JSON=$(gh api "repos/${runtime.repository}/labels" --jq '[.[].name]' 2>/dev/null || echo '[]')
-LABELS_LIST=$(echo "$LABELS_JSON" | jq -r 'join(", ")' 2>/dev/null || echo "No labels available")
-
-cat >> /tmp/context.txt << 'LABELS_EOF'
-
-## Available Repository Labels
-
-The following labels are available in this repository:
-$LABELS_LIST
-
-LABELS_EOF
-`;
+    return generateLabelsContextScript(runtime.repository);
   }
 
   generateSkill(_config: OutputConfig): string {
@@ -108,7 +93,4 @@ fi
   }
 }
 
-// Register the handler
 export const handler = new RemoveLabelHandler();
-
-export default handler;

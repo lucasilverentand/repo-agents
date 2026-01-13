@@ -20,7 +20,7 @@ on:
 # Test Instructions
 Do something.`;
 
-      const { agent, errors } = parser.parseContent(content, 'test.md');
+      const { agent, errors } = parser.parseContent(content);
 
       expect(agent).toBeDefined();
       expect(agent?.name).toBe('Test Agent');
@@ -56,7 +56,7 @@ rate_limit_minutes: 10
 # Complex Instructions
 Do complex things.`;
 
-      const { agent, errors } = parser.parseContent(content, 'test.md');
+      const { agent, errors } = parser.parseContent(content);
 
       expect(agent).toBeDefined();
       expect(agent?.name).toBe('Complex Agent');
@@ -74,7 +74,7 @@ Do complex things.`;
       const content = `# Just Markdown
 No frontmatter here.`;
 
-      const { agent, errors } = parser.parseContent(content, 'test.md');
+      const { agent, errors } = parser.parseContent(content);
 
       expect(agent).toBeUndefined();
       expect(errors.length).toBeGreaterThan(0);
@@ -89,7 +89,7 @@ name: Test
 
 Content`;
 
-      const { agent, errors } = parser.parseContent(content, 'test.md');
+      const { agent, errors } = parser.parseContent(content);
 
       expect(agent).toBeUndefined();
       expect(errors.length).toBeGreaterThan(0);
@@ -105,7 +105,7 @@ on:
 
 Content`;
 
-      const { agent, errors } = parser.parseContent(content, 'test.md');
+      const { agent, errors } = parser.parseContent(content);
 
       expect(agent).toBeUndefined();
       expect(errors.some((e) => e.field.includes('name'))).toBe(true);
@@ -119,7 +119,7 @@ name: Test Agent
 
 Content`;
 
-      const { agent, errors } = parser.parseContent(content, 'test.md');
+      const { agent, errors } = parser.parseContent(content);
 
       expect(agent).toBeUndefined();
       expect(errors.some((e) => e.field.includes('on'))).toBe(true);
@@ -135,7 +135,7 @@ on:
 
 Content`;
 
-      const { agent, errors } = parser.parseContent(content, 'test.md');
+      const { agent, errors } = parser.parseContent(content);
 
       expect(agent).toBeUndefined();
       expect(errors.some((e) => e.field.includes('name'))).toBe(true);
@@ -158,7 +158,7 @@ inputs:
 
 Process collected data.`;
 
-      const { agent, errors } = parser.parseContent(content, 'test.md');
+      const { agent, errors } = parser.parseContent(content);
 
       expect(agent).toBeDefined();
       expect(agent?.inputs?.issues?.states).toEqual(['open']);
@@ -182,7 +182,7 @@ audit:
 
 Do work.`;
 
-      const { agent, errors } = parser.parseContent(content, 'test.md');
+      const { agent, errors } = parser.parseContent(content);
 
       expect(agent).toBeDefined();
       expect(agent?.audit?.create_issues).toBe(true);
@@ -200,7 +200,7 @@ on:
 ---
 `;
 
-      const { agent, errors } = parser.parseContent(content, 'test.md');
+      const { agent, errors } = parser.parseContent(content);
 
       expect(agent).toBeDefined();
       expect(agent?.markdown).toBe('');

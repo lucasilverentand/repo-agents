@@ -33,44 +33,21 @@ export class InputCollector {
     ];
 
     // Add collection for each configured input type
-    if (config.issues) {
-      scriptParts.push(this.generateIssuesScript(config.issues));
-      scriptParts.push('');
-    }
+    const inputScripts: Array<string | null> = [
+      config.issues ? this.generateIssuesScript(config.issues) : null,
+      config.pull_requests ? this.generatePullRequestsScript(config.pull_requests) : null,
+      config.discussions ? this.generateDiscussionsScript(config.discussions) : null,
+      config.commits ? this.generateCommitsScript(config.commits) : null,
+      config.releases ? this.generateReleasesScript(config.releases) : null,
+      config.workflow_runs ? this.generateWorkflowRunsScript(config.workflow_runs) : null,
+      config.stars ? this.generateStarsScript() : null,
+      config.forks ? this.generateForksScript() : null,
+    ];
 
-    if (config.pull_requests) {
-      scriptParts.push(this.generatePullRequestsScript(config.pull_requests));
-      scriptParts.push('');
-    }
-
-    if (config.discussions) {
-      scriptParts.push(this.generateDiscussionsScript(config.discussions));
-      scriptParts.push('');
-    }
-
-    if (config.commits) {
-      scriptParts.push(this.generateCommitsScript(config.commits));
-      scriptParts.push('');
-    }
-
-    if (config.releases) {
-      scriptParts.push(this.generateReleasesScript(config.releases));
-      scriptParts.push('');
-    }
-
-    if (config.workflow_runs) {
-      scriptParts.push(this.generateWorkflowRunsScript(config.workflow_runs));
-      scriptParts.push('');
-    }
-
-    if (config.stars) {
-      scriptParts.push(this.generateStarsScript());
-      scriptParts.push('');
-    }
-
-    if (config.forks) {
-      scriptParts.push(this.generateForksScript());
-      scriptParts.push('');
+    for (const script of inputScripts) {
+      if (script) {
+        scriptParts.push(script, '');
+      }
     }
 
     // Check minimum items threshold
@@ -103,21 +80,11 @@ export class InputCollector {
    * GitHub API only accepts 'open', 'closed', or 'all' - not comma-separated values.
    */
   private normalizeState(states?: string[]): string {
-    if (!states || states.length === 0) {
-      return 'all';
-    }
-    if (states.includes('all')) {
-      return 'all';
-    }
-    // If multiple states are requested, use 'all' and filter client-side if needed
-    if (states.length > 1) {
+    if (!states || states.length === 0 || states.includes('all') || states.length > 1) {
       return 'all';
     }
     // For 'merged', we need to use 'closed' state and filter for merged_at
-    if (states[0] === 'merged') {
-      return 'closed';
-    }
-    return states[0];
+    return states[0] === 'merged' ? 'closed' : states[0];
   }
 
   private generateTimeFilterScript(since: string): string {

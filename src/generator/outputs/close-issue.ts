@@ -2,7 +2,7 @@ import type { OutputConfig } from '../../types/index';
 import type { OutputHandler, RuntimeContext } from './base';
 
 class CloseIssueHandler implements OutputHandler {
-  name = 'close-issue' as const;
+  name = 'close-issue';
 
   getContextScript(_runtime: RuntimeContext): string | null {
     // No dynamic context needed for close-issue
@@ -80,7 +80,4 @@ fi
   }
 }
 
-// Register the handler
 export const handler = new CloseIssueHandler();
-
-export default handler;

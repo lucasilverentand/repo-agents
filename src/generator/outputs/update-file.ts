@@ -2,7 +2,7 @@ import type { OutputConfig } from '../../types/index';
 import type { OutputHandler, RuntimeContext } from './base';
 
 class UpdateFileHandler implements OutputHandler {
-  name = 'update-file' as const;
+  name = 'update-file';
 
   getContextScript(runtime: RuntimeContext): string | null {
     // Include allowed paths in context if specified
@@ -177,7 +177,4 @@ fi
   }
 }
 
-// Register the handler
 export const handler = new UpdateFileHandler();
-
-export default handler;

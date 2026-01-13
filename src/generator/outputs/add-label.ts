@@ -1,27 +1,12 @@
 import type { OutputConfig } from '../../types/index';
+import { generateLabelsContextScript } from './base';
 import type { OutputHandler, RuntimeContext } from './base';
 
 class AddLabelHandler implements OutputHandler {
-  name = 'add-label' as const;
+  name = 'add-label';
 
   getContextScript(runtime: RuntimeContext): string | null {
-    // Fetch available labels from the repository
-    return `
-# Fetch available labels for context
-LABELS_JSON=$(gh api "repos/${runtime.repository}/labels" --jq '[.[].name]' 2>/dev/null || echo '[]')
-LABELS_LIST=$(echo "$LABELS_JSON" | jq -r 'join(", ")' 2>/dev/null || echo "No labels available")
-
-cat >> /tmp/context.txt << 'LABELS_EOF'
-
-## Available Repository Labels
-
-The following labels are available in this repository:
-$LABELS_LIST
-
-**Important**: You can only add labels that already exist. New labels cannot be created by this agent.
-
-LABELS_EOF
-`;
+    return generateLabelsContextScript(runtime.repository);
   }
 
   generateSkill(_config: OutputConfig): string {
@@ -163,7 +148,4 @@ fi
   }
 }
 
-// Register the handler
 export const handler = new AddLabelHandler();
-
-export default handler;

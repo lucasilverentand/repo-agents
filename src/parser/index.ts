@@ -11,7 +11,7 @@ export class AgentParser {
   }> {
     try {
       const content = await readFile(filePath, 'utf-8');
-      return this.parseContent(content, filePath);
+      return this.parseContent(content);
     } catch (error) {
       return {
         errors: [
@@ -25,10 +25,7 @@ export class AgentParser {
     }
   }
 
-  parseContent(
-    content: string,
-    _filePath: string
-  ): {
+  parseContent(content: string): {
     agent?: AgentDefinition;
     errors: ValidationError[];
   } {
@@ -108,7 +105,6 @@ export class AgentParser {
 
   validateAgent(agent: AgentDefinition): ValidationError[] {
     const errors: ValidationError[] = [];
-
     const outputTypes = agent.outputs ? Object.keys(agent.outputs) : [];
 
     if (
@@ -122,32 +118,26 @@ export class AgentParser {
       });
     }
 
-    if (outputTypes.includes('create-pr') && agent.permissions?.contents !== 'write') {
-      errors.push({
-        field: 'permissions',
-        message: 'create-pr requires contents: write permission',
-        severity: 'error',
-      });
+    const outputsRequiringContentsWrite = ['create-pr', 'update-file'];
+    for (const outputType of outputsRequiringContentsWrite) {
+      if (outputTypes.includes(outputType) && agent.permissions?.contents !== 'write') {
+        errors.push({
+          field: 'permissions',
+          message: `${outputType} requires contents: write permission`,
+          severity: 'error',
+        });
+      }
     }
 
-    if (outputTypes.includes('update-file') && agent.permissions?.contents !== 'write') {
-      errors.push({
-        field: 'permissions',
-        message: 'update-file requires contents: write permission',
-        severity: 'error',
-      });
-    }
-
-    const hasEventTrigger = !!(
+    const hasTrigger =
       agent.on.issues ||
       agent.on.pull_request ||
       agent.on.discussion ||
-      agent.on.repository_dispatch
-    );
-    const hasSchedule = !!agent.on.schedule;
-    const hasManualTrigger = !!agent.on.workflow_dispatch;
+      agent.on.repository_dispatch ||
+      agent.on.schedule ||
+      agent.on.workflow_dispatch;
 
-    if (!hasEventTrigger && !hasSchedule && !hasManualTrigger) {
+    if (!hasTrigger) {
       errors.push({
         field: 'on',
         message: 'At least one trigger must be specified',

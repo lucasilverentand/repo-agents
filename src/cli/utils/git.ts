@@ -28,7 +28,7 @@ export function getGitHubRepo(cwd: string = process.cwd()): { owner: string; rep
       return { owner: match[1], repo: match[2] };
     }
   } catch {
-    // Ignore
+    return null;
   }
   return null;
 }

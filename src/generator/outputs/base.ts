@@ -68,3 +68,26 @@ export interface OutputHandler {
    */
   generateValidationScript(config: OutputConfig, runtime: RuntimeContext): string;
 }
+
+/**
+ * Generate bash script to fetch and display available repository labels.
+ * Used by both add-label and remove-label handlers.
+ */
+export function generateLabelsContextScript(repository: string): string {
+  return `
+# Fetch available labels for context
+LABELS_JSON=$(gh api "repos/${repository}/labels" --jq '[.[].name]' 2>/dev/null || echo '[]')
+LABELS_LIST=$(echo "$LABELS_JSON" | jq -r 'join(", ")' 2>/dev/null || echo "No labels available")
+
+cat >> /tmp/context.txt << 'LABELS_EOF'
+
+## Available Repository Labels
+
+The following labels are available in this repository:
+$LABELS_LIST
+
+**Important**: You can only use labels that already exist. New labels cannot be created by this agent.
+
+LABELS_EOF
+`;
+}

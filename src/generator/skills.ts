@@ -62,9 +62,15 @@ export function generateSkillForOutput(
   }
 }
 
-function generateAddCommentSkill(config: OutputConfig | Record<string, never>): string {
-  const maxConstraint = 'max' in config && config.max ? config.max : 'unlimited';
+function getMaxConstraint(config: OutputConfig | Record<string, never>): string | number {
+  return 'max' in config && config.max ? config.max : 'unlimited';
+}
 
+function hasSignConfig(config: OutputConfig | Record<string, never>): boolean {
+  return 'sign' in config && config.sign === true;
+}
+
+function generateAddCommentSkill(config: OutputConfig | Record<string, never>): string {
   return `## Operation: Add Comment
 
 Add a comment to the current issue or pull request.
@@ -76,7 +82,7 @@ Add a comment to the current issue or pull request.
 - Be constructive and professional in your comments
 
 **Constraints:**
-- Maximum comments: ${maxConstraint}
+- Maximum comments: ${getMaxConstraint(config)}
 
 **Example:**
 \`\`\`
@@ -134,8 +140,6 @@ Remove labels from the current issue or pull request.
 }
 
 function generateCreateIssueSkill(config: OutputConfig | Record<string, never>): string {
-  const maxConstraint = 'max' in config && config.max ? config.max : 'unlimited';
-
   return `## Operation: Create Issue
 
 Create a new issue in the repository.
@@ -146,7 +150,7 @@ Create a new issue in the repository.
 - Optional: labels, assignees, milestone
 
 **Constraints:**
-- Maximum issues: ${maxConstraint}
+- Maximum issues: ${getMaxConstraint(config)}
 
 **Example:**
 \`\`\`
@@ -160,8 +164,7 @@ Use the mcp__github__create_issue tool with:
 }
 
 function generateCreatePRSkill(config: OutputConfig | Record<string, never>): string {
-  const maxConstraint = 'max' in config && config.max ? config.max : 'unlimited';
-  const signCommits = 'sign' in config && config.sign;
+  const signCommits = hasSignConfig(config);
 
   return `## Operation: Create Pull Request
 
@@ -180,7 +183,7 @@ Create a pull request with code changes.
 - Required: title, body, head (your branch), base (target branch)
 
 **Constraints:**
-- Maximum PRs: ${maxConstraint}
+- Maximum PRs: ${getMaxConstraint(config)}
 ${signCommits ? '- Commits must be signed (configured)' : ''}
 
 **Example workflow:**
@@ -212,22 +215,21 @@ function generateUpdateFileSkill(
   config: OutputConfig | Record<string, never>,
   allowedPaths?: string[]
 ): string {
-  const signCommits = 'sign' in config && config.sign;
+  const signCommits = hasSignConfig(config);
+  const hasAllowedPaths = allowedPaths && allowedPaths.length > 0;
 
-  let pathsSection = '';
-  if (allowedPaths && allowedPaths.length > 0) {
-    const pathsList = allowedPaths.map((p) => `  - \`${p}\``).join('\n');
-    pathsSection = `
+  const pathsSection = hasAllowedPaths
+    ? `
 **Allowed paths (glob patterns):**
-${pathsList}
+${allowedPaths.map((p) => `  - \`${p}\``).join('\n')}
 
 **Security notice:** You MUST only modify files matching these patterns. Attempts to modify other files will fail validation.
 
 **Glob pattern examples:**
 - \`src/**/*.ts\` matches all TypeScript files in src/ directory and subdirectories
 - \`*.md\` matches all markdown files in the root directory
-- \`docs/**/*\` matches all files in the docs/ directory`;
-  }
+- \`docs/**/*\` matches all files in the docs/ directory`
+    : '';
 
   return `## Operation: Update Files
 

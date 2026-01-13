@@ -2,7 +2,7 @@ import type { OutputConfig } from '../../types/index';
 import type { OutputHandler, RuntimeContext } from './base';
 
 class CreateDiscussionHandler implements OutputHandler {
-  name = 'create-discussion' as const;
+  name = 'create-discussion';
 
   getContextScript(_runtime: RuntimeContext): string | null {
     // No dynamic context needed for create-discussion
@@ -214,7 +214,4 @@ fi
   }
 }
 
-// Register the handler
 export const handler = new CreateDiscussionHandler();
-
-export default handler;

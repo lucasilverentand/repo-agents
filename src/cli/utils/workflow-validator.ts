@@ -134,18 +134,7 @@ class WorkflowValidator {
   private formatErrors(errors: ErrorObject[]): ValidationError[] {
     return errors.map((error) => {
       const path = error.instancePath || '/';
-      let message = error.message || 'Validation error';
-
-      // Add more context for specific error types
-      if (error.keyword === 'additionalProperties' && error.params.additionalProperty) {
-        message = `Unknown property '${error.params.additionalProperty}'`;
-      } else if (error.keyword === 'required' && error.params.missingProperty) {
-        message = `Missing required property '${error.params.missingProperty}'`;
-      } else if (error.keyword === 'enum') {
-        message = `${message}. Allowed values: ${error.params.allowedValues?.join(', ')}`;
-      } else if (error.keyword === 'type') {
-        message = `${message} (expected ${error.params.type})`;
-      }
+      const message = this.formatErrorMessage(error);
 
       return {
         path: path.replace(/^\//, '').replace(/\//g, '.') || 'root',
@@ -153,6 +142,29 @@ class WorkflowValidator {
         value: error.data,
       };
     });
+  }
+
+  private formatErrorMessage(error: ErrorObject): string {
+    const baseMessage = error.message || 'Validation error';
+
+    switch (error.keyword) {
+      case 'additionalProperties':
+        if (error.params.additionalProperty) {
+          return `Unknown property '${error.params.additionalProperty}'`;
+        }
+        return baseMessage;
+      case 'required':
+        if (error.params.missingProperty) {
+          return `Missing required property '${error.params.missingProperty}'`;
+        }
+        return baseMessage;
+      case 'enum':
+        return `${baseMessage}. Allowed values: ${error.params.allowedValues?.join(', ')}`;
+      case 'type':
+        return `${baseMessage} (expected ${error.params.type})`;
+      default:
+        return baseMessage;
+    }
   }
 }
 
