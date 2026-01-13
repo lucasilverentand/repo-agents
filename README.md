@@ -217,7 +217,9 @@ Create a daily activity report summarizing:
 ### CLI Commands
 
 ```bash
+gh claude setup                  # Interactive setup wizard (recommended for new users)
 gh claude init [--examples]      # Initialize in repository
+gh claude add [--all]            # Add agents from the library
 gh claude compile [--all]        # Compile agents to workflows
 gh claude validate [--all]       # Validate agent definitions
 gh claude list [--details]       # List all agents

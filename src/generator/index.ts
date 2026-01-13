@@ -44,7 +44,9 @@ export class WorkflowGenerator {
     }
 
     const preFlightOutputs: Record<string, string> = {
-      'should-run': '$' + '{{ steps.set-output.outputs.should-run || steps.check-rate-limit.outputs.should-run }}',
+      'should-run':
+        '$' +
+        '{{ steps.set-output.outputs.should-run || steps.check-rate-limit.outputs.should-run }}',
       'rate-limited': '$' + '{{ steps.check-rate-limit.outputs.rate-limited }}',
     };
 

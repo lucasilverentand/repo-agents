@@ -9,6 +9,8 @@ import { validateCommand } from './cli/commands/validate';
 import { listCommand } from './cli/commands/list';
 import { authCommand } from './cli/commands/auth';
 import { setupAppCommand } from './cli/commands/setup-app';
+import { setupCommand } from './cli/commands/setup';
+import { addCommand } from './cli/commands/add';
 
 const packageJson = JSON.parse(readFileSync(join(__dirname, '../package.json'), 'utf-8'));
 
@@ -65,5 +67,20 @@ program
     'Organization name (auto-detected from current repo if not specified)'
   )
   .action(setupAppCommand);
+
+program
+  .command('setup')
+  .description('Interactive setup wizard for gh-claude (configures authentication and GitHub App)')
+  .option('--force', 'Overwrite existing configuration')
+  .option('--skip-auth', 'Skip Claude authentication setup')
+  .option('--skip-app', 'Skip GitHub App setup')
+  .action(setupCommand);
+
+program
+  .command('add')
+  .description('Add Claude agents from the library')
+  .option('-a, --all', 'Add all agents from the library')
+  .option('--force', 'Overwrite existing agents')
+  .action(addCommand);
 
 program.parse();
