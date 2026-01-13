@@ -1,27 +1,11 @@
 import { execSync, spawnSync } from 'child_process';
 import ora from 'ora';
 import { logger } from '../utils/logger';
-import * as readline from 'readline';
+import { promptForInput } from '../utils/prompts';
+import { getExistingSecrets, setGitHubSecret } from '../utils/secrets';
 
 interface AuthOptions {
   force?: boolean;
-}
-
-/**
- * Prompts the user for input
- */
-function promptForInput(question: string): Promise<string> {
-  const rl = readline.createInterface({
-    input: process.stdin,
-    output: process.stdout,
-  });
-
-  return new Promise((resolve) => {
-    rl.question(question, (answer) => {
-      rl.close();
-      resolve(answer.trim());
-    });
-  });
 }
 
 /**
@@ -32,15 +16,14 @@ function isValidApiKeyFormat(apiKey: string): boolean {
 }
 
 /**
- * Checks if Claude CLI is installed
+ * Checks if Claude CLI is installed.
+ * Uses shell commands to check PATH and default installation location.
  */
 function isClaudeCLIInstalled(): boolean {
   try {
-    // Check common installation paths and PATH
     execSync('claude --version', { stdio: 'pipe', shell: '/bin/bash' });
     return true;
   } catch {
-    // Also check the default installation path
     try {
       execSync('test -x "$HOME/.claude/local/claude"', { stdio: 'pipe', shell: '/bin/bash' });
       return true;
@@ -55,13 +38,11 @@ function isClaudeCLIInstalled(): boolean {
  */
 function getTokenFromKeychain(): string | null {
   try {
-    // Try to get credentials from keychain
     const output = execSync('security find-generic-password -s "Claude Code-credentials" -w', {
       encoding: 'utf-8',
       stdio: ['pipe', 'pipe', 'pipe'],
     }).trim();
 
-    // Parse the JSON output
     const credentials = JSON.parse(output);
     const accessToken = credentials?.claudeAiOauth?.accessToken;
 
@@ -70,7 +51,7 @@ function getTokenFromKeychain(): string | null {
     }
 
     return null;
-  } catch (_error) {
+  } catch {
     return null;
   }
 }
@@ -79,12 +60,10 @@ function getTokenFromKeychain(): string | null {
  * Gets the path to the Claude CLI binary
  */
 function getClaudePath(): string {
-  // Check if claude is in PATH
   try {
     execSync('which claude', { stdio: 'pipe' });
     return 'claude';
   } catch {
-    // Fall back to default installation path
     return '$HOME/.claude/local/claude';
   }
 }
@@ -100,51 +79,14 @@ async function runClaudeSetupToken(): Promise<boolean> {
 
     const claudePath = getClaudePath();
 
-    // Run interactively with full TTY access
     const result = spawnSync(claudePath, ['setup-token'], {
       stdio: 'inherit',
       shell: '/bin/bash',
     });
 
     return result.status === 0;
-  } catch (_error) {
+  } catch {
     return false;
-  }
-}
-
-/**
- * Sets the API key as a GitHub repository secret
- */
-function setGitHubSecret(secretName: string, secretValue: string): void {
-  try {
-    // Use gh CLI to set the secret
-    execSync(`gh secret set ${secretName}`, {
-      input: secretValue,
-      stdio: ['pipe', 'inherit', 'inherit'],
-    });
-  } catch (_error) {
-    throw new Error(
-      'Failed to set GitHub secret. Make sure gh CLI is installed and authenticated.'
-    );
-  }
-}
-
-/**
- * Checks which GitHub secrets are already set
- */
-function getExistingSecrets(): { hasApiKey: boolean; hasAccessToken: boolean } {
-  try {
-    const output = execSync('gh secret list --json name', {
-      encoding: 'utf-8',
-      stdio: ['pipe', 'pipe', 'pipe'],
-    });
-    const secrets = JSON.parse(output);
-    return {
-      hasApiKey: secrets.some((s: { name: string }) => s.name === 'ANTHROPIC_API_KEY'),
-      hasAccessToken: secrets.some((s: { name: string }) => s.name === 'CLAUDE_CODE_OAUTH_TOKEN'),
-    };
-  } catch (_error) {
-    return { hasApiKey: false, hasAccessToken: false };
   }
 }
 

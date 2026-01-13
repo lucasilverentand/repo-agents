@@ -1,6 +1,7 @@
 import { execSync } from 'child_process';
 import { logger } from '../utils/logger';
 import { promptForInput } from '../utils/prompts';
+import { getExistingSecrets, getExistingAppSecrets, isGhAuthenticated } from '../utils/secrets';
 import { authCommand } from './auth';
 import { setupAppCommand } from './setup-app';
 
@@ -8,56 +9,6 @@ interface SetupOptions {
   force?: boolean;
   skipAuth?: boolean;
   skipApp?: boolean;
-}
-
-/**
- * Checks which GitHub secrets are already set
- */
-function getExistingSecrets(): { hasApiKey: boolean; hasAccessToken: boolean } {
-  try {
-    const output = execSync('gh secret list --json name', {
-      encoding: 'utf-8',
-      stdio: ['pipe', 'pipe', 'pipe'],
-    });
-    const secrets = JSON.parse(output);
-    return {
-      hasApiKey: secrets.some((s: { name: string }) => s.name === 'ANTHROPIC_API_KEY'),
-      hasAccessToken: secrets.some((s: { name: string }) => s.name === 'CLAUDE_CODE_OAUTH_TOKEN'),
-    };
-  } catch {
-    return { hasApiKey: false, hasAccessToken: false };
-  }
-}
-
-/**
- * Checks if GitHub App secrets are already set
- */
-function getExistingAppSecrets(): { hasAppId: boolean; hasPrivateKey: boolean } {
-  try {
-    const output = execSync('gh secret list --json name', {
-      encoding: 'utf-8',
-      stdio: ['pipe', 'pipe', 'pipe'],
-    });
-    const secrets = JSON.parse(output);
-    return {
-      hasAppId: secrets.some((s: { name: string }) => s.name === 'GH_APP_ID'),
-      hasPrivateKey: secrets.some((s: { name: string }) => s.name === 'GH_APP_PRIVATE_KEY'),
-    };
-  } catch {
-    return { hasAppId: false, hasPrivateKey: false };
-  }
-}
-
-/**
- * Checks if gh CLI is authenticated
- */
-function isGhAuthenticated(): boolean {
-  try {
-    execSync('gh auth status', { stdio: 'pipe' });
-    return true;
-  } catch {
-    return false;
-  }
 }
 
 /**

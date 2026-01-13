@@ -16,46 +16,45 @@ interface AgentInfo {
 }
 
 /**
+ * Extracts the first content line from markdown (skipping frontmatter and headers)
+ */
+function extractDescription(content: string): string {
+  const lines = content.split('\n');
+  const descriptionLine = lines.find((line) => {
+    const trimmed = line.trim();
+    return trimmed && !trimmed.startsWith('---') && !trimmed.startsWith('#');
+  });
+  return descriptionLine?.trim() || 'No description available';
+}
+
+/**
  * Gets the list of available agents from the examples directory
  */
 function getAvailableAgents(examplesDir: string): AgentInfo[] {
-  const agents: AgentInfo[] = [];
-
+  let files: string[];
   try {
-    const files = readdirSync(examplesDir).filter((f) => f.endsWith('.md') && f !== 'README.md');
-
-    for (const filename of files) {
-      const filePath = join(examplesDir, filename);
-      const content = readFileSync(filePath, 'utf-8');
-
-      try {
-        const { data } = matter(content);
-        const name = data.name || filename.replace('.md', '');
-
-        // Extract first line of markdown content as description
-        const lines = content.split('\n');
-        let description = '';
-        for (const line of lines) {
-          const trimmed = line.trim();
-          if (trimmed && !trimmed.startsWith('---') && !trimmed.startsWith('#')) {
-            description = trimmed;
-            break;
-          }
-        }
-
-        agents.push({
-          filename,
-          name,
-          description: description || 'No description available',
-        });
-      } catch {
-        // Skip files that can't be parsed
-        continue;
-      }
-    }
+    files = readdirSync(examplesDir).filter((f) => f.endsWith('.md') && f !== 'README.md');
   } catch (error) {
     logger.error(`Failed to read examples directory: ${(error as Error).message}`);
     process.exit(1);
+  }
+
+  const agents: AgentInfo[] = [];
+
+  for (const filename of files) {
+    const filePath = join(examplesDir, filename);
+    const content = readFileSync(filePath, 'utf-8');
+
+    try {
+      const { data } = matter(content);
+      agents.push({
+        filename,
+        name: (data.name as string) || filename.replace('.md', ''),
+        description: extractDescription(content),
+      });
+    } catch {
+      // Skip files that can't be parsed
+    }
   }
 
   return agents.sort((a, b) => a.name.localeCompare(b.name));

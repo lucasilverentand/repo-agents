@@ -154,29 +154,12 @@ export class WorkflowGenerator {
   private generateTriggers(agent: AgentDefinition): TriggerConfig {
     const triggers: TriggerConfig = {};
 
-    if (agent.on.issues) {
-      triggers.issues = agent.on.issues;
-    }
-
-    if (agent.on.pull_request) {
-      triggers.pull_request = agent.on.pull_request;
-    }
-
-    if (agent.on.discussion) {
-      triggers.discussion = agent.on.discussion;
-    }
-
-    if (agent.on.schedule) {
-      triggers.schedule = agent.on.schedule;
-    }
-
-    if (agent.on.workflow_dispatch) {
-      triggers.workflow_dispatch = agent.on.workflow_dispatch;
-    }
-
-    if (agent.on.repository_dispatch) {
-      triggers.repository_dispatch = agent.on.repository_dispatch;
-    }
+    if (agent.on.issues) triggers.issues = agent.on.issues;
+    if (agent.on.pull_request) triggers.pull_request = agent.on.pull_request;
+    if (agent.on.discussion) triggers.discussion = agent.on.discussion;
+    if (agent.on.schedule) triggers.schedule = agent.on.schedule;
+    if (agent.on.workflow_dispatch) triggers.workflow_dispatch = agent.on.workflow_dispatch;
+    if (agent.on.repository_dispatch) triggers.repository_dispatch = agent.on.repository_dispatch;
 
     return triggers;
   }
