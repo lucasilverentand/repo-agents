@@ -1,9 +1,12 @@
 {
   "name": "repo-agents-monorepo",
-  "version": "0.4.1",
+  "version": "1.0.0",
   "private": true,
   "description": "GitHub CLI extension for creating AI-powered GitHub Actions workflows from markdown agent definitions",
-  "workspaces": ["packages/*", "docs"],
+  "workspaces": [
+    "packages/*",
+    "docs"
+  ],
   "scripts": {
     "cli": "bun packages/cli/src/index.ts",
     "test": "bun test packages/*/src/**/*.test.ts",
