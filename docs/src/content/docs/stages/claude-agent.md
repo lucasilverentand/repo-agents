@@ -88,6 +88,6 @@ If the claude-agent stage fails:
 
 ## See Also
 
-- [Agent Definition](/gh-claude/guide/agent-definition/) - Configuration options
-- [Permissions](/gh-claude/guide/permissions/) - Tool access control
-- [Execute Outputs](/gh-claude/stages/execute-outputs/) - Next stage
+- [Agent Definition](/repo-agents/guide/agent-definition/) - Configuration options
+- [Permissions](/repo-agents/guide/permissions/) - Tool access control
+- [Execute Outputs](/repo-agents/stages/execute-outputs/) - Next stage

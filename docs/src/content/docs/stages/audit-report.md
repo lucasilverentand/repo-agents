@@ -95,6 +95,6 @@ You can configure audit behavior in your agent definition:
 
 ## See Also
 
-- [Troubleshooting](/gh-claude/guide/troubleshooting/) - Common issues
-- [FAQ](/gh-claude/reference/faq/) - Frequently asked questions
-- [Pre-Flight](/gh-claude/stages/pre-flight/) - First stage
+- [Troubleshooting](/repo-agents/guide/troubleshooting/) - Common issues
+- [FAQ](/repo-agents/reference/faq/) - Frequently asked questions
+- [Pre-Flight](/repo-agents/stages/pre-flight/) - First stage

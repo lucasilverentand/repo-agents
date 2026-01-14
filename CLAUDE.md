@@ -4,7 +4,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Project Overview
 
-**gh-claude** is a GitHub CLI extension that transforms natural language markdown files into GitHub Actions workflows powered by Claude AI. Users write agent definitions in `.github/claude-agents/*.md` files (markdown with YAML frontmatter), and the tool compiles these into executable GitHub Actions workflows that use the Claude Code CLI.
+**Repo Agents** is a CLI tool that transforms natural language markdown files into GitHub Actions workflows powered by AI. Users write agent definitions in `.github/agents/*.md` files (markdown with YAML frontmatter), and the tool compiles these into executable GitHub Actions workflows that use the Claude Code CLI.
 
 ## Tech Stack
 
@@ -32,7 +32,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
    - Collects repository data inputs before execution (when configured)
 
 3. **CLI** ([src/cli/](src/cli/)) - Commander.js-based command interface
-   - `init`: Scaffolds `.github/claude-agents/` directory and examples
+   - `init`: Scaffolds `.github/agents/` directory and examples
    - `compile`: Parses agent markdown and generates workflow YAML
    - `validate`: Validates agent definitions without generating workflows
    - `list`: Lists all agents in repository
@@ -185,11 +185,11 @@ The `setup-app` command ([src/cli/commands/setup-app.ts](src/cli/commands/setup-
 - Stores secrets at org level (all repos) or repo level
 - Generated workflows automatically use app token when available
 - Enables branded identity (commits/comments appear as the app)
-- Allows PRs created by Claude to trigger CI workflows
+- Allows PRs created by the agent to trigger CI workflows
 
 ### Agent Markdown Format
 
-Agent files in `.github/claude-agents/*.md` must have:
+Agent files in `.github/agents/*.md` must have:
 - YAML frontmatter with `name` (required) and `on` triggers (required)
 - Optional fields:
   - `permissions`: GitHub permissions (contents, issues, pull_requests, discussions)
@@ -233,7 +233,7 @@ Unit tests use Bun test (Jest-compatible) and are colocated with source files:
 ## Project Structure
 
 ```
-gh-claude/
+repo-agents/
 ├── src/
 │   ├── index.ts              # CLI entry point, command registration
 │   ├── types/index.ts        # All TypeScript type definitions
@@ -252,12 +252,12 @@ gh-claude/
 │   │       └── *.ts          # Individual handlers
 │   └── cli/
 │       ├── commands/         # CLI command implementations
-│       │   ├── init.ts       # gh claude init
-│       │   ├── compile.ts    # gh claude compile
-│       │   ├── validate.ts   # gh claude validate
-│       │   ├── list.ts       # gh claude list
-│       │   ├── auth.ts       # gh claude setup-token
-│       │   └── setup-app.ts  # gh claude setup-app
+│       │   ├── init.ts       # repo-agents init
+│       │   ├── compile.ts    # repo-agents compile
+│       │   ├── validate.ts   # repo-agents validate
+│       │   ├── list.ts       # repo-agents list
+│       │   ├── auth.ts       # repo-agents setup-token
+│       │   └── setup-app.ts  # repo-agents setup-app
 │       └── utils/
 │           ├── logger.ts     # Logging utilities
 │           ├── files.ts      # File operations
@@ -267,7 +267,7 @@ gh-claude/
 ├── tests/fixtures/           # Test fixtures
 ├── docs/                     # Astro documentation site
 │   └── src/content/docs/     # Documentation content
-├── .github/claude-agents/    # This repo's own Claude agents
+├── .github/agents/    # This repo's own AI agents
 └── dist/                     # Compiled output
 ```
 

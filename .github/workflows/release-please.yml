@@ -62,14 +62,14 @@ jobs:
 
       - name: Create release tarball
         run: |
-          tar -czf gh-claude-${{ needs.release-please.outputs.version }}.tar.gz dist/
+          tar -czf repo-agents-${{ needs.release-please.outputs.version }}.tar.gz dist/
 
       - name: Upload release artifact
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
           gh release upload ${{ needs.release-please.outputs.tag_name }} \
-            gh-claude-${{ needs.release-please.outputs.version }}.tar.gz
+            repo-agents-${{ needs.release-please.outputs.version }}.tar.gz
 
       - name: Trigger documentation deployment
         env:

@@ -12,11 +12,11 @@ interface SetupOptions {
 }
 
 /**
- * Checks if the repository is initialized with gh-claude
+ * Checks if the repository is initialized with Repo Agents
  */
 function isRepoInitialized(): boolean {
   try {
-    execSync('test -d .github/claude-agents', { stdio: 'pipe' });
+    execSync('test -d .github/agents', { stdio: 'pipe' });
     return true;
   } catch {
     return false;
@@ -28,11 +28,11 @@ function isRepoInitialized(): boolean {
  */
 export async function setupCommand(options: SetupOptions): Promise<void> {
   logger.info('═══════════════════════════════════════════════════════════════');
-  logger.info('              Welcome to gh-claude Setup Wizard                ');
+  logger.info('              Welcome to Repo Agents Setup Wizard              ');
   logger.info('═══════════════════════════════════════════════════════════════');
   logger.newline();
 
-  logger.info('This wizard will guide you through setting up gh-claude in your repository.');
+  logger.info('This wizard will guide you through setting up Repo Agents in your repository.');
   logger.newline();
 
   // Step 1: Check prerequisites
@@ -48,14 +48,14 @@ export async function setupCommand(options: SetupOptions): Promise<void> {
 
   const repoInitialized = isRepoInitialized();
   if (repoInitialized) {
-    logger.success('✓ Repository is initialized with gh-claude');
+    logger.success('✓ Repository is initialized with Repo Agents');
   } else {
-    logger.warn('✗ Repository is not initialized with gh-claude');
+    logger.warn('✗ Repository is not initialized with Repo Agents');
     const shouldInit = await promptForInput('  Would you like to initialize now? (Y/n): ');
     if (shouldInit.toLowerCase() !== 'n' && shouldInit.toLowerCase() !== 'no') {
       logger.info('  Initializing repository...');
       try {
-        execSync('gh claude init --examples', { stdio: 'inherit' });
+        execSync('repo-agents init --examples', { stdio: 'inherit' });
         logger.success('✓ Repository initialized successfully');
       } catch {
         logger.error('Failed to initialize repository');
@@ -71,14 +71,14 @@ export async function setupCommand(options: SetupOptions): Promise<void> {
 
   // Step 2: Configure Claude authentication
   if (!options.skipAuth) {
-    logger.info('Step 2/4: Configure Claude authentication...');
+    logger.info('Step 2/4: Configure AI authentication...');
     logger.newline();
 
     const existingSecrets = getExistingSecrets();
     const hasAuth = existingSecrets.hasApiKey || existingSecrets.hasAccessToken;
 
     if (hasAuth && !options.force) {
-      logger.success('✓ Claude authentication is already configured');
+      logger.success('✓ AI authentication is already configured');
       if (existingSecrets.hasAccessToken) {
         logger.log('  Using: CLAUDE_CODE_OAUTH_TOKEN (subscription)');
       } else if (existingSecrets.hasApiKey) {
@@ -91,20 +91,20 @@ export async function setupCommand(options: SetupOptions): Promise<void> {
         await authCommand({ force: true });
       }
     } else {
-      logger.warn('✗ Claude authentication is not configured');
-      logger.info('  Claude agents require authentication to run in GitHub Actions.');
+      logger.warn('✗ AI authentication is not configured');
+      logger.info('  Agents require authentication to run in GitHub Actions.');
       logger.newline();
 
-      const shouldSetup = await promptForInput('  Configure Claude authentication now? (Y/n): ');
+      const shouldSetup = await promptForInput('  Configure AI authentication now? (Y/n): ');
       if (shouldSetup.toLowerCase() !== 'n' && shouldSetup.toLowerCase() !== 'no') {
         await authCommand({ force: options.force });
       } else {
-        logger.warn('  Skipping Claude authentication setup');
-        logger.warn('  You can configure it later with: gh claude setup-token');
+        logger.warn('  Skipping AI authentication setup');
+        logger.warn('  You can configure it later with: repo-agents setup-token');
       }
     }
   } else {
-    logger.info('Step 2/4: Skipping Claude authentication (--skip-auth)');
+    logger.info('Step 2/4: Skipping AI authentication (--skip-auth)');
   }
 
   logger.newline();
@@ -115,8 +115,8 @@ export async function setupCommand(options: SetupOptions): Promise<void> {
     logger.newline();
 
     logger.info('GitHub App provides:');
-    logger.log('  • Branded identity for Claude (e.g., "Claude[bot]")');
-    logger.log('  • Ability to trigger CI workflows from Claude-created PRs');
+    logger.log('  • Branded identity for your agent (e.g., "YourApp[bot]")');
+    logger.log('  • Ability to trigger CI workflows from agent-created PRs');
     logger.newline();
 
     const existingAppSecrets = getExistingAppSecrets();
@@ -139,7 +139,7 @@ export async function setupCommand(options: SetupOptions): Promise<void> {
         await setupAppCommand({ force: options.force });
       } else {
         logger.warn('  Skipping GitHub App setup');
-        logger.warn('  You can configure it later with: gh claude setup-app');
+        logger.warn('  You can configure it later with: repo-agents setup-app');
       }
     }
   } else {
@@ -155,18 +155,18 @@ export async function setupCommand(options: SetupOptions): Promise<void> {
   logger.success("Setup complete! Here's what to do next:");
   logger.newline();
 
-  logger.info('1. Create or add Claude agents:');
-  logger.log('   • Create custom agents in .github/claude-agents/');
-  logger.log('   • Or add from library: gh claude add');
+  logger.info('1. Create or add agents:');
+  logger.log('   • Create custom agents in .github/agents/');
+  logger.log('   • Or add from library: repo-agents add');
   logger.newline();
 
   logger.info('2. Compile agents to workflows:');
-  logger.log('   gh claude compile --all');
+  logger.log('   repo-agents compile');
   logger.newline();
 
   logger.info('3. Commit and push:');
   logger.log('   git add .github/');
-  logger.log('   git commit -m "Add Claude agents"');
+  logger.log('   git commit -m "Add agents"');
   logger.log('   git push');
   logger.newline();
 
@@ -176,9 +176,9 @@ export async function setupCommand(options: SetupOptions): Promise<void> {
   logger.newline();
 
   logger.info('═══════════════════════════════════════════════════════════════');
-  logger.success('Happy automating with Claude! 🎉');
+  logger.success('Happy automating!');
   logger.info('═══════════════════════════════════════════════════════════════');
   logger.newline();
 
-  logger.info('Need help? Visit: https://github.com/anthropics/gh-claude');
+  logger.info('Need help? Visit: https://github.com/lucasilverentand/repo-agents');
 }

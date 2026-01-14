@@ -1,10 +1,10 @@
-# Getting Started with gh-claude
+# Getting Started with Repo Agents
 
-Welcome to **gh-claude** – a GitHub CLI extension that transforms natural language markdown files into intelligent GitHub Actions workflows powered by Claude AI.
+Welcome to **Repo Agents** – a GitHub CLI extension that transforms natural language markdown files into intelligent GitHub Actions workflows powered by Claude AI.
 
-## What is gh-claude?
+## What is Repo Agents?
 
-gh-claude lets you automate repository tasks by writing simple instructions in markdown instead of complex YAML configurations. Define AI-powered agents that can:
+Repo Agents lets you automate repository tasks by writing simple instructions in markdown instead of complex YAML configurations. Define AI-powered agents that can:
 
 - 🤖 Automatically triage and label new issues
 - 📝 Review pull requests and provide feedback
@@ -13,7 +13,7 @@ gh-claude lets you automate repository tasks by writing simple instructions in m
 - 💬 Create discussions and respond to questions
 - 🔄 And much more...
 
-## Why gh-claude?
+## Why Repo Agents?
 
 **Traditional GitHub Actions:**
 ```yaml
@@ -24,7 +24,7 @@ gh-claude lets you automate repository tasks by writing simple instructions in m
     # Complex YAML configuration...
 ```
 
-**With gh-claude:**
+**With Repo Agents:**
 ```markdown
 ---
 name: Issue Triage
@@ -55,16 +55,16 @@ Before you begin, ensure you have:
 
 ## Installation
 
-Install gh-claude as a GitHub CLI extension:
+Install Repo Agents as a GitHub CLI extension:
 
 ```bash
-gh extension install lucasilverentand/gh-claude
+gh extension install lucasilverentand/repo-agents
 ```
 
 Verify the installation:
 
 ```bash
-gh claude --version
+repo-agents --version
 ```
 
 ## Step-by-Step Guide
@@ -77,14 +77,14 @@ Navigate to your repository:
 cd your-repository
 ```
 
-Initialize gh-claude with example agents:
+Initialize Repo Agents with example agents:
 
 ```bash
-gh claude init --examples
+repo-agents init --examples
 ```
 
 This creates:
-- `.github/claude-agents/` – Directory for agent markdown files
+- `.github/agents/` – Directory for agent markdown files
 - Example agent templates to help you get started
 
 ### 2. Configure Authentication
@@ -92,7 +92,7 @@ This creates:
 Run the interactive setup wizard:
 
 ```bash
-gh claude setup
+repo-agents setup
 ```
 
 This will guide you through:
@@ -102,7 +102,7 @@ This will guide you through:
 Alternatively, configure just the API key:
 
 ```bash
-gh claude setup-token
+repo-agents setup-token
 ```
 
 Or add it manually as a repository secret:
@@ -116,7 +116,7 @@ gh secret set ANTHROPIC_API_KEY
 Let's create a simple issue triage agent. Create a new file:
 
 ```bash
-.github/claude-agents/issue-triage.md
+.github/agents/issue-triage.md
 ```
 
 Add this content:
@@ -163,12 +163,12 @@ Be warm, welcoming, and constructive!
 Generate GitHub Actions workflows from your agents:
 
 ```bash
-gh claude compile
+repo-agents compile
 ```
 
 This creates:
-- `.github/workflows/claude-dispatcher.yml` – Central dispatcher that handles all triggers
-- `.github/workflows/claude-issue-triage.yml` – Your issue triage agent workflow
+- `.github/workflows/agent-dispatcher.yml` – Central dispatcher that handles all triggers
+- `.github/workflows/agent-issue-triage.yml` – Your issue triage agent workflow
 
 **What's a dispatcher?** The dispatcher is a centralized workflow that:
 - Aggregates all triggers from all your agents
@@ -178,11 +178,11 @@ This creates:
 
 ### 5. Review Generated Workflows (Optional)
 
-Take a look at the generated workflows to understand what gh-claude created:
+Take a look at the generated workflows to understand what Repo Agents created:
 
 ```bash
-cat .github/workflows/claude-dispatcher.yml
-cat .github/workflows/claude-issue-triage.yml
+cat .github/workflows/agent-dispatcher.yml
+cat .github/workflows/agent-issue-triage.yml
 ```
 
 You'll notice the dispatcher handles pre-flight checks, and your agent workflow focuses solely on the task at hand.
@@ -225,16 +225,16 @@ Check the **Actions** tab to see the workflow run and logs.
 
 ## Understanding the Architecture
 
-gh-claude uses a **dispatcher pattern** for scalability and reliability:
+Repo Agents uses a **dispatcher pattern** for scalability and reliability:
 
 ```
 GitHub Event (issue opened)
         ↓
-claude-dispatcher.yml (pre-flight validation)
+agent-dispatcher.yml (pre-flight validation)
         ↓
     Routes to...
         ↓
-claude-issue-triage.yml (executes agent)
+agent-issue-triage.yml (executes agent)
 ```
 
 ### Benefits of the Dispatcher
@@ -248,7 +248,7 @@ claude-issue-triage.yml (executes agent)
 
 ### PR Review Agent
 
-Create `.github/claude-agents/pr-review.md`:
+Create `.github/agents/pr-review.md`:
 
 ```markdown
 ---
@@ -275,7 +275,7 @@ Be helpful and constructive!
 
 ### Daily Activity Report
 
-Create `.github/claude-agents/daily-report.md`:
+Create `.github/agents/daily-report.md`:
 
 ```markdown
 ---
@@ -313,7 +313,7 @@ Keep it concise and actionable!
 Compile again to generate workflows for all agents:
 
 ```bash
-gh claude compile
+repo-agents compile
 ```
 
 ## Validating Agents
@@ -321,7 +321,7 @@ gh claude compile
 Before compiling, validate your agent definitions:
 
 ```bash
-gh claude validate --all
+repo-agents validate --all
 ```
 
 This checks:
@@ -335,19 +335,19 @@ This checks:
 See all agents in your repository:
 
 ```bash
-gh claude list
+repo-agents list
 ```
 
 For detailed information:
 
 ```bash
-gh claude list --details
+repo-agents list --details
 ```
 
 Output formats:
 ```bash
-gh claude list --format json
-gh claude list --format yaml
+repo-agents list --format json
+repo-agents list --format yaml
 ```
 
 ## Troubleshooting
@@ -365,7 +365,7 @@ If the dispatcher detects missing configuration:
 1. It will create an issue with instructions
 2. It will disable itself to prevent repeated failures
 3. Follow the issue instructions to fix the problem
-4. Re-enable the workflow: `gh workflow enable claude-dispatcher.yml`
+4. Re-enable the workflow: `gh workflow enable agent-dispatcher.yml`
 
 ### Rate Limiting
 
@@ -380,42 +380,42 @@ Check Claude API status and your account limits at [console.anthropic.com](https
 Now that you have your first agent running, explore more advanced features:
 
 ### 📚 Core Concepts
-- [How It Works](https://lucasilverentand.github.io/gh-claude/guide/how-it-works/) – Understand the architecture
-- [Agent Definition](https://lucasilverentand.github.io/gh-claude/guide/agent-definition/) – Learn the markdown format
-- [Permissions](https://lucasilverentand.github.io/gh-claude/guide/permissions/) – Security model
-- [Triggers](https://lucasilverentand.github.io/gh-claude/triggers/) – Event types and configuration
+- [How It Works](https://lucasilverentand.github.io/Repo Agents/guide/how-it-works/) – Understand the architecture
+- [Agent Definition](https://lucasilverentand.github.io/Repo Agents/guide/agent-definition/) – Learn the markdown format
+- [Permissions](https://lucasilverentand.github.io/Repo Agents/guide/permissions/) – Security model
+- [Triggers](https://lucasilverentand.github.io/Repo Agents/triggers/) – Event types and configuration
 
 ### 🔧 Advanced Features
-- [Inputs](https://lucasilverentand.github.io/gh-claude/guide/inputs/) – Collect repository data for analysis
-- [Outputs](https://lucasilverentand.github.io/gh-claude/guide/outputs/) – Available actions
-- [Multi-Agent Patterns](https://lucasilverentand.github.io/gh-claude/guide/multi-agent-patterns/) – Complex workflows
-- [Advanced Topics](https://lucasilverentand.github.io/gh-claude/guide/advanced/) – Optimization and best practices
+- [Inputs](https://lucasilverentand.github.io/Repo Agents/guide/inputs/) – Collect repository data for analysis
+- [Outputs](https://lucasilverentand.github.io/Repo Agents/guide/outputs/) – Available actions
+- [Multi-Agent Patterns](https://lucasilverentand.github.io/Repo Agents/guide/multi-agent-patterns/) – Complex workflows
+- [Advanced Topics](https://lucasilverentand.github.io/Repo Agents/guide/advanced/) – Optimization and best practices
 
 ### 📦 Agent Library
-- [Browse agents](https://lucasilverentand.github.io/gh-claude/agents/gallery/) – Pre-built agent templates
-- [Add agents](https://lucasilverentand.github.io/gh-claude/cli/add/) – Install from library
+- [Browse agents](https://lucasilverentand.github.io/Repo Agents/agents/gallery/) – Pre-built agent templates
+- [Add agents](https://lucasilverentand.github.io/Repo Agents/cli/add/) – Install from library
 
 ### 🎯 Examples
-- [Issue Triage](https://lucasilverentand.github.io/gh-claude/examples/issue-triage/)
-- [PR Review](https://lucasilverentand.github.io/gh-claude/examples/pr-review/)
-- [Daily Summary](https://lucasilverentand.github.io/gh-claude/examples/daily-summary/)
+- [Issue Triage](https://lucasilverentand.github.io/Repo Agents/examples/issue-triage/)
+- [PR Review](https://lucasilverentand.github.io/Repo Agents/examples/pr-review/)
+- [Daily Summary](https://lucasilverentand.github.io/Repo Agents/examples/daily-summary/)
 
 ## Community and Support
 
-- **Documentation**: [lucasilverentand.github.io/gh-claude](https://lucasilverentand.github.io/gh-claude)
-- **Issues**: [github.com/lucasilverentand/gh-claude/issues](https://github.com/lucasilverentand/gh-claude/issues)
+- **Documentation**: [lucasilverentand.github.io/Repo Agents](https://lucasilverentand.github.io/Repo Agents)
+- **Issues**: [github.com/lucasilverentand/repo-agents/issues](https://github.com/lucasilverentand/repo-agents/issues)
 - **Contributing**: See [CLAUDE.md](CLAUDE.md) for development guidance
 
 ## Summary
 
 You've learned how to:
-- ✅ Install gh-claude
+- ✅ Install Repo Agents
 - ✅ Configure authentication
 - ✅ Create an agent with natural language instructions
 - ✅ Compile agents to GitHub Actions workflows
 - ✅ Deploy and test your agent
 
-**Next**: Explore the [full documentation](https://lucasilverentand.github.io/gh-claude) to unlock the full power of gh-claude!
+**Next**: Explore the [full documentation](https://lucasilverentand.github.io/Repo Agents) to unlock the full power of Repo Agents!
 
 ---
 

@@ -1,24 +1,24 @@
 ---
-title: gh-claude
-description: GitHub CLI extension for creating Claude-powered GitHub Actions workflows
+title: Repo Agents
+description: CLI tool for creating AI-powered GitHub Actions workflows from markdown agent definitions
 template: splash
 hero:
-  tagline: Transform natural language markdown files into GitHub Actions workflows powered by Claude AI
+  tagline: Transform natural language markdown files into GitHub Actions workflows powered by AI
   actions:
-    - text: Get Started
-      link: /gh-claude/getting-started/installation/
+    - text: Learn More
+      link: ./intro
       icon: right-arrow
       variant: primary
-    - text: View on GitHub
-      link: https://github.com/lucasilverentand/gh-claude
-      icon: external
+    - text: Quick Start
+      link: ./start
+      icon: rocket
 ---
 
 import { Card, CardGrid } from '@astrojs/starlight/components';
 
 ## Overview
 
-**gh-claude** enables developers to create intelligent repository automation by writing simple markdown instructions instead of complex YAML configurations. Define AI-powered agents that can automatically triage issues, review pull requests, manage discussions, and more.
+**Repo Agents** enables developers to create intelligent repository automation by writing simple markdown instructions instead of complex YAML configurations. Define AI-powered agents that can automatically triage issues, review pull requests, manage discussions, and more.
 
 ## Key Features
 
@@ -26,10 +26,10 @@ import { Card, CardGrid } from '@astrojs/starlight/components';
   <Card title="Natural Language Workflows" icon="pencil">
     Write agent behavior in markdown instead of YAML
   </Card>
-  <Card title="Claude AI Integration" icon="star">
-    Powered by Anthropic's Claude models
+  <Card title="AI Integration" icon="star">
+    Powered by Claude Code CLI
   </Card>
-  <Card title="Security by Default" icon="shield">
+  <Card title="Security by Default" icon="approve-check-circle">
     Explicit permissions and sandboxed execution
   </Card>
   <Card title="Flexible Triggers" icon="rocket">
@@ -68,10 +68,10 @@ Be helpful and welcoming!
 Then compile it to a GitHub Actions workflow:
 
 ```bash
-gh claude compile --all
+repo-agents compile
 ```
 
-## Why gh-claude?
+## Why Repo Agents?
 
 - **Simpler than YAML**: Write instructions in natural language
 - **Powerful automation**: Let Claude handle complex decision-making

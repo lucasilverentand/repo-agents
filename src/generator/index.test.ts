@@ -374,7 +374,7 @@ describe('WorkflowGenerator', () => {
         markdown: 'Test instructions',
       };
 
-      const tempDir = mkdtempSync(join(tmpdir(), 'gh-claude-test-'));
+      const tempDir = mkdtempSync(join(tmpdir(), 'repo-agents-test-'));
       const outputPath = await generator.writeWorkflow(agent, tempDir);
 
       expect(outputPath).toContain('claude-test-agent.yml');
@@ -392,7 +392,7 @@ describe('WorkflowGenerator', () => {
         markdown: 'Test instructions',
       };
 
-      const tempDir = mkdtempSync(join(tmpdir(), 'gh-claude-test-'));
+      const tempDir = mkdtempSync(join(tmpdir(), 'repo-agents-test-'));
       const outputPath = await generator.writeWorkflow(agent, tempDir);
 
       // Should convert to kebab-case, prepend claude-, and remove special chars

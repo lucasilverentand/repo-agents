@@ -67,6 +67,6 @@ This prevents wasting API calls when there's nothing for the agent to process.
 
 ## See Also
 
-- [Inputs Overview](/gh-claude/inputs/) - All input types
-- [Time Filtering](/gh-claude/inputs/time-filtering/) - Time range options
-- [Schedule Trigger](/gh-claude/triggers/schedule/) - Cron scheduling
+- [Inputs Overview](/repo-agents/inputs/) - All input types
+- [Time Filtering](/repo-agents/inputs/time-filtering/) - Time range options
+- [Schedule Trigger](/repo-agents/triggers/schedule/) - Cron scheduling

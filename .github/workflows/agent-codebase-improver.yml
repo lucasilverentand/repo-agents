@@ -1,24 +1,47 @@
-name: Issue Triage
+name: Codebase Improver
 'on':
-  issues:
-    types:
-      - opened
-permissions:
-  contents: read
-  issues: write
+  workflow_call:
+    inputs:
+      context-run-id:
+        description: Run ID of the dispatcher workflow (for artifact download)
+        required: true
+        type: string
 jobs:
   pre-flight:
     runs-on: ubuntu-latest
     outputs:
       should-run: ${{ steps.set-output.outputs.should-run || steps.check-rate-limit.outputs.should-run }}
       rate-limited: ${{ steps.check-rate-limit.outputs.rate-limited }}
+      app-token: ${{ steps.app-token.outputs.token }}
+      git-user: ${{ steps.app-token.outputs.git-user }}
+      git-email: ${{ steps.app-token.outputs.git-email }}
     steps:
+      - name: Download dispatch context
+        uses: actions/download-artifact@v4
+        with:
+          name: dispatch-context-${{ inputs.context-run-id }}
+          path: /tmp/dispatch-context/
+          run-id: ${{ inputs.context-run-id }}
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+      - name: Load dispatch context
+        id: load-context
+        run: |-
+          if [ -f /tmp/dispatch-context/context.json ]; then
+            echo "Dispatch context loaded:"
+            cat /tmp/dispatch-context/context.json
+            # Export context values as outputs
+            echo "event-name=$(jq -r '.eventName' /tmp/dispatch-context/context.json)" >> $GITHUB_OUTPUT
+            echo "event-action=$(jq -r '.eventAction' /tmp/dispatch-context/context.json)" >> $GITHUB_OUTPUT
+          else
+            echo "::error::Dispatch context not found"
+            exit 1
+          fi
       - name: Initialize audit tracking
         id: init-audit
         run: |-
           mkdir -p /tmp/audit
           echo '{
-            "secrets_check": false,
+            "secrets_check": true,
             "user_authorization": false,
             "labels_check": false,
             "rate_limit_check": false
@@ -116,90 +139,54 @@ jobs:
           echo "token=$TOKEN" >> $GITHUB_OUTPUT
           echo "git-user=$APP_SLUG[bot]" >> $GITHUB_OUTPUT
           echo "git-email=$APP_ID_NUM+$APP_SLUG[bot]@users.noreply.github.com" >> $GITHUB_OUTPUT
-      - name: Check secrets
-        id: check-secrets
-        env:
-          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
-          CLAUDE_CODE_OAUTH_TOKEN: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
-        run: |-
-          if [ -z "${ANTHROPIC_API_KEY}" ] && [ -z "${CLAUDE_CODE_OAUTH_TOKEN}" ]; then
-            echo "::error::No Claude authentication found. Please set either ANTHROPIC_API_KEY or CLAUDE_CODE_OAUTH_TOKEN in your repository secrets."
-            # Track permission issue
-            jq '. += [{
-              "timestamp": "'$(date -u +%Y-%m-%dT%H:%M:%SZ)'",
-              "issue_type": "missing_permission",
-              "severity": "error",
-              "message": "No Claude authentication configured",
-              "context": {"required": ["ANTHROPIC_API_KEY", "CLAUDE_CODE_OAUTH_TOKEN"]}
-            }]' /tmp/audit/permission-issues.json > /tmp/audit/permission-issues.tmp
-            mv /tmp/audit/permission-issues.tmp /tmp/audit/permission-issues.json
-            echo "validation-failed=true" >> $GITHUB_OUTPUT
-            exit 1
-          fi
-
-          if [ -n "${ANTHROPIC_API_KEY}" ]; then
-            echo "✓ ANTHROPIC_API_KEY is configured"
-          fi
-          if [ -n "${CLAUDE_CODE_OAUTH_TOKEN}" ]; then
-            echo "✓ CLAUDE_CODE_OAUTH_TOKEN is configured"
-          fi
-
-          # Mark secrets check as passed
-          jq '.secrets_check = true' /tmp/audit/validation-status.json > /tmp/audit/validation-status.tmp
-          mv /tmp/audit/validation-status.tmp /tmp/audit/validation-status.json
       - name: Check user authorization
         id: check-user
         env:
           GITHUB_TOKEN: ${{ steps.app-token.outputs.token }}
         run: |-
           ACTOR="${{ github.actor }}"
+          ALLOWED_USERS="lucasilverentand"
+          ALLOWED_TEAMS=""
 
-          # Get user's association with the repository
-          USER_ASSOCIATION=$(gh api "repos/${{ github.repository }}/collaborators/${ACTOR}/permission" --jq '.permission' 2>/dev/null || echo "none")
+          USER_ALLOWED="false"
 
-          # Check if user is org member (for org repos)
-          IS_ORG_MEMBER="false"
-          ORG_NAME=$(echo "${{ github.repository }}" | cut -d'/' -f1)
-          if gh api "orgs/${ORG_NAME}/members/${ACTOR}" >/dev/null 2>&1; then
-            IS_ORG_MEMBER="true"
-          fi
-
-          # Allowed if: admin, write access, org member, or in explicit allow list
-          ALLOWED_USERS="claude-of-luca[bot]"
-          IS_ALLOWED="false"
-
-          if [ "${USER_ASSOCIATION}" = "admin" ] || [ "${USER_ASSOCIATION}" = "write" ]; then
-            IS_ALLOWED="true"
-            echo "✓ User has ${USER_ASSOCIATION} permission"
-          elif [ "${IS_ORG_MEMBER}" = "true" ]; then
-            IS_ALLOWED="true"
-            echo "✓ User is organization member"
-          elif [ -n "${ALLOWED_USERS}" ]; then
-            for allowed in ${ALLOWED_USERS}; do
-              if [ "${ACTOR}" = "${allowed}" ]; then
-                IS_ALLOWED="true"
-                echo "✓ User is in allowed users list"
+          # Check explicit user list
+          if [ -n "${ALLOWED_USERS}" ]; then
+            for user in ${ALLOWED_USERS}; do
+              if [ "${ACTOR}" = "${user}" ]; then
+                USER_ALLOWED="true"
+                echo "✓ User ${ACTOR} is in allowed users list"
                 break
               fi
             done
           fi
 
-          if [ "${IS_ALLOWED}" = "false" ]; then
-            echo "::warning::User @${ACTOR} is not authorized to trigger this agent"
-            # Track permission issue
+          # Check team membership
+          if [ "${USER_ALLOWED}" = "false" ] && [ -n "${ALLOWED_TEAMS}" ]; then
+            for team in ${ALLOWED_TEAMS}; do
+              MEMBERSHIP=$(gh api "orgs/${{ github.repository_owner }}/teams/${team}/memberships/${ACTOR}" --jq '.state' 2>/dev/null || echo "")
+              if [ "${MEMBERSHIP}" = "active" ]; then
+                USER_ALLOWED="true"
+                echo "✓ User ${ACTOR} is a member of team ${team}"
+                break
+              fi
+            done
+          fi
+
+          if [ "${USER_ALLOWED}" = "false" ]; then
+            echo "::error::User ${ACTOR} is not authorized to trigger this agent"
             jq '. += [{
               "timestamp": "'$(date -u +%Y-%m-%dT%H:%M:%SZ)'",
               "issue_type": "missing_permission",
               "severity": "error",
               "message": "User not authorized to trigger agent",
-              "context": {"user": "'${ACTOR}'", "permission": "'${USER_ASSOCIATION}'"}
+              "context": {"user": "'${ACTOR}'"}
             }]' /tmp/audit/permission-issues.json > /tmp/audit/permission-issues.tmp
             mv /tmp/audit/permission-issues.tmp /tmp/audit/permission-issues.json
             echo "validation-failed=true" >> $GITHUB_OUTPUT
             exit 1
           fi
 
-          # Mark user authorization check as passed
           jq '.user_authorization = true' /tmp/audit/validation-status.json > /tmp/audit/validation-status.tmp
           mv /tmp/audit/validation-status.tmp /tmp/audit/validation-status.json
       - name: Check rate limit
@@ -209,16 +196,7 @@ jobs:
         run: |-
           RATE_LIMIT_MINUTES=1
 
-          # Bypass rate limit for manual workflow_dispatch runs
-          if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
-            echo "✓ Manual run - bypassing rate limit check"
-            jq '.rate_limit_check = true' /tmp/audit/validation-status.json > /tmp/audit/validation-status.tmp
-            mv /tmp/audit/validation-status.tmp /tmp/audit/validation-status.json
-            exit 0
-          fi
-
           # Get recent workflow runs for this workflow
-          # Note: Using repo-level runs endpoint and filtering by workflow name to avoid URL encoding issues
           RECENT_RUNS=$(gh api "repos/${{ github.repository }}/actions/runs" \
             --jq "[.workflow_runs[] | select(.name == \"${{ github.workflow }}\" and .status == \"completed\" and .conclusion == \"success\")] | .[0:5] | .[].created_at" 2>/dev/null || echo "")
 
@@ -230,7 +208,7 @@ jobs:
               TIME_DIFF=$(( (CURRENT_TIME - RUN_TIMESTAMP) / 60 ))
 
               if [ "${TIME_DIFF}" -lt "${RATE_LIMIT_MINUTES}" ]; then
-                echo "::notice::Rate limit: Agent ran ${TIME_DIFF} minutes ago. Minimum interval is ${RATE_LIMIT_MINUTES} minutes. Skipping execution."
+                echo "::notice::Rate limit: Agent ran ${TIME_DIFF} minutes ago. Minimum interval is ${RATE_LIMIT_MINUTES} minutes."
                 echo "should-run=false" >> $GITHUB_OUTPUT
                 echo "rate-limited=true" >> $GITHUB_OUTPUT
                 exit 0
@@ -239,7 +217,6 @@ jobs:
           fi
           echo "✓ Rate limit check passed"
 
-          # Mark rate limit check as passed
           jq '.rate_limit_check = true' /tmp/audit/validation-status.json > /tmp/audit/validation-status.tmp
           mv /tmp/audit/validation-status.tmp /tmp/audit/validation-status.json
       - name: Set output
@@ -262,134 +239,80 @@ jobs:
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
-      - name: Generate GitHub token
-        id: app-token
-        env:
-          GH_APP_ID: ${{ secrets.GH_APP_ID }}
-          GH_APP_PRIVATE_KEY: ${{ secrets.GH_APP_PRIVATE_KEY }}
-          FALLBACK_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        run: |-
-          # Check if GitHub App is configured
-          if [ -z "$GH_APP_ID" ] || [ -z "$GH_APP_PRIVATE_KEY" ]; then
-            echo "No GitHub App configured, using default GITHUB_TOKEN"
-            echo "token=$FALLBACK_TOKEN" >> $GITHUB_OUTPUT
-            echo "git-user=github-actions[bot]" >> $GITHUB_OUTPUT
-            echo "git-email=github-actions[bot]@users.noreply.github.com" >> $GITHUB_OUTPUT
-            exit 0
-          fi
-
-          echo "GitHub App configured, generating installation token..."
-
-          # Base64 URL-safe encoding function
-          base64url() {
-            openssl base64 -A | tr '+/' '-_' | tr -d '='
-          }
-
-          # Generate JWT header
-          HEADER=$(echo -n '{"alg":"RS256","typ":"JWT"}' | base64url)
-
-          # Generate JWT payload (iat = now - 60s to account for clock drift, exp = now + 10 min)
-          NOW=$(date +%s)
-          IAT=$((NOW - 60))
-          EXP=$((NOW + 600))
-          PAYLOAD=$(echo -n "{\"iat\":$IAT,\"exp\":$EXP,\"iss\":\"$GH_APP_ID\"}" | base64url)
-
-          # Sign the JWT with the private key
-          UNSIGNED="$HEADER.$PAYLOAD"
-          SIGNATURE=$(echo -n "$UNSIGNED" | openssl dgst -sha256 -sign <(echo "$GH_APP_PRIVATE_KEY") | base64url)
-          JWT="$HEADER.$PAYLOAD.$SIGNATURE"
-
-          # Get installation ID for this repository
-          OWNER="${{ github.repository_owner }}"
-          REPO_NAME="${{ github.event.repository.name }}"
-          INSTALLATION_RESPONSE=$(curl -s -H "Authorization: Bearer $JWT" \
-            -H "Accept: application/vnd.github+json" \
-            -H "X-GitHub-Api-Version: 2022-11-28" \
-            "https://api.github.com/repos/$OWNER/$REPO_NAME/installation")
-
-          INSTALLATION_ID=$(echo "$INSTALLATION_RESPONSE" | jq -r '.id // empty')
-
-          if [ -z "$INSTALLATION_ID" ]; then
-            echo "::warning::Failed to get installation ID. Is the GitHub App installed on this repository?"
-            echo "::warning::Response: $INSTALLATION_RESPONSE"
-            echo "Falling back to GITHUB_TOKEN"
-            echo "token=$FALLBACK_TOKEN" >> $GITHUB_OUTPUT
-            echo "git-user=github-actions[bot]" >> $GITHUB_OUTPUT
-            echo "git-email=github-actions[bot]@users.noreply.github.com" >> $GITHUB_OUTPUT
-            exit 0
-          fi
-
-          # Generate installation access token
-          TOKEN_RESPONSE=$(curl -s -X POST \
-            -H "Authorization: Bearer $JWT" \
-            -H "Accept: application/vnd.github+json" \
-            -H "X-GitHub-Api-Version: 2022-11-28" \
-            "https://api.github.com/app/installations/$INSTALLATION_ID/access_tokens")
-
-          TOKEN=$(echo "$TOKEN_RESPONSE" | jq -r '.token // empty')
-
-          if [ -z "$TOKEN" ]; then
-            echo "::warning::Failed to generate installation token"
-            echo "::warning::Response: $TOKEN_RESPONSE"
-            echo "Falling back to GITHUB_TOKEN"
-            echo "token=$FALLBACK_TOKEN" >> $GITHUB_OUTPUT
-            echo "git-user=github-actions[bot]" >> $GITHUB_OUTPUT
-            echo "git-email=github-actions[bot]@users.noreply.github.com" >> $GITHUB_OUTPUT
-            exit 0
-          fi
-
-          # Mask the token in logs
-          echo "::add-mask::$TOKEN"
-
-          # Get app info for git identity
-          APP_RESPONSE=$(curl -s -H "Authorization: Bearer $JWT" \
-            -H "Accept: application/vnd.github+json" \
-            -H "X-GitHub-Api-Version: 2022-11-28" \
-            "https://api.github.com/app")
-
-          APP_SLUG=$(echo "$APP_RESPONSE" | jq -r '.slug // "github-app"')
-          APP_ID_NUM=$(echo "$APP_RESPONSE" | jq -r '.id // "0"')
-
-          echo "✓ Generated GitHub App token for $APP_SLUG"
-          echo "token=$TOKEN" >> $GITHUB_OUTPUT
-          echo "git-user=$APP_SLUG[bot]" >> $GITHUB_OUTPUT
-          echo "git-email=$APP_ID_NUM+$APP_SLUG[bot]@users.noreply.github.com" >> $GITHUB_OUTPUT
+      - name: Download dispatch context
+        uses: actions/download-artifact@v4
+        with:
+          name: dispatch-context-${{ inputs.context-run-id }}
+          path: /tmp/dispatch-context/
+          run-id: ${{ inputs.context-run-id }}
+          github-token: ${{ secrets.GITHUB_TOKEN }}
       - name: Setup Bun
         uses: oven-sh/setup-bun@v2
         with:
           bun-version: latest
-      - name: Install Claude Code CLI
-        run: bunx --bun @anthropic-ai/claude-code --version
       - name: Create outputs directory
         run: mkdir -p /tmp/outputs /tmp/validation-errors
       - name: Prepare context file
         id: prepare
         run: |-
-          cat > /tmp/context.txt << 'CONTEXT_EOF'
-          GitHub Event: ${{ github.event_name }}
-          Repository: ${{ github.repository }}
+          # Build context from dispatch context artifact
+          EVENT_NAME=$(jq -r '.eventName' /tmp/dispatch-context/context.json)
+          REPOSITORY=$(jq -r '.repository' /tmp/dispatch-context/context.json)
+
+          cat > /tmp/context.txt << CONTEXT_EOF
+          GitHub Event: ${EVENT_NAME}
+          Repository: ${REPOSITORY}
           CONTEXT_EOF
-      - name: Add issue context
-        if: github.event.issue.number
-        run: |-
-          cat >> /tmp/context.txt << 'ISSUE_EOF'
-          Issue #${{ github.event.issue.number }}: ${{ github.event.issue.title }}
-          Author: @${{ github.event.issue.user.login }}
+
+          # Add issue context if present
+          if jq -e '.issue' /tmp/dispatch-context/context.json > /dev/null 2>&1; then
+            ISSUE_NUMBER=$(jq -r '.issue.number' /tmp/dispatch-context/context.json)
+            ISSUE_TITLE=$(jq -r '.issue.title' /tmp/dispatch-context/context.json)
+            ISSUE_AUTHOR=$(jq -r '.issue.author' /tmp/dispatch-context/context.json)
+            ISSUE_BODY=$(jq -r '.issue.body' /tmp/dispatch-context/context.json)
+
+            cat >> /tmp/context.txt << ISSUE_EOF
+          Issue #${ISSUE_NUMBER}: ${ISSUE_TITLE}
+          Author: @${ISSUE_AUTHOR}
           Body:
-          ${{ github.event.issue.body }}
+          ${ISSUE_BODY}
           ISSUE_EOF
-      - name: Add PR context
-        if: github.event.pull_request.number
-        run: |-
-          cat >> /tmp/context.txt << 'PR_EOF'
-          PR #${{ github.event.pull_request.number }}: ${{ github.event.pull_request.title }}
-          Author: @${{ github.event.pull_request.user.login }}
+          fi
+
+          # Add PR context if present
+          if jq -e '.pullRequest' /tmp/dispatch-context/context.json > /dev/null 2>&1; then
+            PR_NUMBER=$(jq -r '.pullRequest.number' /tmp/dispatch-context/context.json)
+            PR_TITLE=$(jq -r '.pullRequest.title' /tmp/dispatch-context/context.json)
+            PR_AUTHOR=$(jq -r '.pullRequest.author' /tmp/dispatch-context/context.json)
+            PR_BODY=$(jq -r '.pullRequest.body' /tmp/dispatch-context/context.json)
+
+            cat >> /tmp/context.txt << PR_EOF
+          PR #${PR_NUMBER}: ${PR_TITLE}
+          Author: @${PR_AUTHOR}
           Body:
-          ${{ github.event.pull_request.body }}
+          ${PR_BODY}
           PR_EOF
+          fi
+
+          # Add discussion context if present
+          if jq -e '.discussion' /tmp/dispatch-context/context.json > /dev/null 2>&1; then
+            DISC_NUMBER=$(jq -r '.discussion.number' /tmp/dispatch-context/context.json)
+            DISC_TITLE=$(jq -r '.discussion.title' /tmp/dispatch-context/context.json)
+            DISC_AUTHOR=$(jq -r '.discussion.author' /tmp/dispatch-context/context.json)
+            DISC_BODY=$(jq -r '.discussion.body' /tmp/dispatch-context/context.json)
+            DISC_CATEGORY=$(jq -r '.discussion.category' /tmp/dispatch-context/context.json)
+
+            cat >> /tmp/context.txt << DISC_EOF
+          Discussion #${DISC_NUMBER}: ${DISC_TITLE}
+          Category: ${DISC_CATEGORY}
+          Author: @${DISC_AUTHOR}
+          Body:
+          ${DISC_BODY}
+          DISC_EOF
+          fi
       - name: Fetch add-label context
         env:
-          GITHUB_TOKEN: ${{ steps.app-token.outputs.token }}
+          GITHUB_TOKEN: ${{ needs.pre-flight.outputs.app-token }}
         run: |-
           # Fetch available labels for context
           LABELS_JSON=$(gh api "repos/${{ github.repository }}/labels" --jq '[.[].name]' 2>/dev/null || echo '[]')
@@ -402,7 +325,7 @@ jobs:
           The following labels are available in this repository:
           $LABELS_LIST
 
-          **Important**: You can only add labels that already exist. New labels cannot be created by this agent.
+          **Important**: You can only use labels that already exist. New labels cannot be created by this agent.
 
           LABELS_EOF
       - name: Create Claude skills file
@@ -412,41 +335,74 @@ jobs:
 
           This file documents how to create outputs for this agent.
 
-          ## Skill: Add Comment
+          ## Skill: Create Pull Request
 
-          Add a comment to the current issue or pull request.
+          Create a pull request with code changes.
 
-          **File to create**: \`/tmp/outputs/add-comment.json\`
-
-          For multiple comments, use numbered suffixes: \`add-comment-1.json\`, \`add-comment-2.json\`, etc.
+          **File to create**: \`/tmp/outputs/create-pr.json\`
 
           **JSON Schema**:
           \`\`\`json
           {
-            "body": "string"
+            "branch": "string",
+            "title": "string",
+            "body": "string",
+            "base": "string" (optional),
+            "files": [
+              {
+                "path": "string",
+                "content": "string"
+              }
+            ]
           }
           \`\`\`
 
           **Fields**:
-          - \`body\` (required): Markdown-formatted comment text
+          - \`branch\` (required): Name for the new branch (e.g., "feature/add-support")
+          - \`title\` (required): Clear PR title
+          - \`body\` (required): Detailed PR description
+          - \`base\` (optional): Target branch. Defaults to repository's default branch.
+          - \`files\` (required): Array of files to create/modify
+            - \`path\` (required): File path relative to repository root
+            - \`content\` (required): Complete file content
 
           **Constraints**:
-          - Maximum comments: 1
-          - Body must be non-empty
+          - Maximum PRs: 5
+          - Branch name must be valid (no spaces, special chars)
+          - Files array must be non-empty
+
 
           **Example**:
-          Create \`/tmp/outputs/add-comment.json\` with:
+          Create \`/tmp/outputs/create-pr.json\` with:
           \`\`\`json
           {
-            "body": "Thank you for reporting this issue! I've analyzed it and added appropriate labels."
+            "branch": "feature/fix-validation",
+            "title": "Fix: Improve validation logic",
+            "body": "## Changes\n\n- Updated validation rules\n- Added tests\n\n## Testing\n\nRan full test suite",
+            "base": "main",
+            "files": [
+              {
+                "path": "src/validator.ts",
+                "content": "export function validate() { ... }"
+              },
+              {
+                "path": "src/validator.test.ts",
+                "content": "describe('validate', () => { ... })"
+              }
+            ]
           }
           \`\`\`
 
-          Or for multiple comments:
-          - \`/tmp/outputs/add-comment-1.json\`
-          - \`/tmp/outputs/add-comment-2.json\`
+          **Important**:
+          - Use the Write tool to create this file
+          - Provide complete file content for each file
+          - Branch will be created automatically
+          - Commits will be made automatically
 
-          **Important**: Use the Write tool to create this file. Only create the file when you're ready to post the comment.
+          **Multiple PRs**: To create multiple PRs, use numbered files:
+          - \`/tmp/outputs/create-pr-1.json\`
+          - \`/tmp/outputs/create-pr-2.json\`
+          - etc.
 
           ## Skill: Add Labels
 
@@ -491,61 +447,169 @@ jobs:
 
           ---
 
-          # Issue Triage Agent
+          # Codebase Improvement Agent
 
-          You are an intelligent issue triage assistant for the gh-claude project.
+          You are an expert software engineer tasked with improving code quality and test coverage in this repository.
 
-          ## Project Context
+          ## MANDATORY ACTION - READ THIS FIRST
 
-          gh-claude is a GitHub CLI extension that helps users create Claude-powered GitHub Actions workflows. It:
-          - Parses markdown agent definitions from \`.github/claude-agents/\`
-          - Generates GitHub Actions workflow YAML files
-          - Supports triggers for issues, PRs, discussions, schedules, etc.
-          - Includes pre-validation for authorization, rate limiting, and label requirements
+          **YOUR PRIMARY TASK IS TO WRITE JSON FILES TO \`/tmp/outputs/\`**
 
-          ## Your Task
+          At the end of this task, you MUST have written at least one file to \`/tmp/outputs/\`. If you do not write any files, the workflow will fail and your analysis will be wasted.
 
-          When a new issue is opened, analyze it and:
+          Use the Write tool like this:
+          \`\`\`
+          Write to /tmp/outputs/create-pr-1.json with content: {"branch": "...", "title": "...", ...}
+          \`\`\`
 
-          1. **Analyze the issue** - Read the title and body to understand what the user is asking for or reporting
+          DO NOT just analyze and respond with text. You MUST use the Write tool to create output files.
 
-          2. **Categorize** the issue by adding ONE of these labels:
-             - \`bug\` - Something isn't working as expected
-             - \`enhancement\` - New feature or improvement request
-             - \`question\` - User needs help or clarification
-             - \`documentation\` - Documentation improvements needed
+          ---
 
-          3. **Assess Priority** if clearly warranted:
-             - \`priority: high\` - Security issues, data loss, or blocking bugs
-             - \`priority: low\` - Nice-to-have improvements
+          ## Your Mission
 
-          4. **Welcome** the contributor with a helpful comment that:
-             - Acknowledges the issue and thanks them for contributing
-             - Confirms your understanding of the problem/request
-             - If it's a bug: asks for any missing reproduction steps
-             - If it's a feature: briefly notes if it aligns with project goals
-             - Keeps it concise and friendly
+          Analyze the codebase and create **focused, atomic pull requests** for improvements. Each PR should address ONE specific improvement area to make reviews easier.
 
-          ## Guidelines
+          ## Analysis Process
 
-          - Be friendly and welcoming, especially to new contributors
-          - Don't make promises about timelines or implementation
-          - If the issue is unclear, politely ask for more information
-          - If unsure about categorization, err on the side of \`question\`
-          - If it's a duplicate, mention similar existing issues (if you're aware of them)
-          - Keep responses concise and helpful
+          ### Step 1: Understand the Codebase
 
-          ## Available Actions
+          1. Read the project's configuration files (package.json, tsconfig.json, etc.)
+          2. Understand the existing test setup and patterns
+          3. Identify the tech stack and coding conventions
+          4. Review existing tests to understand the testing style used
 
-          You can perform actions by creating output files. See the CLAUDE.md file for available skills and output formats.
+          ### Step 2: Identify Improvement Opportunities
 
-          Example workflow:
-          1. Analyze the issue content
-          2. Decide on appropriate label(s)
-          3. Create an add-label output file with the chosen labels
-          4. Draft a welcoming comment
-          5. Create an add-comment output file with the comment text
+          #### Testing Improvements
+          - **Missing tests**: Functions, modules, or components with no test coverage
+          - **Edge cases**: Existing tests that don't cover error paths or boundary conditions
+          - **Integration gaps**: Missing integration tests between components
+          - **Test quality**: Tests that don't actually assert meaningful behavior
+
+          #### Code Quality Improvements
+          - **Dead code**: Unused exports, functions, or variables
+          - **Code duplication**: Similar logic that could be consolidated
+          - **Type safety**: Places where types could be stricter or better defined
+          - **Error handling**: Missing or inadequate error handling
+          - **Performance**: Obvious inefficiencies (N+1 patterns, unnecessary re-renders, etc.)
+
+          ### Step 3: Prioritize and Create PRs
+
+          Create PRs in this priority order:
+          1. **Critical**: Security issues, broken tests, or bugs
+          2. **High**: Missing tests for core functionality
+          3. **Medium**: Code quality improvements that reduce complexity
+          4. **Low**: Style improvements or minor optimizations
+
+          ## PR Creation Guidelines
+
+          ### Each PR Must:
+          - Address **ONE** specific improvement area
+          - Have a clear, descriptive title (e.g., "test: add unit tests for parser validation")
+          - Include a detailed description explaining:
+            - What was improved
+            - Why this improvement matters
+            - How to verify the changes
+          - Follow existing project conventions
+          - Pass all existing tests (don't break anything!)
+
+          ### Branch Naming Convention
+          Use descriptive branch names:
+          - \`improve/test-parser-validation\`
+          - \`improve/remove-unused-exports\`
+          - \`improve/add-error-handling-api\`
+
+          ### PR Labels
+          Add appropriate labels:
+          - \`testing\` - for test improvements
+          - \`code-quality\` - for refactoring/cleanup
+          - \`performance\` - for optimization improvements
+          - \`automated\` - always add this to indicate agent-created PR
+
+          ## Constraints
+
+          - **Never modify**: Configuration files, CI/CD workflows, or documentation (unless fixing broken links)
+          - **Never add**: New dependencies without explicit approval
+          - **Always preserve**: Existing API contracts and public interfaces
+          - **Respect**: The \`max_prs\` input parameter (default: 3)
+          - **Skip improvements** that would require breaking changes
+
+          ## Focus Areas (based on input)
+
+          Check the \`focus_area\` workflow input:
+          - \`all\`: Look at everything (default)
+          - \`testing\`: Focus only on test coverage improvements
+          - \`code-quality\`: Focus only on code quality/refactoring
+          - \`performance\`: Focus only on performance optimizations
+
+          ## Output Format
+
+          First, output a summary of your findings:
+
+          \`\`\`
+          ## Analysis Summary
+
+          ### Findings
+          - [ ] Finding 1: Brief description
+          - [ ] Finding 2: Brief description
+
+          ### PRs to Create
+          1. **PR Title** - Brief description of changes
+          2. **PR Title** - Brief description of changes
+
+          ### Skipped (and why)
+          - Item: Reason it was skipped
+          \`\`\`
+
+          ## How to Create PRs
+
+          **IMPORTANT**: You MUST use the skill system to create PRs. Check the CLAUDE.md file in your working directory for the exact JSON schema.
+
+          For each PR you want to create, write a JSON file to \`/tmp/outputs/create-pr.json\` (or \`create-pr-1.json\`, \`create-pr-2.json\` for multiple PRs).
+
+          Example:
+          \`\`\`json
+          {
+            "branch": "improve/add-parser-tests",
+            "title": "test: add unit tests for parser edge cases",
+            "body": "## Summary\n\nAdds tests for uncovered edge cases in the parser module.\n\n## Changes\n- Added tests for empty input handling\n- Added tests for malformed frontmatter\n\n## Testing\nRun \`npm test\` to verify.",
+            "base": "main",
+            "files": [
+              {
+                "path": "src/parser/index.test.ts",
+                "content": "// Full file content here..."
+              }
+            ]
+          }
+          \`\`\`
+
+          ## Technical Approach
+
+          1. Use \`Glob\` to find files matching patterns (e.g., \`**/*.ts\`)
+          2. Use \`Grep\` to search for code patterns
+          3. Use \`Read\` to analyze specific files
+          4. Use \`Write\` to create output files in \`/tmp/outputs/\`
+
+          ## CRITICAL REQUIREMENTS
+
+          - You MUST create at least one PR if you find ANY improvement opportunity
+          - Always write the complete file content in the \`files\` array - not partial diffs
+          - The workflow will handle git operations, branch creation, and PR submission automatically
+          - If you're unsure whether something is worth a PR, CREATE IT ANYWAY - let the reviewer decide
+
+          Remember: It's better to create a small improvement PR than to create nothing at all.
+
+          ## FINAL REMINDER
+
+          Before finishing, ask yourself:
+          1. Did I use the Write tool to create files in \`/tmp/outputs/\`?
+          2. Is there at least one \`create-pr-*.json\` file?
+
+          If NO to either question, GO BACK AND CREATE THE OUTPUT FILES NOW using the Write tool.
           INSTRUCTIONS_EOF
+      - name: Install Claude Code CLI
+        run: bunx --bun @anthropic-ai/claude-code --version
       - name: Run Claude Agent
         id: run-claude
         env:
@@ -557,8 +621,7 @@ jobs:
       - name: Extract execution metrics
         id: extract-metrics
         if: always()
-        run: |
-
+        run: |-
           if [ -f /tmp/claude-output.json ]; then
             echo "=== Claude Execution Summary ==="
 
@@ -566,48 +629,44 @@ jobs:
             COST=$(jq -r '.total_cost_usd // "N/A"' /tmp/claude-output.json)
             TURNS=$(jq -r '.num_turns // "N/A"' /tmp/claude-output.json)
             DURATION=$(jq -r '.duration_ms // "N/A"' /tmp/claude-output.json)
-            API_DURATION=$(jq -r '.duration_api_ms // "N/A"' /tmp/claude-output.json)
             IS_ERROR=$(jq -r '.is_error // false' /tmp/claude-output.json)
-            SESSION_ID=$(jq -r '.session_id // "N/A"' /tmp/claude-output.json)
 
-            echo "💰 Cost: \$${COST}"
-            echo "🔄 Turns: ${TURNS}"
-            echo "⏱️  Duration: ${DURATION}ms (API: ${API_DURATION}ms)"
-            echo "🆔 Session: ${SESSION_ID}"
-            echo "❌ Error: ${IS_ERROR}"
+            echo "Cost: \$${COST}"
+            echo "Turns: ${TURNS}"
+            echo "Duration: ${DURATION}ms"
+            echo "Error: ${IS_ERROR}"
 
-            # Save metrics for audit report
-            mkdir -p /tmp/audit
-            jq '{
-              total_cost_usd: .total_cost_usd,
-              num_turns: .num_turns,
-              duration_ms: .duration_ms,
-              duration_api_ms: .duration_api_ms,
-              is_error: .is_error,
-              session_id: .session_id
-            }' /tmp/claude-output.json > /tmp/audit/metrics.json
+            # Set outputs for downstream jobs
+            echo "cost=${COST}" >> $GITHUB_OUTPUT
+            echo "turns=${TURNS}" >> $GITHUB_OUTPUT
+            echo "duration=${DURATION}" >> $GITHUB_OUTPUT
+            echo "is-error=${IS_ERROR}" >> $GITHUB_OUTPUT
 
-            # Display result for debugging
-            echo ""
-            echo "=== Claude Response ==="
-            jq -r '.result' /tmp/claude-output.json || echo "No result available"
+            if [ "${IS_ERROR}" = "true" ]; then
+              echo "claude-error=true" >> $GITHUB_OUTPUT
+              echo "::warning::Claude execution completed with errors"
+            fi
           else
-            echo "::error::Claude output file not found"
-            echo '{"is_error": true}' > /tmp/audit/metrics.json
+            echo "::warning::Claude output file not found"
+            echo "cost=N/A" >> $GITHUB_OUTPUT
+            echo "turns=N/A" >> $GITHUB_OUTPUT
+            echo "duration=N/A" >> $GITHUB_OUTPUT
+            echo "is-error=true" >> $GITHUB_OUTPUT
+            echo "claude-error=true" >> $GITHUB_OUTPUT
           fi
-      - name: Upload audit metrics
+      - name: Upload outputs
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: audit-metrics
-          path: /tmp/audit/
-          if-no-files-found: ignore
-      - name: Upload outputs artifact
-        if: always()
-        uses: actions/upload-artifact@v4
-        with:
-          name: agent-outputs
+          name: claude-outputs
           path: /tmp/outputs/
+          if-no-files-found: ignore
+      - name: Upload Claude execution data
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: claude-execution
+          path: /tmp/claude-output.json
           if-no-files-found: ignore
 
   execute-outputs:
@@ -617,7 +676,7 @@ jobs:
     strategy:
       matrix:
         output-type:
-          - add-comment
+          - create-pr
           - add-label
       fail-fast: false
     steps:
@@ -730,78 +789,137 @@ jobs:
           GIT_EMAIL: ${{ steps.app-token.outputs.git-email }}
         run: |
 
-          if [ "${{ matrix.output-type }}" = "add-comment" ]; then
+          if [ "${{ matrix.output-type }}" = "create-pr" ]; then
 
-          # Validate and execute add-comment output(s)
-          COMMENT_FILES=$(find /tmp/outputs -name "add-comment*.json" 2>/dev/null || true)
+          # Validate and execute create-pr output(s)
+          # Find all create-pr JSON files (create-pr.json, create-pr-1.json, create-pr-2.json, etc.)
+          PR_FILES=$(find /tmp/outputs -name "create-pr*.json" 2>/dev/null | sort || true)
 
-          if [ -n "$COMMENT_FILES" ]; then
-            # Count files
-            FILE_COUNT=$(echo "$COMMENT_FILES" | wc -l)
-            echo "Found $FILE_COUNT add-comment output file(s)"
+          if [ -n "$PR_FILES" ]; then
+            PR_COUNT=0
+            MAX_PRS=5
 
-            # Check max constraint
-            
-            if [ "$FILE_COUNT" -gt 1 ]; then
-              echo "- **add-comment**: Too many comment files ($FILE_COUNT). Maximum allowed: 1" > /tmp/validation-errors/add-comment.txt
-              exit 0
-            fi
+            for PR_FILE in $PR_FILES; do
+              if [ $PR_COUNT -ge $MAX_PRS ]; then
+                echo "⚠️ Reached maximum PR limit ($MAX_PRS), skipping remaining files"
+                break
+              fi
 
-            # Phase 1: Validate all files
-            VALIDATION_FAILED=false
-            for comment_file in $COMMENT_FILES; do
-              echo "Validating $comment_file..."
+              PR_NAME=$(basename "$PR_FILE" .json)
+              echo "Processing $PR_NAME..."
 
               # Validate JSON structure
-              if ! jq empty "$comment_file" 2>/dev/null; then
-                echo "- **add-comment**: Invalid JSON format in $comment_file" >> /tmp/validation-errors/add-comment.txt
-                VALIDATION_FAILED=true
+              if ! jq empty "$PR_FILE" 2>/dev/null; then
+                echo "- **$PR_NAME**: Invalid JSON format" >> /tmp/validation-errors/create-pr.txt
                 continue
               fi
 
-              # Extract body
-              COMMENT_BODY=$(jq -r '.body' "$comment_file")
+              # Extract fields
+              BRANCH=$(jq -r '.branch' "$PR_FILE")
+              TITLE=$(jq -r '.title' "$PR_FILE")
+              BODY=$(jq -r '.body' "$PR_FILE")
+              BASE=$(jq -r '.base // "main"' "$PR_FILE")
+              FILES=$(jq -r '.files' "$PR_FILE")
 
-              # Validate body is non-empty
-              if [ -z "$COMMENT_BODY" ] || [ "$COMMENT_BODY" = "null" ]; then
-                echo "- **add-comment**: Comment body is empty or missing in $comment_file" >> /tmp/validation-errors/add-comment.txt
-                VALIDATION_FAILED=true
+              # Validate required fields
+              if [ -z "$BRANCH" ] || [ "$BRANCH" = "null" ]; then
+                echo "- **$PR_NAME**: branch is required" >> /tmp/validation-errors/create-pr.txt
                 continue
-              elif [ ${#COMMENT_BODY} -gt 65536 ]; then
-                echo "- **add-comment**: Comment body exceeds 65536 characters in $comment_file" >> /tmp/validation-errors/add-comment.txt
-                VALIDATION_FAILED=true
+              elif [ -z "$TITLE" ] || [ "$TITLE" = "null" ]; then
+                echo "- **$PR_NAME**: title is required" >> /tmp/validation-errors/create-pr.txt
+                continue
+              elif [ -z "$BODY" ] || [ "$BODY" = "null" ]; then
+                echo "- **$PR_NAME**: body is required" >> /tmp/validation-errors/create-pr.txt
+                continue
+              elif [ "$FILES" = "null" ] || ! echo "$FILES" | jq -e 'type == "array"' >/dev/null 2>&1; then
+                echo "- **$PR_NAME**: files field must be an array" >> /tmp/validation-errors/create-pr.txt
+                continue
+              elif [ "$(echo "$FILES" | jq 'length')" -eq 0 ]; then
+                echo "- **$PR_NAME**: files array cannot be empty" >> /tmp/validation-errors/create-pr.txt
+                continue
+              elif [[ ! "$BRANCH" =~ ^[a-zA-Z0-9/_.-]+$ ]]; then
+                echo "- **$PR_NAME**: branch name contains invalid characters" >> /tmp/validation-errors/create-pr.txt
                 continue
               fi
 
-              echo "✓ Validation passed for $comment_file"
+              # Validation passed - execute
+              echo "✓ $PR_NAME validation passed"
+
+              # Configure git with dynamic identity (from GitHub App or default)
+              git config user.name "${GIT_USER:-github-actions[bot]}"
+              git config user.email "${GIT_EMAIL:-github-actions[bot]@users.noreply.github.com}"
+
+              # Return to main branch before creating new branch
+              git checkout main 2>/dev/null || git checkout master 2>/dev/null || true
+
+              # Check if PR already exists for this branch
+              if gh pr view "$BRANCH" --json state --jq '.state' 2>/dev/null | grep -q "OPEN"; then
+                echo "⏭️ PR already exists for branch '$BRANCH', skipping"
+                continue
+              fi
+
+              # Delete existing remote branch if it exists (from previous failed attempts)
+              if git ls-remote --exit-code --heads origin "$BRANCH" >/dev/null 2>&1; then
+                echo "🗑️ Deleting existing remote branch '$BRANCH'"
+                git push origin --delete "$BRANCH" 2>/dev/null || true
+              fi
+
+              # Delete local branch if it exists
+              git branch -D "$BRANCH" 2>/dev/null || true
+
+              # Create and checkout new branch
+              if ! git checkout -b "$BRANCH" 2>/dev/null; then
+                echo "- **$PR_NAME**: Failed to create branch '$BRANCH'" >> /tmp/validation-errors/create-pr.txt
+                continue
+              fi
+
+              # Create/update each file using jq to extract paths and contents safely
+              FILE_COUNT=$(jq '.files | length' "$PR_FILE")
+              for i in $(seq 0 $((FILE_COUNT - 1))); do
+                FILE_PATH=$(jq -r ".files[$i].path" "$PR_FILE")
+
+                # Create directory if needed
+                mkdir -p "$(dirname "$FILE_PATH")"
+
+                # Write file content directly using jq (handles special chars properly)
+                jq -r ".files[$i].content" "$PR_FILE" > "$FILE_PATH"
+
+                # Stage file
+                git add "$FILE_PATH"
+              done
+
+              # Commit changes
+              COMMIT_MESSAGE="$TITLE"
+              git commit -m "$COMMIT_MESSAGE" || {
+                echo "- **$PR_NAME**: Failed to commit changes" >> /tmp/validation-errors/create-pr.txt
+                git checkout main 2>/dev/null || git checkout master 2>/dev/null || true
+                continue
+              }
+
+              # Push branch
+              git push origin "$BRANCH" || {
+                echo "- **$PR_NAME**: Failed to push branch to remote" >> /tmp/validation-errors/create-pr.txt
+                git checkout main 2>/dev/null || git checkout master 2>/dev/null || true
+                continue
+              }
+
+              # Create pull request
+              gh pr create \
+                --title "$TITLE" \
+                --body "$BODY" \
+                --base "$BASE" \
+                --head "$BRANCH" && {
+                echo "✅ Created PR: $TITLE"
+                PR_COUNT=$((PR_COUNT + 1))
+              } || {
+                echo "- **$PR_NAME**: Failed to create pull request via GitHub API" >> /tmp/validation-errors/create-pr.txt
+              }
+
+              # Return to main branch for next PR
+              git checkout main 2>/dev/null || git checkout master 2>/dev/null || true
             done
 
-            # Check if we have an issue/PR number
-            ISSUE_NUMBER="${{ github.event.issue.number }}${{ github.event.pull_request.number }}"
-            if [ -z "$ISSUE_NUMBER" ]; then
-              echo "- **add-comment**: No issue or PR number available" >> /tmp/validation-errors/add-comment.txt
-              VALIDATION_FAILED=true
-            fi
-
-            # Phase 2: Execute only if all validations passed
-            if [ "$VALIDATION_FAILED" = false ]; then
-              echo "✓ All add-comment validations passed - executing..."
-              for comment_file in $COMMENT_FILES; do
-                COMMENT_BODY=$(jq -r '.body' "$comment_file")
-
-                # Append footer with workflow and job information
-                FOOTER=$'\n\n> *Generated by workflow [${{ github.workflow }}](${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }})*'
-                COMMENT_BODY_WITH_FOOTER="${COMMENT_BODY}${FOOTER}"
-
-                # Add comment via GitHub API
-                gh api "repos/${{ github.repository }}/issues/$ISSUE_NUMBER/comments" \
-                  -f body="$COMMENT_BODY_WITH_FOOTER" || {
-                  echo "- **add-comment**: Failed to post comment from $comment_file via GitHub API" >> /tmp/validation-errors/add-comment.txt
-                }
-              done
-            else
-              echo "✗ add-comment validation failed - skipping execution (atomic operation)"
-            fi
+            echo "📊 Created $PR_COUNT PRs"
           fi
 
           fi
@@ -1140,7 +1258,7 @@ jobs:
           cat > /tmp/audit/report.md << 'REPORT_EOF'
           # Agent Execution Audit Report
 
-          **Agent:** Issue Triage
+          **Agent:** Codebase Improver
           **Workflow Run:** [${{ github.run_id }}](${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }})
           **Triggered by:** @${{ github.actor }}
           **Event:** ${{ github.event_name }}
@@ -1310,7 +1428,7 @@ jobs:
 
           # Prepare diagnostic context
           cat > /tmp/diagnostic-prompt.md << 'DIAG_EOF'
-          You are a diagnostic agent analyzing a failed GitHub Actions workflow for the "Issue Triage" agent.
+          You are a diagnostic agent analyzing a failed GitHub Actions workflow for the "Codebase Improver" agent.
 
           ## Your Task
           Analyze the failure data below and provide:
@@ -1331,10 +1449,10 @@ jobs:
           $(cat /tmp/audit-data/validation/permission-issues.json 2>/dev/null || echo "[]")
 
           ## Agent Configuration
-          - Agent name: Issue Triage
-          - Triggers: {"issues":{"types":["opened"]}}
-          - Permissions: {"contents":"read","issues":"write"}
-          - Outputs: ["add-comment","add-label"]
+          - Agent name: Codebase Improver
+          - Triggers: {"schedule":[{"cron":"0 6 * * 1"}],"workflow_dispatch":{"inputs":{"focus_area":{"description":"Focus area for improvements","required":false,"default":"all","type":"choice","options":["all","testing","code-quality","performance"]},"max_prs":{"description":"Maximum number of PRs to create","required":false,"default":"3","type":"string"}}}}
+          - Permissions: {"contents":"write","issues":"read","pull_requests":"write"}
+          - Outputs: ["create-pr","add-label"]
 
           ## Instructions
           Based on the above information:
@@ -1369,7 +1487,7 @@ jobs:
           cat > /tmp/issue-body.md << 'ISSUE_EOF'
           ## 🚨 Agent Failure Report
 
-          The **Issue Triage** agent encountered failures during execution.
+          The **Codebase Improver** agent encountered failures during execution.
 
           ### Workflow Details
           - **Run ID:** [${{ github.run_id }}](${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }})
@@ -1399,11 +1517,11 @@ jobs:
 
           ---
 
-          *This issue was automatically created by the gh-claude audit system.*
+          *This issue was automatically created by the Repo Agents audit system.*
           ISSUE_EOF
 
           # Check if a similar issue already exists (avoid duplicates)
-          EXISTING_ISSUE=$(gh issue list --state open --label "agent-failure" --search "Issue Triage failure" --json number --jq '.[0].number' 2>/dev/null || echo "")
+          EXISTING_ISSUE=$(gh issue list --state open --label "agent-audit" --search "Codebase Improver failure" --json number --jq '.[0].number' 2>/dev/null || echo "")
 
           if [ -n "$EXISTING_ISSUE" ]; then
             echo "Adding comment to existing issue #$EXISTING_ISSUE"
@@ -1411,9 +1529,9 @@ jobs:
           else
             echo "Creating new failure issue"
             gh issue create \
-              --title "🚨 Issue Triage: Agent Execution Failed" \
+              --title "🚨 Codebase Improver: Agent Execution Failed" \
               --body "$(cat /tmp/issue-body.md)" \
-              --label "agent-failure" 
+              --label "agent-audit,codebase-improver" 
           fi
       - name: Upload audit report
         if: always()
@@ -1422,3 +1540,7 @@ jobs:
           name: audit-report
           path: /tmp/audit/
           if-no-files-found: ignore
+permissions:
+  contents: write
+  issues: read
+  pull-requests: write

@@ -1,0 +1,46 @@
+---
+title: Installation
+slug: install
+description: Step-by-step guide to install Repo Agents GitHub CLI extension
+next: ../quick-start
+---
+
+## Prerequisites
+
+Before installing Repo Agents, ensure you have:
+
+- **Node.js 20.0.0 or higher**
+- **GitHub CLI** (`gh`) installed and authenticated
+- An **Anthropic API key** for Claude
+
+## Installing
+
+Install Repo Agents via npm or bun:
+
+```bash
+npm install -g repo-agents
+# or
+bun install -g repo-agents
+```
+
+## Verify Installation
+
+Check that the extension is installed:
+
+```bash
+repo-agents --version
+```
+
+You should see the version number displayed.
+
+## Authentication
+
+Configure Claude API access:
+
+```bash
+repo-agents setup-token
+```
+
+This guides you through adding your Anthropic API key as a repository secret.
+
+**[Complete Authentication Guide](/repo-agents/guide/authentication/)** - OAuth, GitHub App setup, and advanced options.

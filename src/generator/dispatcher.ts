@@ -281,7 +281,7 @@ fi`,
           GH_TOKEN: '${{ secrets.GITHUB_TOKEN }}',
         },
         run: `# Check for existing configuration issue
-EXISTING=$(gh issue list --state open --label "gh-claude-config" --json number -q '.[0].number' 2>/dev/null || echo "")
+EXISTING=$(gh issue list --state open --label "repo-agents-config" --json number -q '.[0].number' 2>/dev/null || echo "")
 
 ERRORS=$(cat /tmp/config-errors.txt 2>/dev/null || echo "Unknown configuration error")
 
@@ -300,7 +300,7 @@ $ERRORS
 
 1. **Add Claude authentication:**
    \\\`\\\`\\\`bash
-   gh claude setup-token
+   repo-agents setup-token
    \\\`\\\`\\\`
 
 2. **Re-enable the dispatcher:**
@@ -315,7 +315,7 @@ $ERRORS
 
 ---
 *This issue was automatically created by the Claude agent dispatcher.*" \\
-    --label "gh-claude-config"
+    --label "repo-agents-config"
   echo "Created configuration issue"
 else
   gh issue comment "$EXISTING" --body "Configuration check failed again at $(date -u +%Y-%m-%dT%H:%M:%SZ):

@@ -17,13 +17,13 @@ const packageJson = JSON.parse(readFileSync(join(__dirname, '../package.json'), 
 const program = new Command();
 
 program
-  .name('gh-claude')
-  .description('GitHub CLI extension for creating Claude-powered GitHub Actions workflows')
+  .name('repo-agents')
+  .description('GitHub CLI extension for creating AI-powered GitHub Actions workflows from markdown agent definitions')
   .version(packageJson.version);
 
 program
   .command('init')
-  .description('Initialize gh-claude in the current repository')
+  .description('Initialize Repo Agents in the current repository')
   .option('--examples', 'Include example agent templates')
   .option('--force', 'Overwrite existing files')
   .action(initCommand);
@@ -69,7 +69,7 @@ program
 
 program
   .command('setup')
-  .description('Interactive setup wizard for gh-claude (configures authentication and GitHub App)')
+  .description('Interactive setup wizard for Repo Agents (configures authentication and GitHub App)')
   .option('--force', 'Overwrite existing configuration')
   .option('--skip-auth', 'Skip Claude authentication setup')
   .option('--skip-app', 'Skip GitHub App setup')

@@ -1,0 +1,163 @@
+---
+title: Quick Start Guide
+slug: start
+description: Get started with Repo Agents in minutes
+sidebar:
+  label: Quick Start
+  order: 1
+---
+
+import { Steps, LinkCard, CardGrid, FileTree, Tabs, TabItem } from '@astrojs/starlight/components';
+
+This guide will walk you through creating your first AI-powered GitHub Actions workflow using Repo Agents. By the end, you'll have an agent that automatically triages new issues by adding labels and posting a welcome comment.
+
+## Prerequisites
+
+Before starting, make sure you have:
+
+<CardGrid>
+    <LinkCard title="GitHub CLI installed" description="Install and authenticate with GitHub CLI" href="https://cli.github.com/" icon="github" />
+    <LinkCard title="Repo Agents extension" description="Follow the installation guide to set up Repo Agents" href="/getting-started/installation" />
+</CardGrid>
+
+---
+
+## Create your first agent
+
+<Steps>
+
+1.  ### Initialize your repository
+
+    Navigate to your repository and run:
+
+    ```bash
+    repo-agents init
+    ```
+
+    This creates the `.github/agents/` directory with example agent definitions:
+
+    <FileTree>
+    - .github/
+      - agents/
+        - issue-triage.md Example issue triage agent
+        - pr-review.md Example PR review agent
+        - discussion-moderation.md Example discussion moderator
+    </FileTree>
+
+2.  ### Configure authentication
+
+    Set up your Claude API authentication:
+
+    ```bash
+    repo-agents setup-token
+    ```
+
+    This will guide you through:
+    - Choosing between API key or OAuth token
+    - Setting the secret at organization or repository level
+    - Verifying the configuration
+
+    :::tip[Optional: GitHub App setup]
+    For branded identity (comments/commits appear as your app) and CI trigger support, also run:
+    ```bash
+    repo-agents setup-app
+    ```
+    This is optional but recommended for production use.
+    :::
+
+3.  ### Customize your agent
+
+    Open `.github/agents/issue-triage.md` and customize it:
+
+    ```markdown
+    ---
+    name: Issue Triage
+    on:
+      issues:
+        types: [opened]
+    permissions:
+      issues: write
+    outputs:
+      add-comment: { max: 1 }
+      add-label: true
+    ---
+
+    # Issue Triage Agent
+
+    Analyze new issues and:
+
+    1. Categorize with appropriate labels (bug, feature, documentation, question)
+    2. Assess priority (high, medium, low)
+    3. Welcome the contributor with a friendly comment
+
+    Be helpful and welcoming!
+    ```
+
+    The YAML frontmatter defines:
+    - **name**: Agent identifier
+    - **on**: GitHub events that trigger the agent
+    - **permissions**: GitHub API access
+    - **outputs**: Actions the AI can perform
+
+    The markdown body contains natural language instructions for the AI.
+
+4.  ### Compile to workflows
+
+    Generate GitHub Actions workflows from your agent definitions:
+
+    ```bash
+    repo-agents compile
+    ```
+
+    This creates:
+    - `.github/workflows/agent-dispatcher.yml` - Central dispatcher for all agents
+    - `.github/workflows/agent-issue-triage.yml` - Your issue triage workflow
+
+    :::note[What's the dispatcher?]
+    The dispatcher is a centralized workflow that:
+    - Aggregates all triggers from your agents
+    - Validates configuration and permissions
+    - Routes events to the appropriate agent workflows
+    - Provides self-healing capabilities if misconfigured
+    :::
+
+5.  ### Commit and deploy
+
+    Commit the generated workflows and push to GitHub:
+
+    ```bash
+    git add .github/
+    git commit -m "Add issue triage agent"
+    git push
+    ```
+
+    Your agent is now live!
+
+6.  ### Test your agent
+
+    Create a new issue in your repository. Within moments, the agent should:
+    - Analyze the issue content
+    - Add appropriate labels
+    - Post a welcoming comment
+
+    Monitor the execution in the **Actions** tab to see detailed logs and metrics.
+
+</Steps>
+
+---
+
+## What you've learned
+
+You now have a working agent that:
+- Triggers automatically on new issues
+- Uses AI to analyze and categorize content
+- Performs actions within defined constraints
+- Runs as a native GitHub Actions workflow
+
+## Next steps
+
+<CardGrid>
+  <LinkCard title="Understanding the flow" href="/guide/agent-execution-flow" description="Learn how agents execute from trigger to completion" />
+  <LinkCard title="Advanced configuration" href="/guide/advanced" description="Explore advanced features like inputs, rate limiting, and audit reports" />
+  <LinkCard title="Configuration reference" href="/reference/configuration" description="Complete reference for agent frontmatter options" />
+</CardGrid>

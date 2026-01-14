@@ -91,7 +91,7 @@ async function runClaudeSetupToken(): Promise<boolean> {
 }
 
 export async function authCommand(options: AuthOptions): Promise<void> {
-  logger.info('Setting up Claude authentication for GitHub Actions...');
+  logger.info('Setting up AI authentication for GitHub Actions...');
   logger.newline();
 
   // Check which secrets already exist
@@ -182,14 +182,14 @@ export async function authCommand(options: AuthOptions): Promise<void> {
   }
 
   logger.newline();
-  logger.success('Claude authentication setup complete!');
+  logger.success('AI authentication setup complete!');
   logger.newline();
   logger.info(
     'Your workflows will use ' + (useSubscription ? 'your Claude subscription' : 'API access') + '.'
   );
   logger.newline();
   logger.info('Next steps:');
-  logger.log('  1. Create agent files in .github/claude-agents/');
-  logger.log('  2. Run: gh claude compile --all');
+  logger.log('  1. Create agent files in .github/agents/');
+  logger.log('  2. Run: repo-agents compile');
   logger.log('  3. Commit and push the generated workflows');
 }

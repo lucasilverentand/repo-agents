@@ -6,7 +6,7 @@ import { join } from 'path';
 import { tmpdir } from 'os';
 
 const SCHEMA_URL = 'https://json.schemastore.org/github-workflow.json';
-const SCHEMA_CACHE_PATH = join(tmpdir(), 'gh-claude-workflow-schema.json');
+const SCHEMA_CACHE_PATH = join(tmpdir(), 'repo-agents-workflow-schema.json');
 
 export interface ValidationError {
   path: string;

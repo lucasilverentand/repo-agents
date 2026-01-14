@@ -24,13 +24,13 @@ interface AgentInfo {
 
 export async function listCommand(options: ListOptions): Promise<void> {
   const cwd = process.cwd();
-  const agentsDir = join(cwd, '.github', 'claude-agents');
+  const agentsDir = join(cwd, '.github', 'agents');
   const workflowsDir = join(cwd, '.github', 'workflows');
 
   const agentsDirExists = await fileExists(agentsDir);
   if (!agentsDirExists) {
     logger.error('Agents directory not found');
-    logger.info('Run: gh claude init');
+    logger.info('Run: repo-agents init');
     process.exit(1);
   }
 

@@ -83,6 +83,6 @@ For example:
 
 ## See Also
 
-- [Outputs Overview](/gh-claude/outputs/) - All output types
-- [Report Results](/gh-claude/stages/report-results/) - Error reporting
-- [Security Best Practices](/gh-claude/guide/security-best-practices/) - Output safety
+- [Outputs Overview](/repo-agents/outputs/) - All output types
+- [Report Results](/repo-agents/stages/report-results/) - Error reporting
+- [Security Best Practices](/repo-agents/guide/security-best-practices/) - Output safety

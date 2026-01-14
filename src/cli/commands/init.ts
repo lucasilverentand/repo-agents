@@ -100,10 +100,10 @@ When a pull request is opened or updated:
 - Remember: you're here to help, not to block progress
 `;
 
-const DEFAULT_CONFIG = `# gh-claude Configuration
+const DEFAULT_CONFIG = `# Repo Agents Configuration
 
-# Default Claude model for all agents
-claude:
+# Default AI model for all agents
+model:
   model: claude-3-5-sonnet-20241022
   max_tokens: 4096
   temperature: 0.7
@@ -111,7 +111,7 @@ claude:
 # Repository settings
 repository:
   # Directory containing agent markdown files
-  agents_dir: .github/claude-agents
+  agents_dir: .github/agents
 
   # Directory for generated workflows
   workflows_dir: .github/workflows
@@ -128,7 +128,7 @@ security:
 export async function initCommand(options: InitOptions): Promise<void> {
   const cwd = process.cwd();
 
-  logger.info('Initializing gh-claude...');
+  logger.info('Initializing Repo Agents...');
   logger.newline();
 
   const gitCheck = isGitRepository(cwd);
@@ -143,9 +143,9 @@ export async function initCommand(options: InitOptions): Promise<void> {
   }
 
   const githubDir = join(cwd, '.github');
-  const agentsDir = join(githubDir, 'claude-agents');
+  const agentsDir = join(githubDir, 'agents');
   const workflowsDir = join(githubDir, 'workflows');
-  const configFile = join(githubDir, 'claude.yml');
+  const configFile = join(githubDir, 'agents.yml');
 
   const spinner = ora('Creating directory structure...').start();
 
@@ -191,13 +191,13 @@ export async function initCommand(options: InitOptions): Promise<void> {
   }
 
   logger.newline();
-  logger.success('Successfully initialized gh-claude!');
+  logger.success('Successfully initialized Repo Agents!');
   logger.newline();
   logger.info('Next steps:');
-  logger.log('  1. Set up your API token: gh claude setup-token');
-  logger.log('  2. Create agent files in .github/claude-agents/');
-  logger.log('  3. Run: gh claude compile --all');
+  logger.log('  1. Set up your API token: repo-agents setup-token');
+  logger.log('  2. Create agent files in .github/agents/');
+  logger.log('  3. Run: repo-agents compile');
   logger.log('  4. Commit and push the generated workflows');
   logger.newline();
-  logger.info('Documentation: https://github.com/yourusername/gh-claude');
+  logger.info('Documentation: https://github.com/lucasilverentand/repo-agents');
 }

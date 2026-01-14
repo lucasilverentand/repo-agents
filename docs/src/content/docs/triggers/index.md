@@ -3,7 +3,7 @@ title: Triggers Overview
 description: Understanding when your Claude agents run
 ---
 
-Triggers define when your agent runs. gh-claude supports GitHub event triggers, scheduled executions, and manual invocations. Each agent must specify at least one trigger in the `on` field.
+Triggers define when your agent runs. Repo Agents supports GitHub event triggers, scheduled executions, and manual invocations. Each agent must specify at least one trigger in the `on` field.
 
 ## Available Trigger Types
 

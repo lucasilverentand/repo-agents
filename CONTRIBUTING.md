@@ -1,6 +1,6 @@
-# Contributing to gh-claude
+# Contributing to repo-agents
 
-Thank you for your interest in contributing to gh-claude! This document provides guidelines and instructions for contributing.
+Thank you for your interest in contributing to repo-agents! This document provides guidelines and instructions for contributing.
 
 ## Getting Started
 
@@ -16,8 +16,8 @@ Thank you for your interest in contributing to gh-claude! This document provides
 1. Fork the repository
 2. Clone your fork:
    ```bash
-   git clone https://github.com/your-username/gh-claude
-   cd gh-claude
+   git clone https://github.com/your-username/repo-agents
+   cd repo-agents
    ```
 
 3. Install dependencies:
@@ -40,7 +40,7 @@ Thank you for your interest in contributing to gh-claude! This document provides
 ### Project Structure
 
 ```
-gh-claude/
+repo-agents/
 ├── src/
 │   ├── cli/              # CLI commands and utilities
 │   │   ├── commands/     # Individual command implementations
@@ -273,7 +273,7 @@ When reporting bugs:
 1. Check existing issues first
 2. Use the issue template
 3. Include:
-   - gh-claude version
+   - repo-agents version
    - Node.js version
    - Operating system
    - Steps to reproduce
@@ -308,4 +308,4 @@ By contributing, you agree that your contributions will be licensed under the MI
 
 ---
 
-Thank you for contributing to gh-claude!
+Thank you for contributing to repo-agents!

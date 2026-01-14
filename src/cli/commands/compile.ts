@@ -17,7 +17,7 @@ interface CompileOptions {
 
 export async function compileCommand(options: CompileOptions): Promise<void> {
   const cwd = process.cwd();
-  const agentsDir = join(cwd, '.github', 'claude-agents');
+  const agentsDir = join(cwd, '.github', 'agents');
   const workflowsDir = options.outputDir || join(cwd, '.github', 'workflows');
 
   const spinner = ora('Finding agent files...').start();
@@ -26,7 +26,7 @@ export async function compileCommand(options: CompileOptions): Promise<void> {
   if (!agentsDirExists) {
     spinner.fail('Agents directory not found');
     logger.error(`Directory not found: ${agentsDir}`);
-    logger.info('Run: gh claude init');
+    logger.info('Run: repo-agents init');
     process.exit(1);
   }
 

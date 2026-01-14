@@ -1,10 +1,10 @@
 #!/bin/bash
 
-# Comprehensive test suite for gh-claude
+# Comprehensive test suite for repo-agents
 set -e
 
 echo "==========================================="
-echo "  gh-claude Test Suite"
+echo "  repo-agents Test Suite"
 echo "==========================================="
 echo ""
 
@@ -85,13 +85,13 @@ echo "-------------------------------------------"
 
 # Create temp directory for compilation tests
 TEMP_DIR=$(mktemp -d)
-mkdir -p "$TEMP_DIR/.github/claude-agents"
-cp examples/issue-triage.md "$TEMP_DIR/.github/claude-agents/"
+mkdir -p "$TEMP_DIR/.github/agents"
+cp examples/issue-triage.md "$TEMP_DIR/.github/agents/"
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 
 run_test "Compile with dry-run" \
-    "cd $TEMP_DIR && bun '$SCRIPT_DIR/dist/index.js' compile --dry-run .github/claude-agents/issue-triage.md > /dev/null 2>&1 && cd '$SCRIPT_DIR'"
+    "cd $TEMP_DIR && bun '$SCRIPT_DIR/dist/index.js' compile --dry-run .github/agents/issue-triage.md > /dev/null 2>&1 && cd '$SCRIPT_DIR'"
 
 run_test "Compile to workflows directory" \
     "cd $TEMP_DIR && bun '$SCRIPT_DIR/dist/index.js' compile --all > /dev/null 2>&1 && cd '$SCRIPT_DIR'"
@@ -119,9 +119,9 @@ else
 fi
 
 # Skip if no agents in test-repo yet
-if [ -d "../test-repo/.github/claude-agents" ]; then
+if [ -d "../test-repo/.github/agents" ]; then
     run_test "List agents in test repo" \
-        "cd ../test-repo && bun ../gh-claude/dist/index.js list > /dev/null 2>&1"
+        "cd ../test-repo && bun ../repo-agents/dist/index.js list > /dev/null 2>&1"
 else
     info "Test repository has no agents yet (run init first)"
 fi

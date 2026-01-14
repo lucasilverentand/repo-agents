@@ -65,7 +65,7 @@ function getAvailableAgents(examplesDir: string): AgentInfo[] {
  */
 async function selectAgents(agents: AgentInfo[]): Promise<string[]> {
   logger.info('═══════════════════════════════════════════════════════════════');
-  logger.info('                    Claude Agent Library                       ');
+  logger.info('                       Agent Library                           ');
   logger.info('═══════════════════════════════════════════════════════════════');
   logger.newline();
 
@@ -105,7 +105,7 @@ async function selectAgents(agents: AgentInfo[]): Promise<string[]> {
 }
 
 /**
- * Copies selected agents to the repository's claude-agents directory
+ * Copies selected agents to the repository's agents directory
  */
 function copyAgents(
   examplesDir: string,
@@ -169,7 +169,7 @@ function copyAgents(
  * Add command to install agents from the library
  */
 export async function addCommand(options: AddOptions): Promise<void> {
-  logger.info('Adding Claude agents from the library...');
+  logger.info('Adding agents from the library...');
   logger.newline();
 
   // Find the examples directory (package installation location)
@@ -177,7 +177,7 @@ export async function addCommand(options: AddOptions): Promise<void> {
 
   if (!existsSync(examplesDir)) {
     logger.error('Examples directory not found');
-    logger.error('Make sure gh-claude is properly installed');
+    logger.error('Make sure Repo Agents is properly installed');
     process.exit(1);
   }
 
@@ -206,10 +206,10 @@ export async function addCommand(options: AddOptions): Promise<void> {
   }
 
   // Check if repository is initialized
-  const targetDir = '.github/claude-agents';
+  const targetDir = '.github/agents';
   if (!existsSync(targetDir)) {
-    logger.error('Repository not initialized with gh-claude');
-    logger.error('Run: gh claude init');
+    logger.error('Repository not initialized with Repo Agents');
+    logger.error('Run: repo-agents init');
     process.exit(1);
   }
 
@@ -221,8 +221,8 @@ export async function addCommand(options: AddOptions): Promise<void> {
   logger.newline();
 
   logger.info('Next steps:');
-  logger.log('  1. Review and customize agents in .github/claude-agents/');
-  logger.log('  2. Compile agents: gh claude compile --all');
+  logger.log('  1. Review and customize agents in .github/agents/');
+  logger.log('  2. Compile agents: repo-agents compile');
   logger.log('  3. Commit and push the changes');
   logger.newline();
 }

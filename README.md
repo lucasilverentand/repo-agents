@@ -1,27 +1,27 @@
-# gh-claude
+# Repo Agents
 
-[![Build & Test](https://github.com/lucasilverentand/gh-claude/actions/workflows/ci.yml/badge.svg)](https://github.com/lucasilverentand/gh-claude/actions/workflows/ci.yml)
-[![Release Please](https://github.com/lucasilverentand/gh-claude/actions/workflows/release-please.yml/badge.svg)](https://github.com/lucasilverentand/gh-claude/actions/workflows/release-please.yml)
-[![Docs](https://github.com/lucasilverentand/gh-claude/actions/workflows/deploy-docs.yml/badge.svg)](https://lucasilverentand.github.io/gh-claude)
+[![Build & Test](https://github.com/lucasilverentand/repo-agents/actions/workflows/ci.yml/badge.svg)](https://github.com/lucasilverentand/repo-agents/actions/workflows/ci.yml)
+[![Release Please](https://github.com/lucasilverentand/repo-agents/actions/workflows/release-please.yml/badge.svg)](https://github.com/lucasilverentand/repo-agents/actions/workflows/release-please.yml)
+[![Docs](https://github.com/lucasilverentand/repo-agents/actions/workflows/deploy-docs.yml/badge.svg)](https://lucasilverentand.github.io/repo-agents)
 
-**Transform natural language markdown into intelligent GitHub Actions workflows powered by Claude AI.**
+**Transform natural language markdown into intelligent GitHub Actions workflows powered by AI.**
 
-Write what you want done in markdown – Claude figures out how to do it.
+Write what you want done in markdown – the AI figures out how to do it.
 
-**[📚 Documentation](https://lucasilverentand.github.io/gh-claude)** • **[🚀 Getting Started](GETTING_STARTED.md)** • **[💡 Examples](https://lucasilverentand.github.io/gh-claude/examples/)**
+**[📚 Documentation](https://lucasilverentand.github.io/repo-agents)** • **[🚀 Getting Started](GETTING_STARTED.md)** • **[💡 Examples](https://lucasilverentand.github.io/repo-agents/examples/)**
 
 ---
 
-## What is gh-claude?
+## What is Repo Agents?
 
-gh-claude lets you automate repository tasks by writing simple instructions instead of complex YAML. Create AI-powered agents that automatically triage issues, review pull requests, generate reports, and more.
+Repo Agents lets you automate repository tasks by writing simple instructions instead of complex YAML. Create AI-powered agents that automatically triage issues, review pull requests, generate reports, and more.
 
 **Traditional GitHub Actions:**
 ```yaml
 # Complex YAML configuration with multiple steps...
 ```
 
-**With gh-claude:**
+**With Repo Agents:**
 ```markdown
 ---
 name: Issue Triage
@@ -42,21 +42,23 @@ Welcome the contributor with a friendly message!
 ## Quick Start
 
 ```bash
-# Install
-gh extension install lucasilverentand/gh-claude
+# Install via npm/bun
+npm install -g repo-agents
+# or
+bun install -g repo-agents
 
 # Initialize in your repository
-gh claude init --examples
+repo-agents init --examples
 
 # Set up authentication
-gh claude setup
+repo-agents setup
 
 # Compile agents to workflows
-gh claude compile
+repo-agents compile
 
 # Commit and push
 git add .github/
-git commit -m "Add Claude agents"
+git commit -m "Add agents"
 git push
 ```
 
@@ -71,7 +73,7 @@ git push
 - **Documentation Updates** – Automated doc improvements
 - **Custom Workflows** – Anything you can describe in natural language
 
-**[→ See examples](https://lucasilverentand.github.io/gh-claude/examples/)**
+**[→ See examples](https://lucasilverentand.github.io/repo-agents/examples/)**
 
 ## Key Features
 
@@ -84,29 +86,29 @@ git push
 
 ## Documentation
 
-**[📚 Full Documentation](https://lucasilverentand.github.io/gh-claude)**
+**[📚 Full Documentation](https://lucasilverentand.github.io/repo-agents)**
 
 Quick links:
 - [Getting Started](GETTING_STARTED.md)
-- [How It Works](https://lucasilverentand.github.io/gh-claude/guide/how-it-works/)
-- [CLI Reference](https://lucasilverentand.github.io/gh-claude/cli/)
-- [Examples](https://lucasilverentand.github.io/gh-claude/examples/)
-- [Security](https://lucasilverentand.github.io/gh-claude/reference/security/)
+- [How It Works](https://lucasilverentand.github.io/repo-agents/guide/how-it-works/)
+- [CLI Reference](https://lucasilverentand.github.io/repo-agents/cli/)
+- [Examples](https://lucasilverentand.github.io/repo-agents/examples/)
+- [Security](https://lucasilverentand.github.io/repo-agents/reference/security/)
 
 ## Development
 
 ```bash
 # Clone and install
-git clone https://github.com/lucasilverentand/gh-claude
-cd gh-claude
+git clone https://github.com/lucasilverentand/repo-agents
+cd repo-agents
 bun install
 
 # Build and test
 bun run build
 bun test
 
-# Install locally
-gh extension install .
+# Link locally
+bun link
 ```
 
 See [CLAUDE.md](CLAUDE.md) for development guidance.
@@ -117,11 +119,10 @@ MIT
 
 ## Links
 
-- **[📚 Documentation](https://lucasilverentand.github.io/gh-claude)**
-- **[🐛 Issue Tracker](https://github.com/lucasilverentand/gh-claude/issues)**
+- **[📚 Documentation](https://lucasilverentand.github.io/repo-agents)**
+- **[🐛 Issue Tracker](https://github.com/lucasilverentand/repo-agents/issues)**
 - **[🤖 Anthropic Claude](https://www.anthropic.com/)**
-- **[⚡ GitHub CLI](https://cli.github.com/)**
 
 ---
 
-Built with ❤️ using [Anthropic Claude](https://www.anthropic.com/claude) and [GitHub CLI](https://cli.github.com/)
+Built with ❤️ using [Anthropic Claude](https://www.anthropic.com/claude)

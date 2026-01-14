@@ -66,6 +66,6 @@ When you see validation errors:
 
 ## See Also
 
-- [Execute Outputs](/gh-claude/stages/execute-outputs/) - Output execution
-- [Audit Report](/gh-claude/stages/audit-report/) - Failure tracking
-- [Troubleshooting](/gh-claude/guide/troubleshooting/) - Common issues
+- [Execute Outputs](/repo-agents/stages/execute-outputs/) - Output execution
+- [Audit Report](/repo-agents/stages/audit-report/) - Failure tracking
+- [Troubleshooting](/repo-agents/guide/troubleshooting/) - Common issues

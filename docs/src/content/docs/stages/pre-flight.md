@@ -65,13 +65,13 @@ Uses the GitHub API to check when the workflow last ran successfully.
 
 | Check | Failure Reason | Resolution |
 |-------|---------------|------------|
-| Secrets | Missing API key | Run `gh claude setup-token` |
+| Secrets | Missing API key | Run `repo-agents setup-token` |
 | Authorization | User not allowed | Add to `allowed-actors` or grant write access |
 | Labels | Required label missing | Add the trigger label to issue/PR |
 | Rate Limit | Too soon since last run | Wait for cooldown or adjust `rate_limit_minutes` |
 
 ## See Also
 
-- [Permissions Guide](/gh-claude/guide/permissions/) - User authorization
-- [Security Model](/gh-claude/reference/security-model/) - Security architecture
-- [Triggers Overview](/gh-claude/triggers/) - Rate limiting details
+- [Permissions Guide](/repo-agents/guide/permissions/) - User authorization
+- [Security Model](/repo-agents/reference/security-model/) - Security architecture
+- [Triggers Overview](/repo-agents/triggers/) - Rate limiting details

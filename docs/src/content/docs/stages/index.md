@@ -1,6 +1,6 @@
 ---
 title: The Flow
-description: How gh-claude agents execute from trigger to completion
+description: How repo-agents agents execute from trigger to completion
 ---
 
 import { Steps } from '@astrojs/starlight/components';
@@ -11,7 +11,7 @@ When an event triggers an agent, it flows through a series of stages in GitHub A
 
 <Steps>
 
-1. **[Pre-Flight Validation](/gh-claude/stages/pre-flight/)**
+1. **[Pre-Flight Validation](/repo-agents/stages/pre-flight/)**
 
    Security checks and validation run first:
    - Validates Claude API authentication (API key or OAuth token)
@@ -22,7 +22,7 @@ When an event triggers an agent, it flows through a series of stages in GitHub A
 
    If pre-flight fails, execution stops here.
 
-2. **[Collect Inputs](/gh-claude/stages/collect-inputs/)** *(optional)*
+2. **[Collect Inputs](/repo-agents/stages/collect-inputs/)** *(optional)*
 
    Gathers repository data for analysis (only if `inputs` configured):
    - Queries GitHub API for issues, PRs, discussions, commits, etc.
@@ -32,7 +32,7 @@ When an event triggers an agent, it flows through a series of stages in GitHub A
 
    If threshold not met, execution stops.
 
-3. **[Claude Agent Execution](/gh-claude/stages/claude-agent/)**
+3. **[Claude Agent Execution](/repo-agents/stages/claude-agent/)**
 
    Runs Claude with your natural language instructions:
    - Sets up Bun runtime and Claude Code CLI
@@ -44,7 +44,7 @@ When an event triggers an agent, it flows through a series of stages in GitHub A
 
    This is where your agent's instructions are executed.
 
-4. **[Execute Outputs](/gh-claude/stages/execute-outputs/)** *(optional)*
+4. **[Execute Outputs](/repo-agents/stages/execute-outputs/)** *(optional)*
 
    Validates and executes Claude's actions (only if `outputs` configured):
    - Uses matrix strategy to process each output type in parallel
@@ -54,14 +54,14 @@ When an event triggers an agent, it flows through a series of stages in GitHub A
 
    Actions include: add comments, labels, create issues/PRs, update files, etc.
 
-5. **[Report Results](/gh-claude/stages/report-results/)** *(optional)*
+5. **[Report Results](/repo-agents/stages/report-results/)** *(optional)*
 
    Reports validation errors (only if `outputs` configured):
    - Posts error comments to issues/PRs with details
    - Explains what went wrong and why
    - Helps debug agent output issues
 
-6. **[Audit Report](/gh-claude/stages/audit-report/)**
+6. **[Audit Report](/repo-agents/stages/audit-report/)**
 
    Always runs to track metrics and handle failures:
    - Collects all audit artifacts from previous stages
@@ -111,6 +111,6 @@ Each stage depends on previous stages:
 
 ## See Also
 
-- [Execution Flow Diagrams](/gh-claude/guide/agent-execution-flow/) - Visual flowcharts with Mermaid
-- [How It Works](/gh-claude/guide/how-it-works/) - High-level architecture overview
-- [Agent Definition](/gh-claude/guide/agent-definition/) - Configure your agents
+- [Execution Flow Diagrams](/repo-agents/guide/agent-execution-flow/) - Visual flowcharts with Mermaid
+- [How It Works](/repo-agents/guide/how-it-works/) - High-level architecture overview
+- [Agent Definition](/repo-agents/guide/agent-definition/) - Configure your agents

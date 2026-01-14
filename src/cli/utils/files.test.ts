@@ -31,22 +31,22 @@ describe('files utils', () => {
   });
 
   describe('agentNameToWorkflowName', () => {
-    it('should prefix with claude-', () => {
-      expect(agentNameToWorkflowName('Test Agent')).toBe('claude-test-agent');
+    it('should prefix with agent-', () => {
+      expect(agentNameToWorkflowName('Test Agent')).toBe('agent-test-agent');
     });
 
     it('should handle complex names', () => {
-      expect(agentNameToWorkflowName('My Complex Agent Name')).toBe('claude-my-complex-agent-name');
+      expect(agentNameToWorkflowName('My Complex Agent Name')).toBe('agent-my-complex-agent-name');
     });
 
     it('should remove special characters', () => {
-      expect(agentNameToWorkflowName('Test@Agent!')).toBe('claude-testagent');
+      expect(agentNameToWorkflowName('Test@Agent!')).toBe('agent-testagent');
     });
   });
 
   describe('findMarkdownFiles', () => {
     it('should find markdown files', async () => {
-      const tempDir = mkdtempSync(join(tmpdir(), 'gh-claude-test-'));
+      const tempDir = mkdtempSync(join(tmpdir(), 'repo-agents-test-'));
       writeFileSync(join(tempDir, 'file1.md'), 'test');
       writeFileSync(join(tempDir, 'file2.md'), 'test');
       writeFileSync(join(tempDir, 'file3.txt'), 'test');
@@ -64,7 +64,7 @@ describe('files utils', () => {
     });
 
     it('should return sorted files', async () => {
-      const tempDir = mkdtempSync(join(tmpdir(), 'gh-claude-test-'));
+      const tempDir = mkdtempSync(join(tmpdir(), 'repo-agents-test-'));
       writeFileSync(join(tempDir, 'zebra.md'), 'test');
       writeFileSync(join(tempDir, 'alpha.md'), 'test');
 

@@ -1,6 +1,6 @@
 # Example Claude Agents
 
-This directory contains example agent definitions that demonstrate various use cases for gh-claude.
+This directory contains example agent definitions that demonstrate various use cases for Repo Agents.
 
 ## Available Examples
 
@@ -73,14 +73,14 @@ This directory contains example agent definitions that demonstrate various use c
 
 1. Copy an example to your repository:
    ```bash
-   cp examples/issue-triage.md .github/claude-agents/
+   cp examples/issue-triage.md .github/agents/
    ```
 
 2. Customize the instructions to match your needs
 
 3. Compile to workflow:
    ```bash
-   gh claude compile .github/claude-agents/issue-triage.md
+   repo-agents compile .github/agents/issue-triage.md
    ```
 
 4. Commit and push:
@@ -156,7 +156,7 @@ claude:
 You can use multiple agents together:
 
 ```
-.github/claude-agents/
+.github/agents/
 ├── issue-triage.md       # Handles new issues
 ├── pr-review.md          # Reviews pull requests
 ├── daily-summary.md      # Daily activity report
@@ -176,7 +176,7 @@ Begin with one agent (like issue-triage) and expand as you get comfortable.
 Before committing, test compilation:
 
 ```bash
-gh claude compile --dry-run your-agent.md
+repo-agents compile --dry-run your-agent.md
 ```
 
 ### 3. Monitor Initial Runs
@@ -281,9 +281,9 @@ Have a great agent example? We'd love to include it!
 
 ## Support
 
-- Report issues: https://github.com/yourusername/gh-claude/issues
-- Discussions: https://github.com/yourusername/gh-claude/discussions
-- Documentation: https://github.com/yourusername/gh-claude
+- Report issues: https://github.com/yourusername/Repo Agents/issues
+- Discussions: https://github.com/yourusername/Repo Agents/discussions
+- Documentation: https://github.com/yourusername/Repo Agents
 
 ---
 

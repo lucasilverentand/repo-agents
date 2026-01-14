@@ -22,7 +22,7 @@ export async function validateCommand(
   options: ValidateOptions
 ): Promise<void> {
   const cwd = process.cwd();
-  const agentsDir = join(cwd, '.github', 'claude-agents');
+  const agentsDir = join(cwd, '.github', 'agents');
 
   if (options.all) {
     await validateAll(agentsDir, options.strict || false);
@@ -41,7 +41,7 @@ async function validateAll(agentsDir: string, strict: boolean): Promise<void> {
   if (!agentsDirExists) {
     spinner.fail('Agents directory not found');
     logger.error(`Directory not found: ${agentsDir}`);
-    logger.info('Run: gh claude init');
+    logger.info('Run: repo-agents init');
     process.exit(1);
   }
 

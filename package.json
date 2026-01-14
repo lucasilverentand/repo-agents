@@ -1,10 +1,10 @@
 {
-  "name": "gh-claude",
+  "name": "repo-agents",
   "version": "0.4.1",
-  "description": "GitHub CLI extension for creating Claude-powered GitHub Actions workflows",
+  "description": "GitHub CLI extension for creating AI-powered GitHub Actions workflows from markdown agent definitions",
   "main": "dist/index.js",
   "bin": {
-    "gh-claude": "./dist/index.js"
+    "repo-agents": "./dist/index.js"
   },
   "scripts": {
     "build": "bun run tsc",

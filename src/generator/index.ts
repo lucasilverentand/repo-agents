@@ -1136,7 +1136,7 @@ $(cat /tmp/audit/report.md)
 
 ---
 
-*This issue was automatically created by the gh-claude audit system.*
+*This issue was automatically created by the Repo Agents audit system.*
 ISSUE_EOF
 
 # Check if a similar issue already exists (avoid duplicates)

@@ -1,0 +1,90 @@
+---
+title: Introduction to Repo Agents
+slug: intro
+description: Welcome to Repo Agents, the AI-powered GitHub automation tool that simplifies repository management.
+sidebar:
+  label: Introduction
+  order: 0
+---
+
+import Mermaid from '../../../components/Mermaid.tsx';
+
+# Welcome to Repo Agents
+
+**Repo Agents** is a CLI tool that lets you write repository automation in plain English. Define what you want done in markdown files, compile them to GitHub Actions, and let AI handle issues, PRs, and more—automatically.
+
+```markdown
+// .github/agents/triage.md
+---
+name: Issue Triage
+on:
+  issues:
+    types: [opened]
+outputs:
+  - add-label
+  - add-comment
+---
+
+When a new issue is opened, analyze its content and:
+1. Add appropriate labels (bug, feature, question, docs)
+2. If it's unclear, ask clarifying questions in a comment
+3. Thank first-time contributors
+```
+
+## How it works
+
+<Mermaid
+  client:load
+  chart={`
+flowchart LR
+    A[Agent Definition<br/>.md file] --> B[repo-agents compile]
+    B --> C[GitHub Action<br/>.yml workflow]
+    C --> D[Trigger fires<br/>issue, PR, schedule]
+    D --> E[Claude executes<br/>with constrained permissions]
+`}
+/>
+
+1. **Write agent definitions** in `.github/agents/*.md` using natural language instructions
+2. **Compile to workflows** with `repo-agents compile`—this generates standard GitHub Actions YAML
+3. **Triggers fire** when issues open, PRs are created, on a schedule, or other GitHub events
+4. **Claude executes** your instructions with only the permissions and outputs you've allowed
+
+## Why not just write GitHub Actions?
+
+Traditional GitHub Actions require you to anticipate every scenario and write explicit conditional logic. Repo Agents is different:
+
+| Traditional GitHub Actions | Repo Agents |
+|---------------------------|-----------|
+| Rigid if/else logic | AI interprets context and makes judgment calls |
+| Regex-based text matching | Natural language understanding |
+| Separate scripts for each case | Single set of instructions handles variations |
+| Breaks when edge cases appear | Adapts to unexpected situations |
+
+For example, labeling issues traditionally requires regex patterns for each label. With Repo Agents, you write "label bugs as `bug`, feature requests as `feature`" and the AI understands variations like "this doesn't work", "can you add support for X", or "I found an issue where...".
+
+## Prerequisites
+
+Before getting started, you'll need:
+
+- **GitHub CLI** (`gh`) installed and authenticated
+- **A GitHub repository** where you have write access
+- **Claude API access**: either an API key or OAuth token (set up during installation)
+
+## Safe and controlled
+
+Repo Agents generates workflows with multiple safety layers:
+
+- **Explicit permissions**: Agents only get the GitHub permissions you specify (`contents: read`, `issues: write`, etc.)
+- **Constrained outputs**: Define exactly what actions agents can perform—can't create PRs unless you allow it
+- **User authorization**: Control who can trigger agents (admins only, specific users, org members)
+- **Path restrictions**: Limit file operations to specific directories with glob patterns
+- **Rate limiting**: Built-in cooldowns prevent runaway execution
+
+## Example use cases
+
+- **Issue triage**: Label and categorize issues based on content, ask clarifying questions
+- **PR review**: Analyze code changes, check for common issues, suggest improvements
+- **Documentation sync**: Update docs when code changes, flag outdated sections
+- **Release notes**: Generate changelogs from merged PRs with intelligent categorization
+- **Dependency monitoring**: Check for updates on a schedule, create upgrade PRs
+- **Community management**: Welcome new contributors, answer common questions

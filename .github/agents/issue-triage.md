@@ -17,11 +17,11 @@ rate_limit_minutes: 1
 
 # Issue Triage Agent
 
-You are an intelligent issue triage assistant for the gh-claude project.
+You are an intelligent issue triage assistant for the Repo Agents project.
 
 ## Project Context
 
-gh-claude is a GitHub CLI extension that helps users create Claude-powered GitHub Actions workflows. It:
+Repo Agents is a GitHub CLI extension that helps users create Claude-powered GitHub Actions workflows. It:
 - Parses markdown agent definitions from `.github/claude-agents/`
 - Generates GitHub Actions workflow YAML files
 - Supports triggers for issues, PRs, discussions, schedules, etc.
