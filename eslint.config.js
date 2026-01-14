@@ -6,7 +6,8 @@ import globals from 'globals';
 export default [
   js.configs.recommended,
   {
-    files: ['src/**/*.ts'],
+    files: ['packages/*/src/**/*.ts'],
+    ignores: ['**/*.test.ts'],
     languageOptions: {
       parser: tsparser,
       parserOptions: {
@@ -24,7 +25,10 @@ export default [
     },
     rules: {
       ...tseslint.configs.recommended.rules,
-      '@typescript-eslint/no-unused-vars': ['error', { argsIgnorePattern: '^_', caughtErrorsIgnorePattern: '^_' }],
+      '@typescript-eslint/no-unused-vars': [
+        'error',
+        { argsIgnorePattern: '^_', varsIgnorePattern: '^_', caughtErrorsIgnorePattern: '^_' },
+      ],
       '@typescript-eslint/explicit-function-return-type': 'off',
       '@typescript-eslint/no-explicit-any': 'warn',
       'no-unused-vars': 'off', // Use TypeScript's version instead
@@ -32,7 +36,7 @@ export default [
     },
   },
   {
-    files: ['src/**/*.test.ts'],
+    files: ['packages/*/src/**/*.test.ts'],
     languageOptions: {
       parser: tsparser,
       parserOptions: {
@@ -61,13 +65,16 @@ export default [
     },
     rules: {
       ...tseslint.configs.recommended.rules,
-      '@typescript-eslint/no-unused-vars': ['error', { argsIgnorePattern: '^_', caughtErrorsIgnorePattern: '^_' }],
+      '@typescript-eslint/no-unused-vars': [
+        'error',
+        { argsIgnorePattern: '^_', varsIgnorePattern: '^_', caughtErrorsIgnorePattern: '^_' },
+      ],
       '@typescript-eslint/explicit-function-return-type': 'off',
       '@typescript-eslint/no-explicit-any': 'warn',
       'no-unused-vars': 'off',
     },
   },
   {
-    ignores: ['dist/**', 'node_modules/**', 'docs/**'],
+    ignores: ['dist/**', 'node_modules/**', 'docs/**', '**/node_modules/**'],
   },
 ];

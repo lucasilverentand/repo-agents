@@ -8,7 +8,8 @@ import path from 'path';
 // In a more complete test suite, we'd refactor to export testable units.
 
 // Create a minimal valid agent definition for testing
-const createAgentMd = (options: { outputs?: boolean } = {}) => {
+// TODO: Use this helper in expanded test coverage
+const _createAgentMd = (options: { outputs?: boolean } = {}) => {
   const outputs = options.outputs
     ? `outputs:
   add-comment: true

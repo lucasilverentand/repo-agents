@@ -37,7 +37,6 @@ jobs:
 
       - name: ESLint
         run: bun run lint
-        continue-on-error: true
 
       - name: Prettier check
         run: bun x prettier --check "packages/*/src/**/*.ts"
