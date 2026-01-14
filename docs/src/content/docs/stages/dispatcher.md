@@ -1,20 +1,12 @@
 ---
 title: Dispatcher Stage
 slug: stages/dispatcher
-description: Centralized event routing to agent workflows
+description: Centralized event routing and pre-flight checks
 sidebar:
   label: 1. Dispatcher
 ---
 
-The dispatcher is a centralized workflow that listens to all GitHub events and routes them to the appropriate agent workflows. It's required for any agent with event-based triggers (issues, PRs, discussions, etc.).
-
-## Purpose
-
-- Aggregate triggers from all agents into a single entry point
-- Validate configuration before dispatching
-- Prepare shared event context
-- Route events to matching agents
-- Enable parallel agent execution via matrix strategy
+The dispatcher is a centralized workflow that routes events to the appropriate agents and performs pre-flight checks. It aggregates triggers from all agents into a single entry point and uses a routing table to match incoming events to the right agents, dispatching them using a matrix strategy. Before dispatching, it validates API authentication, checks user authorization (admin, allowed users, or team members), enforces rate limiting, and validates trigger labels if configured. When a GitHub App is configured, its token is generated here. If any check fails, execution stops immediately.
 
 ## When It Runs
 
@@ -26,16 +18,52 @@ The dispatcher runs for **all event-based triggers**:
 - Repository dispatch events
 - Manual workflow dispatch
 
-## Jobs
+## Pre-Flight Checks
 
-### 1. Pre-Flight Check
+Before dispatching to agents, the following checks are performed:
 
-Validates that required secrets are configured:
-- Checks for `ANTHROPIC_API_KEY` or `CLAUDE_CODE_OAUTH_TOKEN`
-- Creates a GitHub issue and disables the workflow if misconfigured
-- Generates GitHub App token if configured
+### 1. Generate GitHub Token
 
-### 2. Prepare Context
+Creates a GitHub App token if configured, otherwise uses the default `GITHUB_TOKEN`.
+
+Using a GitHub App provides:
+- Branded identity (commits appear as "YourApp[bot]")
+- PRs created by the agent can trigger CI workflows
+- Higher rate limits
+
+### 2. Check Secrets
+
+Verifies that one of the required authentication secrets exists:
+
+- `ANTHROPIC_API_KEY` — Anthropic API key
+- `CLAUDE_CODE_OAUTH_TOKEN` — Claude OAuth token
+
+If neither is configured, the workflow fails immediately.
+
+### 3. Check User Authorization
+
+Validates the triggering user has permission to run the agent.
+
+**Default allowed users:**
+- Repository admins
+- Users with write access
+- Organization members
+
+You can restrict this further with `allowed-actors` and `allowed-teams` in your agent definition.
+
+### 4. Check Required Labels
+
+If `trigger_labels` is configured, verifies the issue/PR has one of the required labels. The agent only runs if a matching label is present.
+
+### 5. Check Rate Limit
+
+Prevents excessive runs by enforcing a minimum interval between executions. The default is 5 minutes, configurable via `rate_limit_minutes`.
+
+## Event Routing
+
+After pre-flight checks pass, the dispatcher routes events:
+
+### 1. Prepare Context
 
 Builds a shared context object with event data:
 - Dispatch metadata (ID, timestamp, run URL)
@@ -43,14 +71,14 @@ Builds a shared context object with event data:
 - Event-specific data (issue details, PR details, etc.)
 - Uploads context as an artifact for agent workflows
 
-### 3. Route Event
+### 2. Route Event
 
 Matches the event against a routing table:
 - Each agent defines which events it handles
 - Multiple agents can match the same event
 - Manual dispatch can target a specific agent by name
 
-### 4. Dispatch Agents
+### 3. Dispatch Agents
 
 Triggers matching agent workflows:
 - Uses matrix strategy for parallel execution
@@ -79,3 +107,20 @@ on:
         description: 'Specific agent to run'
         required: false
 ```
+
+## Pre-Flight Outputs
+
+| Output | Description |
+|--------|-------------|
+| `should-run` | `true` if all checks pass, `false` otherwise |
+| `rate-limited` | `true` if skipped due to rate limiting |
+| `github-token` | Token for subsequent jobs |
+
+## Failure Scenarios
+
+| Check | Failure Reason | Resolution |
+|-------|---------------|------------|
+| Secrets | Missing API key | Run `repo-agents setup-token` |
+| Authorization | User not allowed | Add to `allowed-actors` or grant write access |
+| Labels | Required label missing | Add the trigger label to issue/PR |
+| Rate Limit | Too soon since last run | Wait for cooldown or adjust `rate_limit_minutes` |

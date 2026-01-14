@@ -38,7 +38,6 @@ export default defineConfig({
           collapsed: true,
           items: [
             { slug: 'stages/dispatcher' },
-            { slug: 'stages/pre-flight' },
             { slug: 'stages/context-building' },
             { slug: 'stages/agent-execution' },
             { slug: 'stages/publish-outputs' },
