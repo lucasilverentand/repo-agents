@@ -5,6 +5,19 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.1.0](https://github.com/lucasilverentand/repo-agents/compare/v1.0.0...v1.1.0) (2026-01-14)
+
+
+### Features
+
+* use scoped package name @repo-agents/cli ([cb97fa0](https://github.com/lucasilverentand/repo-agents/commit/cb97fa0972ce2299b0703bb3e21c1bbe27ff5c0e))
+
+
+### Bug Fixes
+
+* add missing gray-matter dependency to CLI package ([4245cff](https://github.com/lucasilverentand/repo-agents/commit/4245cff978b19efeba62ea81dd0a91b125b0e9de))
+* read version from root package.json for correct bundled output ([f01021e](https://github.com/lucasilverentand/repo-agents/commit/f01021efc6570927b8ae8a2bd56343a4bd8906b2))
+
 ## [1.0.0](https://github.com/lucasilverentand/repo-agents/compare/v0.4.1...v1.0.0) (2026-01-14)
 
 
