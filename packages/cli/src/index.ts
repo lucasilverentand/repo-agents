@@ -1,8 +1,6 @@
 #!/usr/bin/env node
 
 import { Command } from 'commander';
-import { readFileSync } from 'fs';
-import { join } from 'path';
 import { initCommand } from './commands/init';
 import { compileCommand } from './commands/compile';
 import { validateCommand } from './commands/validate';
@@ -11,8 +9,8 @@ import { authCommand } from './commands/auth';
 import { setupAppCommand } from './commands/setup-app';
 import { setupCommand } from './commands/setup';
 import { addCommand } from './commands/add';
-
-const packageJson = JSON.parse(readFileSync(join(__dirname, '../package.json'), 'utf-8'));
+// Import root package.json for version (gets inlined during bundling)
+import packageJson from '../../../package.json';
 
 const program = new Command();
 
