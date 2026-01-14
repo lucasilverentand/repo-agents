@@ -3,19 +3,19 @@ title: Context Building Stage
 slug: stages/context-building
 description: Gathering event data and repository context for agent execution
 sidebar:
-  label: 3. Context Building
+  label: 2. Context Building
 ---
 
-The collect-context stage queries the GitHub API to gather data for the agent. This is particularly useful for scheduled agents that need to process multiple items.
+This stage prepares the context the agent will work with. It collects event data such as issue, PR, or discussion details, and can query the GitHub API for additional inputs when configured. For scheduled agents, it filters data by time range. All collected data is formatted as markdown that the agent can read and understand.
 
 **This stage only runs if `context` is configured in the agent definition.**
 
 ## Purpose
 
-- Query repository data (issues, PRs, discussions, commits, etc.)
-- Filter data by time range
-- Skip agent execution if minimum threshold not met
-- Format collected data for Claude
+- Collect event data (issue, PR, or discussion details)
+- Query the GitHub API for additional inputs when configured
+- Filter data by time range for scheduled agents
+- Format all collected data as markdown for the agent
 
 ## Steps
 

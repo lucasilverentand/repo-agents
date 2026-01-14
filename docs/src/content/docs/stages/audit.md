@@ -3,35 +3,34 @@ title: Audit Stage
 slug: stages/audit
 description: Tracking execution metrics and handling failures
 sidebar:
-  label: 6. Audit
+  label: 5. Audit
 ---
 
-The audit-report stage always runs at the end of every workflow, regardless of success or failure. It tracks metrics, diagnoses failures, and creates issues for visibility.
+The audit stage always runs, regardless of success or failure, to track metrics and handle problems. It collects all audit artifacts from previous stages and generates a comprehensive audit report with execution metrics like tokens, cost, and duration. When failures occur, it runs a diagnostic agent in safe, read-only mode. If configured, it can create GitHub issues for failures to ensure they're tracked and addressed.
 
 ## Purpose
 
-- Collect execution metrics from all stages
-- Generate a comprehensive audit report
-- Run diagnostic agent on failures
-- Create GitHub issues for failures
-- Ensure failures are visible and actionable
+- Collect all audit artifacts from previous stages
+- Generate comprehensive audit report with execution metrics (tokens, cost, duration)
+- Run diagnostic agent in safe, read-only mode on failures
+- Create GitHub issues for failures (if configured)
 
 ## Steps
 
-### 1. Download All Artifacts
+### 1. Collect All Artifacts
 
-Collects data from all previous stages:
-- Validation audit (pre-flight results)
+Collects audit artifacts from all previous stages:
+- Dispatcher audit (pre-flight check results)
 - Claude metrics (cost, turns, duration)
 - Output files (what Claude created)
 - Validation results (output execution results)
 
 ### 2. Generate Audit Report
 
-Creates a markdown report summarizing the run, including:
+Generates a comprehensive audit report with execution metrics, including:
 - Agent name and trigger
 - Pre-flight check results
-- Execution metrics (model, cost, turns, duration)
+- Execution metrics (tokens, cost, duration)
 - Outputs executed and their status
 - Job results summary
 
@@ -41,7 +40,7 @@ Determines if any job in the workflow failed.
 
 ### 4. Run Diagnostic Agent (on failure)
 
-When a failure occurs, a diagnostic Claude agent runs in safe read-only mode to:
+When a failure occurs, a diagnostic agent runs in safe, read-only mode to:
 - Analyze the failure
 - Identify root cause
 - Suggest remediation steps

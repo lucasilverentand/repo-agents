@@ -3,19 +3,19 @@ title: Publish Outputs Stage
 slug: stages/publish-outputs
 description: Validating and publishing agent outputs to GitHub
 sidebar:
-  label: 5. Publish Outputs
+  label: 4. Publish Outputs
 ---
 
-The execute-outputs stage validates output files created by Claude and executes the corresponding GitHub actions.
+After execution, this stage validates and publishes the agent's actions to GitHub. It validates output files against JSON schemas, then executes GitHub operations via the `gh` CLI. This includes posting comments, adding labels, and creating issues or PRs. Any validation errors are reported back to the relevant issues or PRs.
 
 **This stage only runs if `outputs` is configured in the agent definition.**
 
 ## Purpose
 
-- Download output files from the claude-agent stage
-- Validate outputs against JSON schemas
-- Execute GitHub operations (comments, labels, PRs, etc.)
-- Track validation results for reporting
+- Validate output files against JSON schemas
+- Execute GitHub operations via the `gh` CLI
+- Post comments, add labels, create issues or PRs
+- Report validation errors back to issues/PRs
 
 ## Steps
 
