@@ -1,5 +1,5 @@
 {
-  "name": "repo-agents",
+  "name": "@repo-agents/cli",
   "version": "1.0.0",
   "description": "GitHub CLI extension for creating AI-powered GitHub Actions workflows from markdown agent definitions",
   "type": "module",
