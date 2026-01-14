@@ -3,6 +3,7 @@ import yaml from 'js-yaml';
 import type { AgentDefinition, WorkflowStep, Output, TriggerConfig } from '../types';
 import { agentNameToWorkflowName } from '../cli/utils/files';
 import { getOutputHandler } from './outputs';
+import { getProviderAdapter } from './providers';
 import type { RuntimeContext } from './outputs/base';
 import { inputCollector } from './input-collector';
 import { logger } from '../cli/utils/logger';
@@ -402,10 +403,6 @@ echo "✓ All validation checks passed"`,
           'bun-version': 'latest',
         },
       },
-      {
-        name: 'Install Claude Code CLI',
-        run: 'bunx --bun @anthropic-ai/claude-code --version',
-      },
     ];
 
     // Create outputs directory if outputs are configured
@@ -527,26 +524,24 @@ echo "✓ All validation checks passed"`,
         'INSTRUCTIONS_EOF',
     });
 
-    // Run Claude with the prepared context
-    const allowedTools =
-      agent.outputs && Object.keys(agent.outputs).length > 0
-        ? 'Write(/tmp/outputs/*),Read,Glob,Grep'
-        : 'Read,Glob,Grep';
+    // Run agent with the prepared context
+    const hasOutputs = !!agent.outputs && Object.keys(agent.outputs).length > 0;
+    const allowedTools = hasOutputs ? 'Write(/tmp/outputs/*),Read,Glob,Grep' : 'Read,Glob,Grep';
 
-    // Claude runs in $GITHUB_WORKSPACE (the repo checkout) with either:
-    // - bypassPermissions if we have outputs (skills file is in .claude/CLAUDE.md)
-    // - normal mode otherwise
-    const claudeCommand =
-      agent.outputs && Object.keys(agent.outputs).length > 0
-        ? `bunx --bun @anthropic-ai/claude-code -p "$(cat /tmp/context.txt)" --allowedTools "${allowedTools}" --permission-mode bypassPermissions --output-format json > /tmp/claude-output.json`
-        : `bunx --bun @anthropic-ai/claude-code -p "$(cat /tmp/context.txt)" --allowedTools "${allowedTools}" --output-format json > /tmp/claude-output.json`;
-
-    steps.push({
-      name: 'Run Claude Agent',
-      id: 'run-claude',
-      env: this.generateEnvironment(agent),
-      run: claudeCommand,
-    });
+    const provider = getProviderAdapter(agent.provider);
+    steps.push(...provider.generateInstallSteps());
+    steps.push(
+      provider.generateRunStep(agent, {
+        allowedTools,
+        hasOutputs,
+        environment: {
+          ANTHROPIC_API_KEY: '${{ secrets.ANTHROPIC_API_KEY }}',
+          CLAUDE_CODE_OAUTH_TOKEN: '${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}',
+          GITHUB_TOKEN: '${{ steps.app-token.outputs.token }}',
+          GH_TOKEN: '${{ steps.app-token.outputs.token }}',
+        },
+      })
+    );
 
     // Extract and display Claude execution summary
     steps.push({
@@ -1181,14 +1176,7 @@ fi
     };
   }
 
-  private generateEnvironment(_agent: AgentDefinition): Record<string, string> {
-    return {
-      ANTHROPIC_API_KEY: '${{ secrets.ANTHROPIC_API_KEY }}',
-      CLAUDE_CODE_OAUTH_TOKEN: '${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}',
-      GITHUB_TOKEN: '${{ steps.app-token.outputs.token }}',
-      GH_TOKEN: '${{ steps.app-token.outputs.token }}',
-    };
-  }
+  // (intentionally removed)
 
   /**
    * Generates a step that creates a GitHub App token if GH_APP_ID and GH_APP_PRIVATE_KEY
@@ -1353,7 +1341,8 @@ echo "git-email=$APP_ID_NUM+$APP_SLUG[bot]@users.noreply.github.com" >> $GITHUB_
 
     const preFlightOutputs: Record<string, string> = {
       'should-run':
-        '$' + '{{ steps.set-output.outputs.should-run || steps.check-rate-limit.outputs.should-run }}',
+        '$' +
+        '{{ steps.set-output.outputs.should-run || steps.check-rate-limit.outputs.should-run }}',
       'rate-limited': '$' + '{{ steps.check-rate-limit.outputs.rate-limited }}',
       'app-token': '$' + '{{ steps.app-token.outputs.token }}',
       'git-user': '$' + '{{ steps.app-token.outputs.git-user }}',
@@ -1680,10 +1669,6 @@ echo "✓ All validation checks passed"`,
           'bun-version': 'latest',
         },
       },
-      {
-        name: 'Install Claude Code CLI',
-        run: 'bunx --bun @anthropic-ai/claude-code --version',
-      },
     ];
 
     // Create outputs directory if outputs are configured
@@ -1825,23 +1810,24 @@ fi`,
         'INSTRUCTIONS_EOF',
     });
 
-    // Run Claude with the prepared context
-    const allowedTools =
-      agent.outputs && Object.keys(agent.outputs).length > 0
-        ? 'Write(/tmp/outputs/*),Read,Glob,Grep'
-        : 'Read,Glob,Grep';
+    // Run agent with the prepared context
+    const hasOutputs = !!agent.outputs && Object.keys(agent.outputs).length > 0;
+    const allowedTools = hasOutputs ? 'Write(/tmp/outputs/*),Read,Glob,Grep' : 'Read,Glob,Grep';
 
-    const claudeCommand =
-      agent.outputs && Object.keys(agent.outputs).length > 0
-        ? `bunx --bun @anthropic-ai/claude-code -p "$(cat /tmp/context.txt)" --allowedTools "${allowedTools}" --permission-mode bypassPermissions --output-format json > /tmp/claude-output.json`
-        : `bunx --bun @anthropic-ai/claude-code -p "$(cat /tmp/context.txt)" --allowedTools "${allowedTools}" --output-format json > /tmp/claude-output.json`;
-
-    steps.push({
-      name: 'Run Claude Agent',
-      id: 'run-claude',
-      env: this.generateEnvironment(agent),
-      run: claudeCommand,
-    });
+    const provider = getProviderAdapter(agent.provider);
+    steps.push(...provider.generateInstallSteps());
+    steps.push(
+      provider.generateRunStep(agent, {
+        allowedTools,
+        hasOutputs,
+        environment: {
+          ANTHROPIC_API_KEY: '${{ secrets.ANTHROPIC_API_KEY }}',
+          CLAUDE_CODE_OAUTH_TOKEN: '${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}',
+          GITHUB_TOKEN: '${{ steps.app-token.outputs.token }}',
+          GH_TOKEN: '${{ steps.app-token.outputs.token }}',
+        },
+      })
+    );
 
     // Add the rest of the steps (metrics extraction, output upload, etc.)
     steps.push({
@@ -1911,7 +1897,11 @@ fi`,
     return steps;
   }
 
-  async writeWorkflow(agent: AgentDefinition, outputDir: string, dispatcherMode = true): Promise<string> {
+  async writeWorkflow(
+    agent: AgentDefinition,
+    outputDir: string,
+    dispatcherMode = true
+  ): Promise<string> {
     const workflowName = agentNameToWorkflowName(agent.name);
     const fileName = `${workflowName}.yml`;
     const filePath = `${outputDir}/${fileName}`;

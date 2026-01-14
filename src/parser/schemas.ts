@@ -187,6 +187,7 @@ export const agentFrontmatterSchema = z.object({
   name: z.string().min(1, 'Agent name is required'),
   on: triggerConfigSchema,
   permissions: permissionsSchema,
+  provider: z.enum(['claude-code', 'opencode']).optional(),
   claude: claudeConfigSchema,
   outputs: outputSchema,
   tools: toolSchema,

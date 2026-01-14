@@ -1,7 +1,10 @@
+export type AgentProvider = 'claude-code' | 'opencode';
+
 export interface AgentDefinition {
   name: string;
   on: TriggerConfig;
   permissions?: PermissionsConfig;
+  provider?: AgentProvider;
   claude?: ClaudeConfig;
   outputs?: Record<string, OutputConfig | boolean>;
   tools?: Tool[];

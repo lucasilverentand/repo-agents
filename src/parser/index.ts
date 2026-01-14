@@ -86,6 +86,7 @@ export class AgentParser {
       name: frontmatter.name,
       on: frontmatter.on,
       permissions: frontmatter.permissions,
+      provider: frontmatter.provider,
       claude: frontmatter.claude,
       outputs: frontmatter.outputs,
       tools: frontmatter.tools,
