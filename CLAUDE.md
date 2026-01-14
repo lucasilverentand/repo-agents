@@ -85,25 +85,44 @@ bun run docs:preview       # Preview built docs
 
 ### Generated Workflow Structure
 
-Compiled workflows have this multi-job structure:
+The system generates two types of workflows:
 
-1. **pre-flight job**: Runs validation checks
+#### Dispatcher Workflow (centralized)
+
+The dispatcher workflow handles event routing and pre-flight validation for all agents:
+
+1. **pre-flight job**: Global validation before routing
    - Generates GitHub App token (if configured)
    - Checks required secrets (ANTHROPIC_API_KEY or CLAUDE_CODE_OAUTH_TOKEN)
+   - Outputs: `should-continue`, `app-token`
+
+2. **prepare-context job**: Prepares event context
+   - Downloads event payload
+   - Uploads context as artifact for agent workflows
+
+3. **route-event job**: Determines which agents to trigger
+   - Matches event against routing table
+   - Outputs: `agents` (JSON array of matching agents)
+
+4. **dispatch-agents job**: Per-agent validation and dispatch (matrix strategy)
+   - Runs per-agent pre-flight checks (authorization, rate limits, labels)
    - Validates user authorization (admin, write, org member, or allow list)
    - Checks trigger labels (if configured)
    - Enforces rate limiting (default: 5 minutes between runs)
-   - Tracks validation status for audit reporting
-   - Outputs: `should-run=true/false`
+   - Dispatches agent workflow if checks pass
 
-2. **collect-context job** (optional): Collects repository data
+#### Agent Workflows (per-agent)
+
+Each agent workflow handles execution after pre-flight passes in the dispatcher:
+
+1. **collect-context job** (optional): Collects repository data
    - Only generated when `context` is configured
    - Queries GitHub API for issues, PRs, discussions, commits, etc.
    - Filters by time range and other criteria
    - Skips execution if `min_items` threshold not met
    - Outputs: `has-context`, `context-data`
 
-3. **claude-agent job**: Runs Claude with agent instructions
+2. **claude-agent job**: Runs Claude with agent instructions
    - Checks out repository
    - Sets up Bun runtime
    - Installs Claude Code CLI via bunx
@@ -113,21 +132,16 @@ Compiled workflows have this multi-job structure:
    - Extracts and logs execution metrics (cost, turns, duration)
    - Uploads outputs artifact
 
-4. **execute-outputs job** (optional): Executes agent outputs
+3. **execute-outputs job** (optional): Executes agent outputs
    - Only generated when `outputs` is configured
    - Uses matrix strategy to process each output type
    - Validates output files against schemas
    - Executes GitHub operations via gh CLI
    - Reports validation errors
 
-5. **report-results job** (optional): Reports validation errors
-   - Posts error comments to issues/PRs
-   - Only generated when `outputs` is configured
-
-6. **audit-report job**: Always runs for tracking
+4. **audit-report job**: Always runs for tracking
    - Collects all audit artifacts
    - Generates comprehensive audit report
-   - Runs diagnostic agent on failures (safe mode, read-only)
    - Creates GitHub issues for failures (configurable)
 
 ### Output Handlers System
