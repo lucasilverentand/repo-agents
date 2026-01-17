@@ -2,6 +2,7 @@ import { mkdir, writeFile } from "node:fs/promises";
 import { dirname } from "node:path";
 import { AgentParser } from "@repo-agents/parser";
 import type {
+  CodeScanningAlertsContextConfig,
   CommitsContextConfig,
   DependabotPRsContextConfig,
   DiscussionsContextConfig,
@@ -158,12 +159,26 @@ export async function runContext(ctx: StageContext): Promise<StageResult> {
 
   // Collect dependabot PRs
   if (config.dependabot_prs) {
-    const { markdown, count } = await collectDependabotPRs(owner, repo, config.dependabot_prs);
+    const { markdown, count} = await collectDependabotPRs(owner, repo, config.dependabot_prs);
     if (count > 0) {
       collectedSections.push(markdown);
       totalItems += count;
     }
     console.log(`Found ${count} Dependabot PR(s)`);
+  }
+
+  // Collect code scanning alerts
+  if (config.code_scanning_alerts) {
+    const { markdown, count } = await collectCodeScanningAlerts(
+      owner,
+      repo,
+      config.code_scanning_alerts,
+    );
+    if (count > 0) {
+      collectedSections.push(markdown);
+      totalItems += count;
+    }
+    console.log(`Found ${count} code scanning alert(s)`);
   }
 
   // Check min_items threshold
@@ -1112,19 +1127,21 @@ async function collectDependabotPRs(
   }
 }
 
-function formatDependabotPRsMarkdown(prs: Array<{
-  number: number;
-  title: string;
-  state: string;
-  html_url: string;
-  created_at: string;
-  updated_at: string;
-  merged_at: string | null;
-  base: { ref: string };
-  head: { ref: string };
-  labels: Array<{ name: string }>;
-  body: string | null;
-}>): string {
+function formatDependabotPRsMarkdown(
+  prs: Array<{
+    number: number;
+    title: string;
+    state: string;
+    html_url: string;
+    created_at: string;
+    updated_at: string;
+    merged_at: string | null;
+    base: { ref: string };
+    head: { ref: string };
+    labels: Array<{ name: string }>;
+    body: string | null;
+  }>,
+): string {
   if (prs.length === 0) return "";
 
   const lines = ["## Dependabot Pull Requests", ""];
@@ -1149,6 +1166,168 @@ function formatDependabotPRsMarkdown(prs: Array<{
       lines.push(`**Merged:** ${pr.merged_at}`);
     }
     lines.push(`**URL:** ${pr.html_url}`);
+    lines.push("", "---", "");
+  }
+
+  return lines.join("\n");
+}
+
+/**
+ * Collect code scanning alerts from GitHub (CodeQL, etc.)
+ */
+async function collectCodeScanningAlerts(
+  owner: string,
+  repo: string,
+  config: CodeScanningAlertsContextConfig,
+): Promise<CollectionResult> {
+  const limit = config.limit || 100;
+
+  interface CodeScanningAlert {
+    number: number;
+    state: string;
+    rule: {
+      id: string;
+      severity: string;
+      description: string;
+      name: string;
+      security_severity_level?: string;
+      tags?: string[];
+    };
+    tool: {
+      name: string;
+      version: string | null;
+    };
+    most_recent_instance: {
+      ref: string;
+      state: string;
+      commit_sha: string;
+      location: {
+        path: string;
+        start_line: number;
+        end_line: number;
+        start_column?: number;
+        end_column?: number;
+      };
+      message: {
+        text: string;
+      };
+      classifications?: string[];
+    };
+    created_at: string;
+    updated_at: string;
+    dismissed_at: string | null;
+    dismissed_by: { login: string } | null;
+    dismissed_reason: string | null;
+    dismissed_comment: string | null;
+    fixed_at: string | null;
+    html_url: string;
+  }
+
+  try {
+    const response = await ghApi<CodeScanningAlert[]>(
+      `repos/${owner}/${repo}/code-scanning/alerts?per_page=${limit}&sort=created&direction=desc`,
+    );
+
+    let alerts = response;
+
+    // Filter by state if specified
+    if (config.state && config.state.length > 0) {
+      alerts = alerts.filter((alert) => {
+        if (config.state?.includes("open" as never)) {
+          if (alert.state === "open") return true;
+        }
+        if (config.state?.includes("fixed" as never)) {
+          if (alert.state === "fixed" || alert.fixed_at !== null) return true;
+        }
+        if (config.state?.includes("dismissed" as never)) {
+          if (alert.state === "dismissed" || alert.dismissed_at !== null) return true;
+        }
+        return false;
+      });
+    }
+
+    // Filter by severity if specified
+    if (config.severity && config.severity.length > 0) {
+      alerts = alerts.filter((alert) => {
+        const severity =
+          alert.rule.security_severity_level?.toLowerCase() ||
+          alert.rule.severity?.toLowerCase();
+        return config.severity?.includes(severity as never);
+      });
+    }
+
+    // Filter by tool if specified
+    if (config.tool && config.tool.length > 0) {
+      alerts = alerts.filter((alert) => config.tool?.includes(alert.tool.name));
+    }
+
+    const markdown = formatCodeScanningAlertsMarkdown(alerts);
+    return { markdown, count: alerts.length };
+  } catch (error) {
+    console.log(
+      "Failed to collect code scanning alerts (may require security_events permission)",
+    );
+    console.error(error);
+    return { markdown: "", count: 0 };
+  }
+}
+
+function formatCodeScanningAlertsMarkdown(alerts: Array<{
+  number: number;
+  state: string;
+  rule: {
+    id: string;
+    severity: string;
+    description: string;
+    name: string;
+    security_severity_level?: string;
+  };
+  tool: {
+    name: string;
+    version: string | null;
+  };
+  most_recent_instance: {
+    location: {
+      path: string;
+      start_line: number;
+      end_line: number;
+    };
+    message: {
+      text: string;
+    };
+  };
+  html_url: string;
+  created_at: string;
+  fixed_at: string | null;
+  dismissed_at: string | null;
+}>): string {
+  if (alerts.length === 0) return "";
+
+  const lines = ["## Code Scanning Alerts", ""];
+
+  for (const alert of alerts) {
+    const status = alert.fixed_at
+      ? "Fixed"
+      : alert.dismissed_at
+        ? "Dismissed"
+        : "Open";
+
+    const severity = (
+      alert.rule.security_severity_level || alert.rule.severity
+    ).toUpperCase();
+
+    lines.push(`### [Alert #${alert.number}] ${alert.rule.name}`);
+    lines.push(
+      `**Severity:** ${severity} | **Status:** ${status} | **Tool:** ${alert.tool.name}`,
+    );
+    lines.push(`**Rule:** ${alert.rule.id}`);
+    lines.push(`**Description:** ${alert.rule.description}`);
+    lines.push(
+      `**Location:** ${alert.most_recent_instance.location.path}:${alert.most_recent_instance.location.start_line}`,
+    );
+    lines.push(`**Message:** ${alert.most_recent_instance.message.text}`);
+    lines.push(`**URL:** ${alert.html_url}`);
+    lines.push(`**Created:** ${alert.created_at}`);
     lines.push("", "---", "");
   }
 
