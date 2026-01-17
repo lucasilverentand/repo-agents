@@ -5,6 +5,38 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.2.0](https://github.com/lucasilverentand/repo-agents/compare/v1.1.1...v1.2.0) (2026-01-17)
+
+
+### Features
+
+* add add-reaction output handler ([#146](https://github.com/lucasilverentand/repo-agents/issues/146)) ([3a41d80](https://github.com/lucasilverentand/repo-agents/commit/3a41d8031b88dc0a6cbac0e01eabfea4fb907f2b))
+* add approve-pr output handler ([#146](https://github.com/lucasilverentand/repo-agents/issues/146)) ([b5b3a4b](https://github.com/lucasilverentand/repo-agents/commit/b5b3a4b2911ff3588235162854f97062fb3ea79f))
+* add assign-issue output handler ([#146](https://github.com/lucasilverentand/repo-agents/issues/146)) ([b7169b0](https://github.com/lucasilverentand/repo-agents/commit/b7169b077e5f064506d848049792b3b75ef3813d))
+* add code_scanning_alerts context collector ([#124](https://github.com/lucasilverentand/repo-agents/issues/124)) ([d7bf047](https://github.com/lucasilverentand/repo-agents/commit/d7bf047438d99e1db1d45e13f746477b4cde438e))
+* add convert-to-discussion output handler ([#146](https://github.com/lucasilverentand/repo-agents/issues/146)) ([4195706](https://github.com/lucasilverentand/repo-agents/commit/4195706b52537acb17755348355e4e96e00e6b3c))
+* add create-branch output handler ([#146](https://github.com/lucasilverentand/repo-agents/issues/146)) ([f761617](https://github.com/lucasilverentand/repo-agents/commit/f761617ab6e2785d6bf7dc85b6245ab22e9e1792))
+* add create-release output handler ([#146](https://github.com/lucasilverentand/repo-agents/issues/146)) ([f8aafba](https://github.com/lucasilverentand/repo-agents/commit/f8aafbad504d57328dc2d9a0573da73503859348))
+* add delete-branch output handler ([#146](https://github.com/lucasilverentand/repo-agents/issues/146)) ([23fb286](https://github.com/lucasilverentand/repo-agents/commit/23fb28624bfd5b8b8e13a5d911f388a739132640))
+* add dependabot_prs context collector ([#123](https://github.com/lucasilverentand/repo-agents/issues/123)) ([b56931a](https://github.com/lucasilverentand/repo-agents/commit/b56931a57ff4d0f0325f208a7e283b308473b573))
+* add deployments context collector ([#125](https://github.com/lucasilverentand/repo-agents/issues/125)) ([c31d79d](https://github.com/lucasilverentand/repo-agents/commit/c31d79d3729b49ba4b628c175692b432113059f6))
+* add edit-issue output handler ([#146](https://github.com/lucasilverentand/repo-agents/issues/146)) ([108abe3](https://github.com/lucasilverentand/repo-agents/commit/108abe38a19b3d432847b2b28c10f6c65ec09bd5))
+* add lock-conversation output handler ([#146](https://github.com/lucasilverentand/repo-agents/issues/146)) ([b388c87](https://github.com/lucasilverentand/repo-agents/commit/b388c87899acfa0c5756f41011315d3b1804ae36))
+* add merge-pr output handler ([#146](https://github.com/lucasilverentand/repo-agents/issues/146)) ([8681054](https://github.com/lucasilverentand/repo-agents/commit/86810547e597d56964cb118a40884c01f87a54e9))
+* add pin-issue output handler ([#146](https://github.com/lucasilverentand/repo-agents/issues/146)) ([96525c1](https://github.com/lucasilverentand/repo-agents/commit/96525c1b6aabeed2d5e3a5f113ecc7007db9f91c))
+* add reopen-issue output handler ([#146](https://github.com/lucasilverentand/repo-agents/issues/146)) ([d989734](https://github.com/lucasilverentand/repo-agents/commit/d98973495b91a235ab23e7dda25cf837f0ecca60))
+* add request-review output handler ([#146](https://github.com/lucasilverentand/repo-agents/issues/146)) ([3d63dee](https://github.com/lucasilverentand/repo-agents/commit/3d63dee50271b61f88256af41b49b78f3c38de5f))
+* add security_alerts context collector ([#122](https://github.com/lucasilverentand/repo-agents/issues/122)) ([d3cf402](https://github.com/lucasilverentand/repo-agents/commit/d3cf4020675e096bc6d772ac88cc711d861a38d6))
+* add set-milestone output handler ([#146](https://github.com/lucasilverentand/repo-agents/issues/146)) ([db794cc](https://github.com/lucasilverentand/repo-agents/commit/db794ccaf08a4482ca11599b78d0525ccc8326ad))
+* add trigger-workflow output handler ([#146](https://github.com/lucasilverentand/repo-agents/issues/146)) ([920733b](https://github.com/lucasilverentand/repo-agents/commit/920733bb4d64f327d5e941a94c56967d6dddecbc))
+* add types and schemas for new output handlers ([7771d32](https://github.com/lucasilverentand/repo-agents/commit/7771d32c03e1198b337fbb4ee6dfc25edfa69de8))
+
+
+### Bug Fixes
+
+* **ci:** correct prettier check path for monorepo ([812f322](https://github.com/lucasilverentand/repo-agents/commit/812f322c0462a40501d01064eb9ae12a4fdc42f4))
+* disable link validator to unblock docs deployment ([d5de961](https://github.com/lucasilverentand/repo-agents/commit/d5de9616674ff0042990f7a5d39a2cced79be6c3))
+
 ## [1.1.1](https://github.com/lucasilverentand/repo-agents/compare/v1.1.0...v1.1.1) (2026-01-14)
 
 
