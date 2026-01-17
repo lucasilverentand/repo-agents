@@ -14,6 +14,21 @@ describe("OutputHandlerRegistry", () => {
         "update-file",
         "close-issue",
         "close-pr",
+        "assign-issue",
+        "request-review",
+        "merge-pr",
+        "approve-pr",
+        "create-release",
+        "delete-branch",
+        "lock-conversation",
+        "pin-issue",
+        "convert-to-discussion",
+        "edit-issue",
+        "reopen-issue",
+        "set-milestone",
+        "trigger-workflow",
+        "add-reaction",
+        "create-branch",
       ];
 
       expectedOutputs.forEach((output) => {
@@ -33,8 +48,23 @@ describe("OutputHandlerRegistry", () => {
       expect(registeredOutputs).toContain("update-file");
       expect(registeredOutputs).toContain("close-issue");
       expect(registeredOutputs).toContain("close-pr");
+      expect(registeredOutputs).toContain("assign-issue");
+      expect(registeredOutputs).toContain("request-review");
+      expect(registeredOutputs).toContain("merge-pr");
+      expect(registeredOutputs).toContain("approve-pr");
+      expect(registeredOutputs).toContain("create-release");
+      expect(registeredOutputs).toContain("delete-branch");
+      expect(registeredOutputs).toContain("lock-conversation");
+      expect(registeredOutputs).toContain("pin-issue");
+      expect(registeredOutputs).toContain("convert-to-discussion");
+      expect(registeredOutputs).toContain("edit-issue");
+      expect(registeredOutputs).toContain("reopen-issue");
+      expect(registeredOutputs).toContain("set-milestone");
+      expect(registeredOutputs).toContain("trigger-workflow");
+      expect(registeredOutputs).toContain("add-reaction");
+      expect(registeredOutputs).toContain("create-branch");
 
-      expect(registeredOutputs.length).toBe(9);
+      expect(registeredOutputs.length).toBe(24);
     });
   });
 
@@ -169,6 +199,21 @@ describe("OutputHandlerRegistry", () => {
         "update-file",
         "close-issue",
         "close-pr",
+        "assign-issue",
+        "request-review",
+        "merge-pr",
+        "approve-pr",
+        "create-release",
+        "delete-branch",
+        "lock-conversation",
+        "pin-issue",
+        "convert-to-discussion",
+        "edit-issue",
+        "reopen-issue",
+        "set-milestone",
+        "trigger-workflow",
+        "add-reaction",
+        "create-branch",
       ];
 
       outputs.forEach((output) => {
