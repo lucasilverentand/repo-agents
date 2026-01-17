@@ -1,8 +1,8 @@
-import type { OutputConfig } from '@repo-agents/types';
-import type { OutputHandler, RuntimeContext } from './base';
+import type { OutputConfig } from "@repo-agents/types";
+import type { OutputHandler, RuntimeContext } from "./base";
 
 class UpdateFileHandler implements OutputHandler {
-  name = 'update-file';
+  name = "update-file";
 
   getContextScript(runtime: RuntimeContext): string | null {
     // Include allowed paths in context if specified
@@ -10,7 +10,7 @@ class UpdateFileHandler implements OutputHandler {
       return null;
     }
 
-    const pathsList = runtime.allowedPaths.map((p) => `- \`${p}\``).join('\\n');
+    const pathsList = runtime.allowedPaths.map((p) => `- \`${p}\``).join("\\n");
     return `
 cat >> /tmp/context.txt << 'ALLOWED_PATHS_EOF'
 
@@ -58,7 +58,7 @@ Modify existing files in the repository or create new ones.
 **Constraints**:
 - File paths must match allowed patterns (see "Allowed File Paths" section)
 - Files array must be non-empty
-${signCommits ? '- Commits must be signed (GPG signature required)' : ''}
+${signCommits ? "- Commits must be signed (GPG signature required)" : ""}
 
 **Example**:
 Create \`/tmp/outputs/update-file.json\` with:
@@ -107,7 +107,7 @@ if [ -f "/tmp/outputs/update-file.json" ]; then
       echo "- **update-file**: message is required" > /tmp/validation-errors/update-file.txt
     else
       # Validate each file path against allowed patterns
-      ALLOWED_PATTERNS="${allowedPaths.map((p) => `"${p}"`).join(' ')}"
+      ALLOWED_PATTERNS="${allowedPaths.map((p) => `"${p}"`).join(" ")}"
       VALIDATION_FAILED=false
 
       for file_path in $(echo "$FILES" | jq -r '.[].path'); do
@@ -115,7 +115,7 @@ if [ -f "/tmp/outputs/update-file.json" ]; then
 
         # Check if path matches any allowed pattern (basic glob matching)
         for pattern in $ALLOWED_PATTERNS; do
-          pattern_clean=\${pattern//\"/}
+          pattern_clean=\${pattern//"/}
           # Simple pattern matching - in production, use proper glob matching
           if [[ "$file_path" == $pattern_clean ]]; then
             MATCHED=true

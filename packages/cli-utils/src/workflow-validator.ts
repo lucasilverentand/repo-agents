@@ -1,13 +1,13 @@
-import { Ajv } from 'ajv';
-import type { ErrorObject } from 'ajv';
-import addFormats from 'ajv-formats';
-import yaml from 'js-yaml';
-import { readFile, writeFile } from 'fs/promises';
-import { join } from 'path';
-import { tmpdir } from 'os';
+import { readFile, writeFile } from "node:fs/promises";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
+import type { ErrorObject } from "ajv";
+import { Ajv } from "ajv";
+import addFormats from "ajv-formats";
+import yaml from "js-yaml";
 
-const SCHEMA_URL = 'https://json.schemastore.org/github-workflow.json';
-const SCHEMA_CACHE_PATH = join(tmpdir(), 'repo-agents-workflow-schema.json');
+const SCHEMA_URL = "https://json.schemastore.org/github-workflow.json";
+const SCHEMA_CACHE_PATH = join(tmpdir(), "repo-agents-workflow-schema.json");
 
 export interface ValidationError {
   path: string;
@@ -33,7 +33,7 @@ class WorkflowValidator {
    * This prevents using corrupted or placeholder schemas.
    */
   private isValidSchema(schema: unknown): boolean {
-    if (typeof schema !== 'object' || schema === null) return false;
+    if (typeof schema !== "object" || schema === null) return false;
     const s = schema as Record<string, unknown>;
 
     // Check for key indicators of the real SchemaStore schema
@@ -49,7 +49,7 @@ class WorkflowValidator {
     if (!eventEnum || eventEnum.length < 20) return false;
 
     // Check for some specific events that should be present
-    const requiredEvents = ['issues', 'pull_request', 'push', 'workflow_dispatch', 'discussion'];
+    const requiredEvents = ["issues", "pull_request", "push", "workflow_dispatch", "discussion"];
     return requiredEvents.every((e) => eventEnum.includes(e));
   }
 
@@ -64,7 +64,7 @@ class WorkflowValidator {
 
     // Try to load from cache first
     try {
-      const cached = await readFile(SCHEMA_CACHE_PATH, 'utf-8');
+      const cached = await readFile(SCHEMA_CACHE_PATH, "utf-8");
       const parsedCache = JSON.parse(cached) as object;
 
       // Validate the cached schema is the real SchemaStore schema
@@ -87,7 +87,7 @@ class WorkflowValidator {
 
     // Cache for future use
     try {
-      await writeFile(SCHEMA_CACHE_PATH, JSON.stringify(this.schema, null, 2), 'utf-8');
+      await writeFile(SCHEMA_CACHE_PATH, JSON.stringify(this.schema, null, 2), "utf-8");
     } catch {
       // Ignore cache write errors
     }
@@ -108,7 +108,7 @@ class WorkflowValidator {
     } catch (error) {
       return [
         {
-          path: 'yaml',
+          path: "yaml",
           message: `Invalid YAML: ${(error as Error).message}`,
         },
       ];
@@ -134,11 +134,11 @@ class WorkflowValidator {
    */
   private formatErrors(errors: ErrorObject[]): ValidationError[] {
     return errors.map((error) => {
-      const path = error.instancePath || '/';
+      const path = error.instancePath || "/";
       const message = this.formatErrorMessage(error);
 
       return {
-        path: path.replace(/^\//, '').replace(/\//g, '.') || 'root',
+        path: path.replace(/^\//, "").replace(/\//g, ".") || "root",
         message,
         value: error.data,
       };
@@ -146,22 +146,22 @@ class WorkflowValidator {
   }
 
   private formatErrorMessage(error: ErrorObject): string {
-    const baseMessage = error.message || 'Validation error';
+    const baseMessage = error.message || "Validation error";
 
     switch (error.keyword) {
-      case 'additionalProperties':
+      case "additionalProperties":
         if (error.params.additionalProperty) {
           return `Unknown property '${error.params.additionalProperty}'`;
         }
         return baseMessage;
-      case 'required':
+      case "required":
         if (error.params.missingProperty) {
           return `Missing required property '${error.params.missingProperty}'`;
         }
         return baseMessage;
-      case 'enum':
-        return `${baseMessage}. Allowed values: ${error.params.allowedValues?.join(', ')}`;
-      case 'type':
+      case "enum":
+        return `${baseMessage}. Allowed values: ${error.params.allowedValues?.join(", ")}`;
+      case "type":
         return `${baseMessage} (expected ${error.params.type})`;
       default:
         return baseMessage;

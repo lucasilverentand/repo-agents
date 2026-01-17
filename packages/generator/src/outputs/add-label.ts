@@ -1,9 +1,9 @@
-import type { OutputConfig } from '@repo-agents/types';
-import { generateLabelsContextScript } from './base';
-import type { OutputHandler, RuntimeContext } from './base';
+import type { OutputConfig } from "@repo-agents/types";
+import type { OutputHandler, RuntimeContext } from "./base";
+import { generateLabelsContextScript } from "./base";
 
 class AddLabelHandler implements OutputHandler {
-  name = 'add-label';
+  name = "add-label";
 
   getContextScript(runtime: RuntimeContext): string | null {
     return generateLabelsContextScript(runtime.repository);

@@ -1,4 +1,4 @@
-import type { OutputConfig } from '@repo-agents/types';
+import type { OutputConfig } from "@repo-agents/types";
 
 /**
  * Runtime context available when generating output handler scripts

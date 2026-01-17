@@ -1,8 +1,0 @@
-node_modules
-dist
-coverage
-.astro
-docs/dist
-bun.lock
-*.yml
-*.yaml

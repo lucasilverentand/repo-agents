@@ -1,8 +1,8 @@
-import type { OutputConfig } from '@repo-agents/types';
-import type { OutputHandler, RuntimeContext } from './base';
+import type { OutputConfig } from "@repo-agents/types";
+import type { OutputHandler, RuntimeContext } from "./base";
 
 class CreateDiscussionHandler implements OutputHandler {
-  name = 'create-discussion';
+  name = "create-discussion";
 
   getContextScript(_runtime: RuntimeContext): string | null {
     // No dynamic context needed for create-discussion
@@ -10,7 +10,7 @@ class CreateDiscussionHandler implements OutputHandler {
   }
 
   generateSkill(config: OutputConfig): string {
-    const maxConstraint = config.max || 'unlimited';
+    const maxConstraint = config.max || "unlimited";
 
     return `## Skill: Create Discussion
 
@@ -80,7 +80,7 @@ if [ -n "$DISCUSSION_FILES" ]; then
     echo "- **create-discussion**: Too many discussion files ($FILE_COUNT). Maximum allowed: ${maxConstraint}" > /tmp/validation-errors/create-discussion.txt
     exit 0
   fi`
-      : ''
+      : ""
   }
 
   # Phase 1: Fetch repository discussion categories (needed for validation)

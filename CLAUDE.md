@@ -64,8 +64,10 @@ bun run test:coverage      # Generate coverage report
 
 ### Code Quality
 ```bash
-bun run lint               # ESLint validation
-bun run format             # Prettier formatting
+bun run lint               # Biome check (linting + formatting)
+bun run lint:fix           # Biome fix (auto-fix issues)
+bun run format             # Biome format
+bun run typecheck          # TypeScript type checking
 ```
 
 ### Local Development
@@ -332,7 +334,8 @@ Key dependencies and their purposes:
 Dev dependencies:
 - **typescript**: Type system
 - **@types/***: TypeScript type definitions
-- **eslint**, **prettier**: Code quality
+- **@biomejs/biome**: Unified linting and formatting
+- **lefthook**: Git hooks manager
 - **astro**, **@astrojs/starlight**: Documentation site
 
 ## Environment Variables

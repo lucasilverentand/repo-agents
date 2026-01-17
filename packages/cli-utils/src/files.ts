@@ -1,5 +1,5 @@
-import { readdir, stat } from 'fs/promises';
-import { join, extname } from 'path';
+import { readdir, stat } from "node:fs/promises";
+import { extname, join } from "node:path";
 
 export async function findMarkdownFiles(directory: string): Promise<string[]> {
   try {
@@ -8,7 +8,7 @@ export async function findMarkdownFiles(directory: string): Promise<string[]> {
 
     for (const entry of entries) {
       const fullPath = join(directory, entry.name);
-      if (entry.isFile() && extname(entry.name) === '.md') {
+      if (entry.isFile() && extname(entry.name) === ".md") {
         files.push(fullPath);
       }
     }
@@ -31,12 +31,12 @@ export async function fileExists(path: string): Promise<boolean> {
 export function toKebabCase(str: string): string {
   return str
     .toLowerCase()
-    .replace(/\s+/g, '-')
-    .replace(/[^a-z0-9-]/g, '');
+    .replace(/\s+/g, "-")
+    .replace(/[^a-z0-9-]/g, "");
 }
 
 export function agentNameToWorkflowName(agentName: string): string {
   return `agent-${toKebabCase(agentName)}`;
 }
 
-export const DISPATCHER_WORKFLOW_NAME = 'agent-dispatcher';
+export const DISPATCHER_WORKFLOW_NAME = "agent-dispatcher";

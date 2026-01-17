@@ -1,4 +1,4 @@
-export type AgentProvider = 'claude-code' | 'opencode';
+export type AgentProvider = "claude-code" | "opencode";
 
 export interface AgentDefinition {
   name: string;
@@ -50,15 +50,15 @@ export interface WorkflowInput {
   description: string;
   required?: boolean;
   default?: string;
-  type?: 'string' | 'boolean' | 'choice';
+  type?: "string" | "boolean" | "choice";
   options?: string[];
 }
 
 export interface PermissionsConfig {
-  contents?: 'read' | 'write';
-  issues?: 'read' | 'write';
-  pull_requests?: 'read' | 'write';
-  discussions?: 'read' | 'write';
+  contents?: "read" | "write";
+  issues?: "read" | "write";
+  pull_requests?: "read" | "write";
+  discussions?: "read" | "write";
 }
 
 export interface ClaudeConfig {
@@ -68,15 +68,15 @@ export interface ClaudeConfig {
 }
 
 export type Output =
-  | 'add-comment'
-  | 'add-label'
-  | 'remove-label'
-  | 'create-issue'
-  | 'create-discussion'
-  | 'create-pr'
-  | 'update-file'
-  | 'close-issue'
-  | 'close-pr';
+  | "add-comment"
+  | "add-label"
+  | "remove-label"
+  | "create-issue"
+  | "create-discussion"
+  | "create-pr"
+  | "update-file"
+  | "close-issue"
+  | "close-pr";
 
 export interface OutputConfig {
   max?: number; // Maximum times this output can be used
@@ -99,7 +99,7 @@ export interface ParsedAgent {
 export interface ValidationError {
   field: string;
   message: string;
-  severity: 'error' | 'warning';
+  severity: "error" | "warning";
 }
 
 export interface CompileResult {
@@ -122,7 +122,7 @@ export interface WorkflowStep {
   run?: string;
   env?: Record<string, string>;
   if?: string;
-  'continue-on-error'?: boolean;
+  "continue-on-error"?: boolean;
 }
 
 // Context Configuration Types
@@ -140,7 +140,7 @@ export interface ContextConfig {
 }
 
 export interface IssuesContextConfig {
-  states?: ('open' | 'closed' | 'all')[];
+  states?: ("open" | "closed" | "all")[];
   labels?: string[];
   assignees?: string[];
   creators?: string[];
@@ -151,7 +151,7 @@ export interface IssuesContextConfig {
 }
 
 export interface PullRequestsContextConfig {
-  states?: ('open' | 'closed' | 'merged' | 'all')[];
+  states?: ("open" | "closed" | "merged" | "all")[];
   labels?: string[];
   assignees?: string[];
   creators?: string[];
@@ -185,7 +185,7 @@ export interface ReleasesContextConfig {
 
 export interface WorkflowRunsContextConfig {
   workflows?: string[]; // Workflow file names or IDs
-  status?: ('success' | 'failure' | 'cancelled' | 'skipped')[];
+  status?: ("success" | "failure" | "cancelled" | "skipped")[];
   branches?: string[];
   limit?: number;
 }
@@ -318,8 +318,8 @@ export interface OutputExecutionSummary {
 
 export interface PermissionIssue {
   timestamp: string;
-  issue_type: 'missing_permission' | 'path_restriction' | 'rate_limit' | 'validation_error';
-  severity: 'error' | 'warning';
+  issue_type: "missing_permission" | "path_restriction" | "rate_limit" | "validation_error";
+  severity: "error" | "warning";
   message: string;
   context?: Record<string, unknown>;
 }
@@ -335,12 +335,12 @@ export interface DispatcherConfig {
 }
 
 export type TriggerEventType =
-  | 'issues'
-  | 'pull_request'
-  | 'discussion'
-  | 'schedule'
-  | 'workflow_dispatch'
-  | 'repository_dispatch';
+  | "issues"
+  | "pull_request"
+  | "discussion"
+  | "schedule"
+  | "workflow_dispatch"
+  | "repository_dispatch";
 
 export interface RoutingRule {
   agentName: string;

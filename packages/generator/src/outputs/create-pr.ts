@@ -1,8 +1,8 @@
-import type { OutputConfig } from '@repo-agents/types';
-import type { OutputHandler, RuntimeContext } from './base';
+import type { OutputConfig } from "@repo-agents/types";
+import type { OutputHandler, RuntimeContext } from "./base";
 
 class CreatePRHandler implements OutputHandler {
-  name = 'create-pr';
+  name = "create-pr";
 
   getContextScript(_runtime: RuntimeContext): string | null {
     // No dynamic context needed for create-pr
@@ -10,7 +10,7 @@ class CreatePRHandler implements OutputHandler {
   }
 
   generateSkill(config: OutputConfig): string {
-    const maxConstraint = config.max || 'unlimited';
+    const maxConstraint = config.max || "unlimited";
     const signCommits = config.sign || false;
 
     return `## Skill: Create Pull Request
@@ -48,7 +48,7 @@ Create a pull request with code changes.
 - Maximum PRs: ${maxConstraint}
 - Branch name must be valid (no spaces, special chars)
 - Files array must be non-empty
-${signCommits ? '- Commits must be signed (GPG signature required)' : ''}
+${signCommits ? "- Commits must be signed (GPG signature required)" : ""}
 
 **Example**:
 Create \`/tmp/outputs/create-pr.json\` with:

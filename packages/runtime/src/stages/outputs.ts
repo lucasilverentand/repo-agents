@@ -1,16 +1,16 @@
-import { readdir, readFile, writeFile, mkdir } from 'fs/promises';
-import { existsSync } from 'fs';
-import { join } from 'path';
-import { $ } from 'bun';
-import type { StageContext, StageResult } from '../types';
-import type { AgentDefinition, Output, OutputConfig } from '@repo-agents/types';
-import { AgentParser } from '@repo-agents/parser';
+import { existsSync } from "node:fs";
+import { mkdir, readdir, readFile, writeFile } from "node:fs/promises";
+import { join } from "node:path";
+import { AgentParser } from "@repo-agents/parser";
+import type { AgentDefinition, Output, OutputConfig } from "@repo-agents/types";
+import { $ } from "bun";
+import type { StageContext, StageResult } from "../types";
 
 /** Directory where Claude writes output files */
-const OUTPUTS_DIR = '/tmp/outputs';
+const OUTPUTS_DIR = "/tmp/outputs";
 
 /** Directory where validation errors are written */
-const VALIDATION_ERRORS_DIR = '/tmp/validation-errors';
+const VALIDATION_ERRORS_DIR = "/tmp/validation-errors";
 
 interface OutputFile {
   path: string;
@@ -45,7 +45,7 @@ export async function runOutputs(ctx: StageContext): Promise<StageResult> {
   if (!outputType) {
     return {
       success: false,
-      outputs: { error: 'No output type specified' },
+      outputs: { error: "No output type specified" },
     };
   }
 
@@ -53,11 +53,11 @@ export async function runOutputs(ctx: StageContext): Promise<StageResult> {
   const parser = new AgentParser();
   const { agent, errors: parseErrors } = await parser.parseFile(ctx.agentPath);
 
-  if (!agent || parseErrors.some((e) => e.severity === 'error')) {
+  if (!agent || parseErrors.some((e) => e.severity === "error")) {
     return {
       success: false,
       outputs: {
-        error: `Failed to parse agent definition: ${parseErrors.map((e) => e.message).join(', ')}`,
+        error: `Failed to parse agent definition: ${parseErrors.map((e) => e.message).join(", ")}`,
       },
     };
   }
@@ -75,8 +75,8 @@ export async function runOutputs(ctx: StageContext): Promise<StageResult> {
     return {
       success: true,
       outputs: {
-        executed: '0',
-        skipped: 'true',
+        executed: "0",
+        skipped: "true",
       },
       skipReason: `No ${outputType} output files found`,
     };
@@ -90,7 +90,7 @@ export async function runOutputs(ctx: StageContext): Promise<StageResult> {
     outputFiles,
     outputConfig,
     ctx,
-    agent
+    agent,
   );
 
   if (!validationResult.valid) {
@@ -100,7 +100,7 @@ export async function runOutputs(ctx: StageContext): Promise<StageResult> {
     return {
       success: false,
       outputs: {
-        executed: '0',
+        executed: "0",
         errors: String(validationResult.errors.length),
       },
     };
@@ -111,7 +111,7 @@ export async function runOutputs(ctx: StageContext): Promise<StageResult> {
     outputType as Output,
     outputFiles,
     outputConfig,
-    ctx
+    ctx,
   );
 
   if (executionResult.errors.length > 0) {
@@ -164,7 +164,7 @@ async function findOutputFiles(outputType: string): Promise<OutputFile[]> {
     if (pattern.test(filename)) {
       const filePath = join(OUTPUTS_DIR, filename);
       try {
-        const content = await readFile(filePath, 'utf-8');
+        const content = await readFile(filePath, "utf-8");
         const data = JSON.parse(content);
         matchingFiles.push({ path: filePath, filename, data });
       } catch (error) {
@@ -189,14 +189,14 @@ async function validateOutputFiles(
   files: OutputFile[],
   config: OutputConfig,
   ctx: StageContext,
-  agent: AgentDefinition
+  agent: AgentDefinition,
 ): Promise<ValidationResult> {
   const errors: string[] = [];
 
   // Check max constraint
   if (config.max && files.length > config.max) {
     errors.push(
-      `**${outputType}**: Too many output files (${files.length}). Maximum allowed: ${config.max}`
+      `**${outputType}**: Too many output files (${files.length}). Maximum allowed: ${config.max}`,
     );
     return { valid: false, errors };
   }
@@ -218,29 +218,29 @@ async function validateOutputFile(
   file: OutputFile,
   _config: OutputConfig,
   ctx: StageContext,
-  agent: AgentDefinition
+  agent: AgentDefinition,
 ): Promise<string[]> {
   const errors: string[] = [];
 
   // Check for parse errors
   if (file.data.__parseError) {
     errors.push(
-      `**${outputType}**: Invalid JSON format in ${file.filename}: ${file.data.__parseError}`
+      `**${outputType}**: Invalid JSON format in ${file.filename}: ${file.data.__parseError}`,
     );
     return errors;
   }
 
   // Type-specific validation
   switch (outputType) {
-    case 'add-comment':
-      if (!file.data.body || typeof file.data.body !== 'string') {
+    case "add-comment":
+      if (!file.data.body || typeof file.data.body !== "string") {
         errors.push(`**${outputType}**: body is required and must be a string in ${file.filename}`);
       } else if ((file.data.body as string).length > 65536) {
         errors.push(`**${outputType}**: body exceeds 65536 characters in ${file.filename}`);
       }
       break;
 
-    case 'add-label':
+    case "add-label":
       if (!Array.isArray(file.data.labels) || file.data.labels.length === 0) {
         errors.push(`**${outputType}**: labels must be a non-empty array in ${file.filename}`);
       } else {
@@ -249,26 +249,26 @@ async function validateOutputFile(
           file.data.labels as string[],
           ctx.repository,
           outputType,
-          file.filename
+          file.filename,
         );
         errors.push(...labelErrors);
       }
       break;
 
-    case 'remove-label':
+    case "remove-label":
       if (!Array.isArray(file.data.labels) || file.data.labels.length === 0) {
         errors.push(`**${outputType}**: labels must be a non-empty array in ${file.filename}`);
       }
       // Note: remove-label doesn't validate that labels exist - silently ignores missing
       break;
 
-    case 'create-issue':
-      if (!file.data.title || typeof file.data.title !== 'string') {
+    case "create-issue":
+      if (!file.data.title || typeof file.data.title !== "string") {
         errors.push(`**${outputType}**: title is required in ${file.filename}`);
       } else if ((file.data.title as string).length > 256) {
         errors.push(`**${outputType}**: title exceeds 256 characters in ${file.filename}`);
       }
-      if (!file.data.body || typeof file.data.body !== 'string') {
+      if (!file.data.body || typeof file.data.body !== "string") {
         errors.push(`**${outputType}**: body is required in ${file.filename}`);
       }
       if (file.data.labels && Array.isArray(file.data.labels)) {
@@ -276,22 +276,22 @@ async function validateOutputFile(
           file.data.labels as string[],
           ctx.repository,
           outputType,
-          file.filename
+          file.filename,
         );
         errors.push(...labelErrors);
       }
       break;
 
-    case 'create-discussion':
-      if (!file.data.title || typeof file.data.title !== 'string') {
+    case "create-discussion":
+      if (!file.data.title || typeof file.data.title !== "string") {
         errors.push(`**${outputType}**: title is required in ${file.filename}`);
       } else if ((file.data.title as string).length > 256) {
         errors.push(`**${outputType}**: title exceeds 256 characters in ${file.filename}`);
       }
-      if (!file.data.body || typeof file.data.body !== 'string') {
+      if (!file.data.body || typeof file.data.body !== "string") {
         errors.push(`**${outputType}**: body is required in ${file.filename}`);
       }
-      if (!file.data.category || typeof file.data.category !== 'string') {
+      if (!file.data.category || typeof file.data.category !== "string") {
         errors.push(`**${outputType}**: category is required in ${file.filename}`);
       } else {
         // Validate category exists
@@ -299,7 +299,7 @@ async function validateOutputFile(
           file.data.category as string,
           ctx.repository,
           outputType,
-          file.filename
+          file.filename,
         );
         if (categoryError) {
           errors.push(categoryError);
@@ -307,18 +307,18 @@ async function validateOutputFile(
       }
       break;
 
-    case 'create-pr':
-      if (!file.data.branch || typeof file.data.branch !== 'string') {
+    case "create-pr":
+      if (!file.data.branch || typeof file.data.branch !== "string") {
         errors.push(`**${outputType}**: branch is required in ${file.filename}`);
       } else if (!/^[a-zA-Z0-9/_.-]+$/.test(file.data.branch as string)) {
         errors.push(
-          `**${outputType}**: branch name contains invalid characters in ${file.filename}`
+          `**${outputType}**: branch name contains invalid characters in ${file.filename}`,
         );
       }
-      if (!file.data.title || typeof file.data.title !== 'string') {
+      if (!file.data.title || typeof file.data.title !== "string") {
         errors.push(`**${outputType}**: title is required in ${file.filename}`);
       }
-      if (!file.data.body || typeof file.data.body !== 'string') {
+      if (!file.data.body || typeof file.data.body !== "string") {
         errors.push(`**${outputType}**: body is required in ${file.filename}`);
       }
       if (!Array.isArray(file.data.files) || file.data.files.length === 0) {
@@ -326,65 +326,65 @@ async function validateOutputFile(
       } else {
         // Validate file entries
         for (const fileEntry of file.data.files as Array<{ path?: string; content?: string }>) {
-          if (!fileEntry.path || typeof fileEntry.path !== 'string') {
+          if (!fileEntry.path || typeof fileEntry.path !== "string") {
             errors.push(
-              `**${outputType}**: each file must have a 'path' string in ${file.filename}`
+              `**${outputType}**: each file must have a 'path' string in ${file.filename}`,
             );
           }
-          if (fileEntry.content === undefined || typeof fileEntry.content !== 'string') {
+          if (fileEntry.content === undefined || typeof fileEntry.content !== "string") {
             errors.push(
-              `**${outputType}**: each file must have a 'content' string in ${file.filename}`
+              `**${outputType}**: each file must have a 'content' string in ${file.filename}`,
             );
           }
         }
       }
       break;
 
-    case 'update-file':
+    case "update-file":
       if (!Array.isArray(file.data.files) || file.data.files.length === 0) {
         errors.push(`**${outputType}**: files must be a non-empty array in ${file.filename}`);
       } else {
         // Validate file entries and allowed paths
         const allowedPaths = agent.allowed_paths || [];
         for (const fileEntry of file.data.files as Array<{ path?: string; content?: string }>) {
-          if (!fileEntry.path || typeof fileEntry.path !== 'string') {
+          if (!fileEntry.path || typeof fileEntry.path !== "string") {
             errors.push(
-              `**${outputType}**: each file must have a 'path' string in ${file.filename}`
+              `**${outputType}**: each file must have a 'path' string in ${file.filename}`,
             );
             continue;
           }
-          if (fileEntry.content === undefined || typeof fileEntry.content !== 'string') {
+          if (fileEntry.content === undefined || typeof fileEntry.content !== "string") {
             errors.push(
-              `**${outputType}**: each file must have a 'content' string in ${file.filename}`
+              `**${outputType}**: each file must have a 'content' string in ${file.filename}`,
             );
           }
           // Validate path against allowed patterns
           if (allowedPaths.length > 0 && !matchesAnyPattern(fileEntry.path, allowedPaths)) {
             errors.push(
-              `**${outputType}**: File path '${fileEntry.path}' does not match allowed patterns in ${file.filename}`
+              `**${outputType}**: File path '${fileEntry.path}' does not match allowed patterns in ${file.filename}`,
             );
           }
         }
       }
-      if (!file.data.message || typeof file.data.message !== 'string') {
+      if (!file.data.message || typeof file.data.message !== "string") {
         errors.push(`**${outputType}**: message is required in ${file.filename}`);
       }
       break;
 
-    case 'close-issue':
+    case "close-issue":
       if (file.data.state_reason !== undefined) {
-        const validReasons = ['completed', 'not_planned'];
+        const validReasons = ["completed", "not_planned"];
         if (!validReasons.includes(file.data.state_reason as string)) {
           errors.push(
-            `**${outputType}**: state_reason must be 'completed' or 'not_planned' in ${file.filename}`
+            `**${outputType}**: state_reason must be 'completed' or 'not_planned' in ${file.filename}`,
           );
         }
       }
       break;
 
-    case 'close-pr':
+    case "close-pr":
       // merge is optional boolean, no required validation
-      if (file.data.merge !== undefined && typeof file.data.merge !== 'boolean') {
+      if (file.data.merge !== undefined && typeof file.data.merge !== "boolean") {
         errors.push(`**${outputType}**: merge must be a boolean in ${file.filename}`);
       }
       break;
@@ -400,7 +400,7 @@ async function validateLabelsExist(
   labels: string[],
   repository: string,
   outputType: string,
-  filename: string
+  filename: string,
 ): Promise<string[]> {
   const errors: string[] = [];
 
@@ -408,13 +408,13 @@ async function validateLabelsExist(
     const result = await $`gh api repos/${repository}/labels --jq '.[].name'`.text();
     const existingLabels = result
       .trim()
-      .split('\n')
+      .split("\n")
       .filter((l) => l);
 
     for (const label of labels) {
       if (!existingLabels.includes(label)) {
         errors.push(
-          `**${outputType}**: Label '${label}' does not exist in repository (in ${filename})`
+          `**${outputType}**: Label '${label}' does not exist in repository (in ${filename})`,
         );
       }
     }
@@ -432,9 +432,9 @@ async function validateCategoryExists(
   category: string,
   repository: string,
   outputType: string,
-  filename: string
+  filename: string,
 ): Promise<string | null> {
-  const [owner, repo] = repository.split('/');
+  const [owner, repo] = repository.split("/");
 
   const query = `query($owner: String!, $repo: String!) {
     repository(owner: $owner, name: $repo) {
@@ -449,7 +449,7 @@ async function validateCategoryExists(
       await $`gh api graphql -f query=${query} -f owner=${owner} -f repo=${repo} --jq '.data.repository.discussionCategories.nodes[].name'`.text();
     const categories = result
       .trim()
-      .split('\n')
+      .split("\n")
       .filter((c) => c);
 
     if (!categories.includes(category)) {
@@ -481,14 +481,14 @@ function matchesAnyPattern(path: string, patterns: string[]): boolean {
 function matchGlob(path: string, pattern: string): boolean {
   // Convert glob pattern to regex
   let regexPattern = pattern
-    .replace(/\*\*/g, '<<<DOUBLESTAR>>>')
-    .replace(/\*/g, '[^/]*')
-    .replace(/<<<DOUBLESTAR>>>/g, '.*')
-    .replace(/\?/g, '.')
-    .replace(/\./g, '\\.');
+    .replace(/\*\*/g, "<<<DOUBLESTAR>>>")
+    .replace(/\*/g, "[^/]*")
+    .replace(/<<<DOUBLESTAR>>>/g, ".*")
+    .replace(/\?/g, ".")
+    .replace(/\./g, "\\.");
 
   // Handle patterns like "src/**" to match "src/foo/bar"
-  if (!regexPattern.endsWith('.*')) {
+  if (!regexPattern.endsWith(".*")) {
     regexPattern = `^${regexPattern}$`;
   } else {
     regexPattern = `^${regexPattern}`;
@@ -510,7 +510,7 @@ async function executeOutputs(
   outputType: Output,
   files: OutputFile[],
   config: OutputConfig,
-  ctx: StageContext
+  ctx: StageContext,
 ): Promise<ExecutionResult> {
   const errors: string[] = [];
   let executed = 0;
@@ -522,7 +522,7 @@ async function executeOutputs(
       console.log(`Executed ${outputType} from ${file.filename}`);
     } catch (error) {
       errors.push(
-        `**${outputType}**: Failed to execute ${file.filename}: ${(error as Error).message}`
+        `**${outputType}**: Failed to execute ${file.filename}: ${(error as Error).message}`,
       );
     }
   }
@@ -541,7 +541,7 @@ async function executeOutput(
   outputType: Output,
   file: OutputFile,
   config: OutputConfig,
-  ctx: StageContext
+  ctx: StageContext,
 ): Promise<void> {
   const repository = ctx.repository;
 
@@ -552,7 +552,7 @@ async function executeOutput(
 
   if (eventPath && existsSync(eventPath)) {
     try {
-      const eventData = JSON.parse(await readFile(eventPath, 'utf-8'));
+      const eventData = JSON.parse(await readFile(eventPath, "utf-8"));
       issueNumber = eventData.issue?.number?.toString();
       prNumber = eventData.pull_request?.number?.toString();
     } catch {
@@ -563,39 +563,39 @@ async function executeOutput(
   const issueOrPrNumber = issueNumber || prNumber;
 
   switch (outputType) {
-    case 'add-comment':
+    case "add-comment":
       await executeAddComment(file, repository, issueOrPrNumber);
       break;
 
-    case 'add-label':
+    case "add-label":
       await executeAddLabel(file, repository, issueOrPrNumber);
       break;
 
-    case 'remove-label':
+    case "remove-label":
       await executeRemoveLabel(file, repository, issueOrPrNumber);
       break;
 
-    case 'create-issue':
+    case "create-issue":
       await executeCreateIssue(file, repository);
       break;
 
-    case 'create-discussion':
+    case "create-discussion":
       await executeCreateDiscussion(file, repository);
       break;
 
-    case 'create-pr':
+    case "create-pr":
       await executeCreatePr(file, repository, config);
       break;
 
-    case 'update-file':
+    case "update-file":
       await executeUpdateFile(file, repository);
       break;
 
-    case 'close-issue':
+    case "close-issue":
       await executeCloseIssue(file, repository, issueNumber);
       break;
 
-    case 'close-pr':
+    case "close-pr":
       await executeClosePr(file, repository, prNumber);
       break;
 
@@ -610,10 +610,10 @@ async function executeOutput(
 async function executeAddComment(
   file: OutputFile,
   repository: string,
-  issueOrPrNumber: string | undefined
+  issueOrPrNumber: string | undefined,
 ): Promise<void> {
   if (!issueOrPrNumber) {
-    throw new Error('No issue or PR number available');
+    throw new Error("No issue or PR number available");
   }
 
   const body = file.data.body as string;
@@ -628,10 +628,10 @@ async function executeAddComment(
 async function executeAddLabel(
   file: OutputFile,
   repository: string,
-  issueOrPrNumber: string | undefined
+  issueOrPrNumber: string | undefined,
 ): Promise<void> {
   if (!issueOrPrNumber) {
-    throw new Error('No issue or PR number available');
+    throw new Error("No issue or PR number available");
   }
 
   const labels = file.data.labels as string[];
@@ -641,7 +641,7 @@ async function executeAddLabel(
     await $`gh api repos/${repository}/issues/${issueOrPrNumber} --jq '.labels[].name'`.text();
   const currentLabels = currentLabelsResult
     .trim()
-    .split('\n')
+    .split("\n")
     .filter((l) => l);
 
   // Merge labels
@@ -658,10 +658,10 @@ async function executeAddLabel(
 async function executeRemoveLabel(
   file: OutputFile,
   repository: string,
-  issueOrPrNumber: string | undefined
+  issueOrPrNumber: string | undefined,
 ): Promise<void> {
   if (!issueOrPrNumber) {
-    throw new Error('No issue or PR number available');
+    throw new Error("No issue or PR number available");
   }
 
   const labelsToRemove = file.data.labels as string[];
@@ -671,7 +671,7 @@ async function executeRemoveLabel(
     await $`gh api repos/${repository}/issues/${issueOrPrNumber} --jq '.labels[].name'`.text();
   const currentLabels = currentLabelsResult
     .trim()
-    .split('\n')
+    .split("\n")
     .filter((l) => l);
 
   // Filter out labels to remove
@@ -709,7 +709,7 @@ async function executeCreateDiscussion(file: OutputFile, repository: string): Pr
   const body = file.data.body as string;
   const category = file.data.category as string;
 
-  const [owner, repo] = repository.split('/');
+  const [owner, repo] = repository.split("/");
 
   // Get discussion categories
   const categoriesQuery = `query($owner: String!, $repo: String!) {
@@ -769,19 +769,19 @@ async function executeCreateDiscussion(file: OutputFile, repository: string): Pr
 async function executeCreatePr(
   file: OutputFile,
   _repository: string,
-  config: OutputConfig
+  config: OutputConfig,
 ): Promise<void> {
   const branch = file.data.branch as string;
   const title = file.data.title as string;
   const body = file.data.body as string;
-  const base = (file.data.base as string) || 'main';
+  const base = (file.data.base as string) || "main";
   const files = file.data.files as Array<{ path: string; content: string }>;
   const signCommits = config.sign || false;
 
   // Check if PR already exists for this branch
   try {
     const existingPr = await $`gh pr view ${branch} --json state --jq '.state'`.text();
-    if (existingPr.trim() === 'OPEN') {
+    if (existingPr.trim() === "OPEN") {
       console.log(`PR already exists for branch '${branch}', skipping`);
       return;
     }
@@ -790,8 +790,8 @@ async function executeCreatePr(
   }
 
   // Configure git
-  const gitUser = process.env.GIT_USER || 'github-actions[bot]';
-  const gitEmail = process.env.GIT_EMAIL || 'github-actions[bot]@users.noreply.github.com';
+  const gitUser = process.env.GIT_USER || "github-actions[bot]";
+  const gitEmail = process.env.GIT_EMAIL || "github-actions[bot]@users.noreply.github.com";
   await $`git config user.name ${gitUser}`;
   await $`git config user.email ${gitEmail}`;
 
@@ -814,11 +814,11 @@ async function executeCreatePr(
 
   // Create/update files
   for (const fileSpec of files) {
-    const dirPath = fileSpec.path.includes('/')
-      ? fileSpec.path.substring(0, fileSpec.path.lastIndexOf('/'))
-      : '.';
+    const dirPath = fileSpec.path.includes("/")
+      ? fileSpec.path.substring(0, fileSpec.path.lastIndexOf("/"))
+      : ".";
     await $`mkdir -p ${dirPath}`;
-    await writeFile(fileSpec.path, fileSpec.content, 'utf-8');
+    await writeFile(fileSpec.path, fileSpec.content, "utf-8");
     await $`git add ${fileSpec.path}`;
   }
 
@@ -847,7 +847,7 @@ async function executeCreatePr(
 async function executeUpdateFile(file: OutputFile, repository: string): Promise<void> {
   const files = file.data.files as Array<{ path: string; content: string }>;
   const message = file.data.message as string;
-  const branch = (file.data.branch as string) || 'main';
+  const branch = (file.data.branch as string) || "main";
 
   for (const fileSpec of files) {
     // Get current file SHA if it exists
@@ -861,7 +861,7 @@ async function executeUpdateFile(file: OutputFile, repository: string): Promise<
     }
 
     // Encode content as base64
-    const content = Buffer.from(fileSpec.content, 'utf-8').toString('base64');
+    const content = Buffer.from(fileSpec.content, "utf-8").toString("base64");
 
     // Build payload
     const payload: Record<string, string> = {
@@ -885,13 +885,13 @@ async function executeUpdateFile(file: OutputFile, repository: string): Promise<
 async function executeCloseIssue(
   file: OutputFile,
   repository: string,
-  issueNumber: string | undefined
+  issueNumber: string | undefined,
 ): Promise<void> {
   if (!issueNumber) {
-    throw new Error('No issue number available');
+    throw new Error("No issue number available");
   }
 
-  const stateReason = (file.data.state_reason as string) || 'completed';
+  const stateReason = (file.data.state_reason as string) || "completed";
 
   await $`gh api repos/${repository}/issues/${issueNumber} -X PATCH -f state=closed -f state_reason=${stateReason}`;
 }
@@ -902,10 +902,10 @@ async function executeCloseIssue(
 async function executeClosePr(
   file: OutputFile,
   repository: string,
-  prNumber: string | undefined
+  prNumber: string | undefined,
 ): Promise<void> {
   if (!prNumber) {
-    throw new Error('No pull request number available');
+    throw new Error("No pull request number available");
   }
 
   const shouldMerge = file.data.merge === true;
@@ -926,9 +926,9 @@ async function writeValidationErrors(outputType: string, errors: string[]): Prom
   }
 
   const errorFile = join(VALIDATION_ERRORS_DIR, `${outputType}.json`);
-  await writeFile(errorFile, JSON.stringify(errors, null, 2), 'utf-8');
+  await writeFile(errorFile, JSON.stringify(errors, null, 2), "utf-8");
 
   // Also write as text for compatibility
   const textFile = join(VALIDATION_ERRORS_DIR, `${outputType}.txt`);
-  await writeFile(textFile, errors.join('\n'), 'utf-8');
+  await writeFile(textFile, errors.join("\n"), "utf-8");
 }

@@ -1,4 +1,4 @@
-import type { AgentDefinition, AgentProvider, WorkflowStep } from '@repo-agents/types';
+import type { AgentDefinition, AgentProvider, WorkflowStep } from "@repo-agents/types";
 
 export interface ProviderContext {
   allowedTools: string;
@@ -13,13 +13,13 @@ export interface AgentProviderAdapter {
 }
 
 export class ClaudeCodeProvider implements AgentProviderAdapter {
-  readonly id: AgentProvider = 'claude-code';
+  readonly id: AgentProvider = "claude-code";
 
   generateInstallSteps(): WorkflowStep[] {
     return [
       {
-        name: 'Install Claude Code CLI',
-        run: 'bunx --bun @anthropic-ai/claude-code --version',
+        name: "Install Claude Code CLI",
+        run: "bunx --bun @anthropic-ai/claude-code --version",
       },
     ];
   }
@@ -30,8 +30,8 @@ export class ClaudeCodeProvider implements AgentProviderAdapter {
       : `bunx --bun @anthropic-ai/claude-code -p "$(cat /tmp/context.txt)" --allowedTools "${context.allowedTools}" --output-format json > /tmp/claude-output.json`;
 
     return {
-      name: 'Run Claude Agent',
-      id: 'run-claude',
+      name: "Run Claude Agent",
+      id: "run-claude",
       env: context.environment,
       run: claudeCommand,
     };
@@ -39,27 +39,27 @@ export class ClaudeCodeProvider implements AgentProviderAdapter {
 }
 
 export class OpenCodeProvider implements AgentProviderAdapter {
-  readonly id: AgentProvider = 'opencode';
+  readonly id: AgentProvider = "opencode";
 
   generateInstallSteps(): WorkflowStep[] {
     return [
       {
-        name: 'Install OpenCode CLI',
-        run: 'bunx --bun opencode --version',
+        name: "Install OpenCode CLI",
+        run: "bunx --bun opencode --version",
       },
     ];
   }
 
   generateRunStep(_agent: AgentDefinition, context: ProviderContext): WorkflowStep {
-    const permissionFlag = context.hasOutputs ? ' --permission-mode bypassPermissions' : '';
+    const permissionFlag = context.hasOutputs ? " --permission-mode bypassPermissions" : "";
 
     const command =
       `bunx --bun opencode -p "$(cat /tmp/context.txt)" --allowedTools "${context.allowedTools}"` +
       `${permissionFlag} --output-format json > /tmp/claude-output.json`;
 
     return {
-      name: 'Run Agent (OpenCode)',
-      id: 'run-claude',
+      name: "Run Agent (OpenCode)",
+      id: "run-claude",
       env: context.environment,
       run: command,
     };
@@ -67,6 +67,6 @@ export class OpenCodeProvider implements AgentProviderAdapter {
 }
 
 export function getProviderAdapter(provider?: AgentProvider): AgentProviderAdapter {
-  if (provider === 'opencode') return new OpenCodeProvider();
+  if (provider === "opencode") return new OpenCodeProvider();
   return new ClaudeCodeProvider();
 }

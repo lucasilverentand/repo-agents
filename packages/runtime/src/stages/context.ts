@@ -1,22 +1,22 @@
-import { mkdir, writeFile } from 'fs/promises';
-import { dirname } from 'path';
-import type { StageContext, StageResult } from '../types';
+import { mkdir, writeFile } from "node:fs/promises";
+import { dirname } from "node:path";
+import { AgentParser } from "@repo-agents/parser";
 import type {
-  IssuesContextConfig,
-  PullRequestsContextConfig,
-  DiscussionsContextConfig,
   CommitsContextConfig,
-  ReleasesContextConfig,
-  WorkflowRunsContextConfig,
+  DiscussionsContextConfig,
+  GitHubCommit,
+  GitHubDiscussion,
   GitHubIssue,
   GitHubPullRequest,
-  GitHubDiscussion,
-  GitHubCommit,
   GitHubRelease,
   GitHubWorkflowRun,
-} from '@repo-agents/types';
-import { AgentParser } from '@repo-agents/parser';
-import { ghApi, parseRepository } from '../utils/index';
+  IssuesContextConfig,
+  PullRequestsContextConfig,
+  ReleasesContextConfig,
+  WorkflowRunsContextConfig,
+} from "@repo-agents/types";
+import type { StageContext, StageResult } from "../types";
+import { ghApi, parseRepository } from "../utils/index";
 
 /**
  * Context collection stage - collects repository data based on agent configuration.
@@ -31,7 +31,7 @@ export async function runContext(ctx: StageContext): Promise<StageResult> {
   if (!agent) {
     return {
       success: false,
-      outputs: { 'has-context': 'false', 'total-items': '0' },
+      outputs: { "has-context": "false", "total-items": "0" },
     };
   }
 
@@ -39,8 +39,8 @@ export async function runContext(ctx: StageContext): Promise<StageResult> {
   if (!agent.context) {
     return {
       success: true,
-      outputs: { 'has-context': 'false', 'total-items': '0' },
-      skipReason: 'No context configuration in agent definition',
+      outputs: { "has-context": "false", "total-items": "0" },
+      skipReason: "No context configuration in agent definition",
     };
   }
 
@@ -48,7 +48,7 @@ export async function runContext(ctx: StageContext): Promise<StageResult> {
   const { owner, repo } = parseRepository(ctx.repository);
 
   // Calculate time filter
-  const sinceDate = await calculateSinceDate(config.since || 'last-run', ctx, owner, repo);
+  const sinceDate = await calculateSinceDate(config.since || "last-run", ctx, owner, repo);
   console.log(`Collecting data since: ${sinceDate.toISOString()}`);
 
   // Collect all configured context types
@@ -71,7 +71,7 @@ export async function runContext(ctx: StageContext): Promise<StageResult> {
       owner,
       repo,
       config.pull_requests,
-      sinceDate
+      sinceDate,
     );
     if (count > 0) {
       collectedSections.push(markdown);
@@ -86,7 +86,7 @@ export async function runContext(ctx: StageContext): Promise<StageResult> {
       owner,
       repo,
       config.discussions,
-      sinceDate
+      sinceDate,
     );
     if (count > 0) {
       collectedSections.push(markdown);
@@ -121,7 +121,7 @@ export async function runContext(ctx: StageContext): Promise<StageResult> {
       owner,
       repo,
       config.workflow_runs,
-      sinceDate
+      sinceDate,
     );
     if (count > 0) {
       collectedSections.push(markdown);
@@ -150,35 +150,35 @@ export async function runContext(ctx: StageContext): Promise<StageResult> {
     console.log(`Only found ${totalItems} items (minimum: ${minItems}). Skipping agent execution.`);
     return {
       success: true,
-      outputs: { 'has-context': 'false', 'total-items': String(totalItems) },
+      outputs: { "has-context": "false", "total-items": String(totalItems) },
       skipReason: `Collected ${totalItems} items, but minimum is ${minItems}`,
     };
   }
 
   // Write context file
-  const contextPath = '/tmp/context/collected.md';
+  const contextPath = "/tmp/context/collected.md";
   await mkdir(dirname(contextPath), { recursive: true });
 
   const contextContent = [
-    '# Collected Context',
-    '',
+    "# Collected Context",
+    "",
     `*Collected at: ${new Date().toISOString()}*`,
     `*Since: ${sinceDate.toISOString()}*`,
     `*Total items: ${totalItems}*`,
-    '',
+    "",
     ...collectedSections,
-  ].join('\n');
+  ].join("\n");
 
-  await writeFile(contextPath, contextContent, 'utf-8');
+  await writeFile(contextPath, contextContent, "utf-8");
   console.log(`Collected ${totalItems} items, saved to ${contextPath}`);
 
   return {
     success: true,
     outputs: {
-      'has-context': 'true',
-      'total-items': String(totalItems),
+      "has-context": "true",
+      "total-items": String(totalItems),
     },
-    artifacts: [{ name: 'context', path: contextPath }],
+    artifacts: [{ name: "context", path: contextPath }],
   };
 }
 
@@ -189,9 +189,9 @@ async function calculateSinceDate(
   since: string,
   _ctx: StageContext,
   owner: string,
-  repo: string
+  repo: string,
 ): Promise<Date> {
-  if (since === 'last-run') {
+  if (since === "last-run") {
     try {
       // Get the last successful workflow run
       const response = await ghApi<{
@@ -204,7 +204,7 @@ async function calculateSinceDate(
 
       // Find the last successful run of this workflow
       const lastRun = response.workflow_runs.find(
-        (run) => run.status === 'completed' && run.conclusion === 'success'
+        (run) => run.status === "completed" && run.conclusion === "success",
       );
 
       if (lastRun) {
@@ -212,7 +212,7 @@ async function calculateSinceDate(
         return new Date(lastRun.created_at);
       }
     } catch {
-      console.log('Could not find last run, defaulting to 24 hours');
+      console.log("Could not find last run, defaulting to 24 hours");
     }
 
     // Default to 24 hours if no previous run found
@@ -240,11 +240,11 @@ async function calculateSinceDate(
 /**
  * Normalize state array to a single valid GitHub API state value.
  */
-function normalizeState(states?: string[]): 'open' | 'closed' | 'all' {
-  if (!states || states.length === 0 || states.includes('all') || states.length > 1) {
-    return 'all';
+function normalizeState(states?: string[]): "open" | "closed" | "all" {
+  if (!states || states.length === 0 || states.includes("all") || states.length > 1) {
+    return "all";
   }
-  return states[0] === 'merged' ? 'closed' : (states[0] as 'open' | 'closed');
+  return states[0] === "merged" ? "closed" : (states[0] as "open" | "closed");
 }
 
 interface CollectionResult {
@@ -259,7 +259,7 @@ async function collectIssues(
   owner: string,
   repo: string,
   config: IssuesContextConfig,
-  sinceDate: Date
+  sinceDate: Date,
 ): Promise<CollectionResult> {
   const limit = config.limit || 100;
   const state = normalizeState(config.states);
@@ -279,33 +279,33 @@ async function collectIssues(
   }
 
   const response = await ghApi<IssueResponse[]>(
-    `repos/${owner}/${repo}/issues?state=${state}&per_page=${limit}`
+    `repos/${owner}/${repo}/issues?state=${state}&per_page=${limit}`,
   );
 
   // Filter out pull requests (GitHub includes them in issues endpoint)
   // and filter by updated date
   let issues = response.filter(
-    (issue) => !issue.pull_request && new Date(issue.updated_at) >= sinceDate
+    (issue) => !issue.pull_request && new Date(issue.updated_at) >= sinceDate,
   );
 
   // Filter by labels if specified
   if (config.labels && config.labels.length > 0) {
     issues = issues.filter((issue) =>
-      issue.labels.some((label) => config.labels!.includes(label.name))
+      issue.labels.some((label) => config.labels?.includes(label.name)),
     );
   }
 
   // Exclude by labels if specified
   if (config.exclude_labels && config.exclude_labels.length > 0) {
     issues = issues.filter(
-      (issue) => !issue.labels.some((label) => config.exclude_labels!.includes(label.name))
+      (issue) => !issue.labels.some((label) => config.exclude_labels?.includes(label.name)),
     );
   }
 
   // Filter by assignees if specified
   if (config.assignees && config.assignees.length > 0) {
     issues = issues.filter((issue) =>
-      issue.assignees.some((assignee) => config.assignees!.includes(assignee.login))
+      issue.assignees.some((assignee) => config.assignees?.includes(assignee.login)),
     );
   }
 
@@ -328,24 +328,24 @@ async function collectIssues(
 }
 
 function formatIssuesMarkdown(issues: GitHubIssue[]): string {
-  if (issues.length === 0) return '';
+  if (issues.length === 0) return "";
 
-  const lines = ['## Issues', ''];
+  const lines = ["## Issues", ""];
 
   for (const issue of issues) {
     lines.push(`### [#${issue.number}] ${issue.title}`);
     lines.push(
-      `**State:** ${issue.state} | **Author:** @${issue.author} | **Updated:** ${issue.updatedAt}`
+      `**State:** ${issue.state} | **Author:** @${issue.author} | **Updated:** ${issue.updatedAt}`,
     );
-    lines.push(`**Labels:** ${issue.labels.join(', ') || 'none'}`);
+    lines.push(`**Labels:** ${issue.labels.join(", ") || "none"}`);
     lines.push(`**URL:** ${issue.url}`);
     if (issue.body) {
-      lines.push('', issue.body);
+      lines.push("", issue.body);
     }
-    lines.push('', '---', '');
+    lines.push("", "---", "");
   }
 
-  return lines.join('\n');
+  return lines.join("\n");
 }
 
 /**
@@ -355,7 +355,7 @@ async function collectPullRequests(
   owner: string,
   repo: string,
   config: PullRequestsContextConfig,
-  sinceDate: Date
+  sinceDate: Date,
 ): Promise<CollectionResult> {
   const limit = config.limit || 100;
   const state = normalizeState(config.states);
@@ -378,33 +378,33 @@ async function collectPullRequests(
   }
 
   const response = await ghApi<PullRequestResponse[]>(
-    `repos/${owner}/${repo}/pulls?state=${state}&per_page=${limit}`
+    `repos/${owner}/${repo}/pulls?state=${state}&per_page=${limit}`,
   );
 
   // Filter by updated date
   let prs = response.filter((pr) => new Date(pr.updated_at) >= sinceDate);
 
   // Filter merged PRs if only merged is requested
-  if (config.states?.length === 1 && config.states[0] === 'merged') {
+  if (config.states?.length === 1 && config.states[0] === "merged") {
     prs = prs.filter((pr) => pr.merged_at !== null);
   }
 
   // Filter by labels if specified
   if (config.labels && config.labels.length > 0) {
-    prs = prs.filter((pr) => pr.labels.some((label) => config.labels!.includes(label.name)));
+    prs = prs.filter((pr) => pr.labels.some((label) => config.labels?.includes(label.name)));
   }
 
   // Exclude by labels if specified
   if (config.exclude_labels && config.exclude_labels.length > 0) {
     prs = prs.filter(
-      (pr) => !pr.labels.some((label) => config.exclude_labels!.includes(label.name))
+      (pr) => !pr.labels.some((label) => config.exclude_labels?.includes(label.name)),
     );
   }
 
   // Filter by reviewers if specified
   if (config.reviewers && config.reviewers.length > 0) {
     prs = prs.filter((pr) =>
-      pr.requested_reviewers.some((reviewer) => config.reviewers!.includes(reviewer.login))
+      pr.requested_reviewers.some((reviewer) => config.reviewers?.includes(reviewer.login)),
     );
   }
 
@@ -441,26 +441,26 @@ async function collectPullRequests(
 }
 
 function formatPullRequestsMarkdown(prs: GitHubPullRequest[]): string {
-  if (prs.length === 0) return '';
+  if (prs.length === 0) return "";
 
-  const lines = ['## Pull Requests', ''];
+  const lines = ["## Pull Requests", ""];
 
   for (const pr of prs) {
     lines.push(`### [#${pr.number}] ${pr.title}`);
     const stateDisplay = pr.mergedAt ? `${pr.state} (merged)` : pr.state;
     lines.push(
-      `**State:** ${stateDisplay} | **Author:** @${pr.author} | **Updated:** ${pr.updatedAt}`
+      `**State:** ${stateDisplay} | **Author:** @${pr.author} | **Updated:** ${pr.updatedAt}`,
     );
     lines.push(`**Branch:** ${pr.headBranch} -> ${pr.baseBranch}`);
-    lines.push(`**Labels:** ${pr.labels.join(', ') || 'none'}`);
+    lines.push(`**Labels:** ${pr.labels.join(", ") || "none"}`);
     lines.push(`**URL:** ${pr.url}`);
     if (pr.body) {
-      lines.push('', pr.body);
+      lines.push("", pr.body);
     }
-    lines.push('', '---', '');
+    lines.push("", "---", "");
   }
 
-  return lines.join('\n');
+  return lines.join("\n");
 }
 
 /**
@@ -470,7 +470,7 @@ async function collectDiscussions(
   owner: string,
   repo: string,
   config: DiscussionsContextConfig,
-  sinceDate: Date
+  sinceDate: Date,
 ): Promise<CollectionResult> {
   const limit = config.limit || 100;
 
@@ -519,8 +519,8 @@ async function collectDiscussions(
   `;
 
   try {
-    const response = await ghApi<GraphQLResponse>('graphql', {
-      method: 'POST',
+    const response = await ghApi<GraphQLResponse>("graphql", {
+      method: "POST",
       body: {
         query,
         variables: { owner, repo, limit },
@@ -534,7 +534,7 @@ async function collectDiscussions(
 
     // Filter by categories if specified
     if (config.categories && config.categories.length > 0) {
-      discussions = discussions.filter((d) => config.categories!.includes(d.category.name));
+      discussions = discussions.filter((d) => config.categories?.includes(d.category.name));
     }
 
     // Filter by answered status
@@ -563,30 +563,30 @@ async function collectDiscussions(
     const markdown = formatDiscussionsMarkdown(formattedDiscussions);
     return { markdown, count: formattedDiscussions.length };
   } catch {
-    console.log('Failed to collect discussions (may not be enabled for this repository)');
-    return { markdown: '', count: 0 };
+    console.log("Failed to collect discussions (may not be enabled for this repository)");
+    return { markdown: "", count: 0 };
   }
 }
 
 function formatDiscussionsMarkdown(discussions: GitHubDiscussion[]): string {
-  if (discussions.length === 0) return '';
+  if (discussions.length === 0) return "";
 
-  const lines = ['## Discussions', ''];
+  const lines = ["## Discussions", ""];
 
   for (const discussion of discussions) {
     lines.push(`### [#${discussion.number}] ${discussion.title}`);
     lines.push(
-      `**Category:** ${discussion.category} | **Author:** @${discussion.author} | **Updated:** ${discussion.updatedAt}`
+      `**Category:** ${discussion.category} | **Author:** @${discussion.author} | **Updated:** ${discussion.updatedAt}`,
     );
-    lines.push(`**Status:** ${discussion.answered ? 'Answered' : 'Unanswered'}`);
+    lines.push(`**Status:** ${discussion.answered ? "Answered" : "Unanswered"}`);
     lines.push(`**URL:** ${discussion.url}`);
     if (discussion.body) {
-      lines.push('', discussion.body);
+      lines.push("", discussion.body);
     }
-    lines.push('', '---', '');
+    lines.push("", "---", "");
   }
 
-  return lines.join('\n');
+  return lines.join("\n");
 }
 
 /**
@@ -596,9 +596,9 @@ async function collectCommits(
   owner: string,
   repo: string,
   config: CommitsContextConfig,
-  sinceDate: Date
+  sinceDate: Date,
 ): Promise<CollectionResult> {
-  const branches = config.branches || ['main', 'master'];
+  const branches = config.branches || ["main", "master"];
   const limit = config.limit || 100;
 
   interface CommitResponse {
@@ -621,12 +621,12 @@ async function collectCommits(
       await ghApi(`repos/${owner}/${repo}/branches/${branch}`);
 
       const response = await ghApi<CommitResponse[]>(
-        `repos/${owner}/${repo}/commits?sha=${branch}&since=${sinceDate.toISOString()}&per_page=${limit}`
+        `repos/${owner}/${repo}/commits?sha=${branch}&since=${sinceDate.toISOString()}&per_page=${limit}`,
       );
 
       const commits: GitHubCommit[] = response.map((c) => ({
         sha: c.sha.substring(0, 7),
-        message: c.commit.message.split('\n')[0],
+        message: c.commit.message.split("\n")[0],
         author: c.commit.author.name,
         date: c.commit.author.date,
         url: c.html_url,
@@ -635,19 +635,16 @@ async function collectCommits(
 
       // Filter by authors if specified
       const filteredCommits = config.authors
-        ? commits.filter((c) => config.authors!.includes(c.author))
+        ? commits.filter((c) => config.authors?.includes(c.author))
         : commits;
 
       // Exclude by authors if specified
       const finalCommits = config.exclude_authors
-        ? filteredCommits.filter((c) => !config.exclude_authors!.includes(c.author))
+        ? filteredCommits.filter((c) => !config.exclude_authors?.includes(c.author))
         : filteredCommits;
 
       allCommits.push(...finalCommits);
-    } catch {
-      // Branch doesn't exist, skip it
-      continue;
-    }
+    } catch {}
   }
 
   const markdown = formatCommitsMarkdown(allCommits);
@@ -655,18 +652,18 @@ async function collectCommits(
 }
 
 function formatCommitsMarkdown(commits: GitHubCommit[]): string {
-  if (commits.length === 0) return '';
+  if (commits.length === 0) return "";
 
-  const lines = ['## Commits', ''];
+  const lines = ["## Commits", ""];
 
   for (const commit of commits) {
     lines.push(
-      `- [\`${commit.sha}\`](${commit.url}) ${commit.message} - @${commit.author} (${commit.date})`
+      `- [\`${commit.sha}\`](${commit.url}) ${commit.message} - @${commit.author} (${commit.date})`,
     );
   }
 
-  lines.push('');
-  return lines.join('\n');
+  lines.push("");
+  return lines.join("\n");
 }
 
 /**
@@ -676,7 +673,7 @@ async function collectReleases(
   owner: string,
   repo: string,
   config: ReleasesContextConfig,
-  sinceDate: Date
+  sinceDate: Date,
 ): Promise<CollectionResult> {
   const limit = config.limit || 20;
 
@@ -693,7 +690,7 @@ async function collectReleases(
   }
 
   const response = await ghApi<ReleaseResponse[]>(
-    `repos/${owner}/${repo}/releases?per_page=${limit}`
+    `repos/${owner}/${repo}/releases?per_page=${limit}`,
   );
 
   // Filter by created date
@@ -726,22 +723,22 @@ async function collectReleases(
 }
 
 function formatReleasesMarkdown(releases: GitHubRelease[]): string {
-  if (releases.length === 0) return '';
+  if (releases.length === 0) return "";
 
-  const lines = ['## Releases', ''];
+  const lines = ["## Releases", ""];
 
   for (const release of releases) {
     lines.push(`### ${release.tagName} - ${release.name}`);
     lines.push(`**Author:** @${release.author} | **Published:** ${release.publishedAt}`);
-    lines.push(`**Type:** ${release.prerelease ? 'Pre-release' : 'Release'}`);
+    lines.push(`**Type:** ${release.prerelease ? "Pre-release" : "Release"}`);
     lines.push(`**URL:** ${release.url}`);
     if (release.body) {
-      lines.push('', release.body);
+      lines.push("", release.body);
     }
-    lines.push('', '---', '');
+    lines.push("", "---", "");
   }
 
-  return lines.join('\n');
+  return lines.join("\n");
 }
 
 /**
@@ -751,10 +748,10 @@ async function collectWorkflowRuns(
   owner: string,
   repo: string,
   config: WorkflowRunsContextConfig,
-  sinceDate: Date
+  sinceDate: Date,
 ): Promise<CollectionResult> {
   const limit = config.limit || 50;
-  const statuses = config.status || ['failure'];
+  const statuses = config.status || ["failure"];
 
   interface WorkflowRunResponse {
     id: number;
@@ -773,14 +770,14 @@ async function collectWorkflowRuns(
   }
 
   const response = await ghApi<WorkflowRunsResponse>(
-    `repos/${owner}/${repo}/actions/runs?per_page=${limit}`
+    `repos/${owner}/${repo}/actions/runs?per_page=${limit}`,
   );
 
   // Filter by created date and status
   const runs = response.workflow_runs.filter(
     (run) =>
       new Date(run.created_at) >= sinceDate &&
-      statuses.includes(run.conclusion as (typeof statuses)[number])
+      statuses.includes(run.conclusion as (typeof statuses)[number]),
   );
 
   const formattedRuns: GitHubWorkflowRun[] = runs.map((r) => ({
@@ -800,21 +797,21 @@ async function collectWorkflowRuns(
 }
 
 function formatWorkflowRunsMarkdown(runs: GitHubWorkflowRun[]): string {
-  if (runs.length === 0) return '';
+  if (runs.length === 0) return "";
 
-  const lines = ['## Workflow Runs', ''];
+  const lines = ["## Workflow Runs", ""];
 
   for (const run of runs) {
     lines.push(`### ${run.name} - Run #${run.id}`);
     lines.push(
-      `**Status:** ${run.conclusion} | **Branch:** ${run.branch} | **Author:** @${run.author}`
+      `**Status:** ${run.conclusion} | **Branch:** ${run.branch} | **Author:** @${run.author}`,
     );
     lines.push(`**Created:** ${run.createdAt}`);
     lines.push(`**URL:** ${run.url}`);
-    lines.push('', '---', '');
+    lines.push("", "---", "");
   }
 
-  return lines.join('\n');
+  return lines.join("\n");
 }
 
 /**

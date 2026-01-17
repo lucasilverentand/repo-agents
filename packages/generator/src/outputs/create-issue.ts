@@ -1,8 +1,8 @@
-import type { OutputConfig } from '@repo-agents/types';
-import type { OutputHandler, RuntimeContext } from './base';
+import type { OutputConfig } from "@repo-agents/types";
+import type { OutputHandler, RuntimeContext } from "./base";
 
 class CreateIssueHandler implements OutputHandler {
-  name = 'create-issue';
+  name = "create-issue";
 
   getContextScript(_runtime: RuntimeContext): string | null {
     // No dynamic context needed for create-issue
@@ -10,7 +10,7 @@ class CreateIssueHandler implements OutputHandler {
   }
 
   generateSkill(config: OutputConfig): string {
-    const maxConstraint = config.max || 'unlimited';
+    const maxConstraint = config.max || "unlimited";
 
     return `## Skill: Create Issue
 
@@ -74,7 +74,7 @@ if [ -n "$ISSUE_FILES" ]; then
     echo "- **create-issue**: Too many issue files ($FILE_COUNT). Maximum allowed: ${maxConstraint}" > /tmp/validation-errors/create-issue.txt
     exit 0
   fi`
-      : ''
+      : ""
   }
 
   # Phase 1: Validate all files

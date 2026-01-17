@@ -52,7 +52,7 @@ export interface JobStatuses {
   rateLimited?: boolean;
 }
 
-export type JobResult = 'success' | 'failure' | 'cancelled' | 'skipped';
+export type JobResult = "success" | "failure" | "cancelled" | "skipped";
 
 /**
  * Function signature for all runtime stages.

@@ -22,12 +22,12 @@ Thank you for your interest in contributing to repo-agents! This document provid
 
 3. Install dependencies:
    ```bash
-   npm install
+   bun install
    ```
 
 4. Build the project:
    ```bash
-   npm run build
+   bun run build
    ```
 
 5. Run tests:
@@ -57,13 +57,14 @@ repo-agents/
 
 ### Available Scripts
 
-- `npm run build` - Compile TypeScript to JavaScript
-- `npm run dev` - Watch mode for development
-- `npm test` - Run test suite
-- `npm run test:watch` - Run tests in watch mode
-- `npm run test:coverage` - Generate coverage report
-- `npm run lint` - Lint code
-- `npm run format` - Format code with Prettier
+- `bun run build` - Compile TypeScript to JavaScript
+- `bun run dev` - Watch mode for development
+- `bun test` - Run test suite
+- `bun run test:watch` - Run tests in watch mode
+- `bun run test:coverage` - Generate coverage report
+- `bun run lint` - Lint and format code with Biome
+- `bun run lint:fix` - Auto-fix linting and formatting issues
+- `bun run typecheck` - TypeScript type checking
 
 ### Making Changes
 
@@ -83,7 +84,7 @@ repo-agents/
 
 5. Ensure linting passes:
    ```bash
-   npm run lint
+   bun run lint
    ```
 
 6. Commit your changes:
@@ -169,10 +170,10 @@ Test instructions`;
 npm test
 
 # Run tests in watch mode
-npm run test:watch
+bun run test:watch
 
 # Generate coverage report
-npm run test:coverage
+bun run test:coverage
 ```
 
 ## Adding New Commands

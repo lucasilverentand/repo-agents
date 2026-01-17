@@ -1,8 +1,8 @@
-import type { OutputConfig } from '@repo-agents/types';
-import type { OutputHandler, RuntimeContext } from './base';
+import type { OutputConfig } from "@repo-agents/types";
+import type { OutputHandler, RuntimeContext } from "./base";
 
 class AddCommentHandler implements OutputHandler {
-  name = 'add-comment';
+  name = "add-comment";
 
   getContextScript(_runtime: RuntimeContext): string | null {
     // No dynamic context needed for add-comment
@@ -10,7 +10,7 @@ class AddCommentHandler implements OutputHandler {
   }
 
   generateSkill(config: OutputConfig): string {
-    const maxConstraint = config.max || 'unlimited';
+    const maxConstraint = config.max || "unlimited";
 
     return `## Skill: Add Comment
 
@@ -70,7 +70,7 @@ if [ -n "$COMMENT_FILES" ]; then
     echo "- **add-comment**: Too many comment files ($FILE_COUNT). Maximum allowed: ${maxConstraint}" > /tmp/validation-errors/add-comment.txt
     exit 0
   fi`
-      : ''
+      : ""
   }
 
   # Phase 1: Validate all files

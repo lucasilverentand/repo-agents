@@ -1,8 +1,8 @@
-import { mkdir, writeFile, readFile } from 'fs/promises';
-import { join, dirname } from 'path';
-import { existsSync } from 'fs';
+import { existsSync } from "node:fs";
+import { mkdir, readFile, writeFile } from "node:fs/promises";
+import { dirname, join } from "node:path";
 
-const ARTIFACTS_BASE_PATH = '/tmp/artifacts';
+const ARTIFACTS_BASE_PATH = "/tmp/artifacts";
 
 /**
  * Get the directory path for a named artifact
@@ -18,7 +18,7 @@ export function getArtifactPath(name: string): string {
 export async function writeArtifact(
   name: string,
   path: string,
-  data: string | Buffer
+  data: string | Buffer,
 ): Promise<void> {
   const artifactDir = getArtifactPath(name);
   const fullPath = join(artifactDir, path);
@@ -28,7 +28,7 @@ export async function writeArtifact(
   await mkdir(dir, { recursive: true });
 
   // Write the data
-  await writeFile(fullPath, data, 'utf-8');
+  await writeFile(fullPath, data, "utf-8");
 }
 
 /**
@@ -44,7 +44,7 @@ export async function readArtifact(name: string, path: string): Promise<string |
   }
 
   try {
-    return await readFile(fullPath, 'utf-8');
+    return await readFile(fullPath, "utf-8");
   } catch {
     return null;
   }

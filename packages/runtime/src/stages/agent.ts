@@ -1,9 +1,9 @@
-import { readFile, writeFile, mkdir } from 'fs/promises';
-import { existsSync } from 'fs';
-import type { Stage, StageResult, StageContext } from '../types';
-import { agentParser } from '@repo-agents/parser';
-import { generateSkillsSection } from '@repo-agents/generator/skills';
-import { $ } from 'bun';
+import { existsSync } from "node:fs";
+import { mkdir, readFile, writeFile } from "node:fs/promises";
+import { generateSkillsSection } from "@repo-agents/generator/skills";
+import { agentParser } from "@repo-agents/parser";
+import { $ } from "bun";
+import type { Stage, StageContext, StageResult } from "../types";
 
 /**
  * Agent execution stage.
@@ -29,33 +29,33 @@ export const runAgent: Stage = async (ctx: StageContext): Promise<StageResult> =
       return {
         success: false,
         outputs: {
-          'is-error': 'true',
-          error: `Failed to parse agent file: ${errors.map((e) => e.message).join(', ')}`,
+          "is-error": "true",
+          error: `Failed to parse agent file: ${errors.map((e) => e.message).join(", ")}`,
         },
         artifacts,
       };
     }
 
     // Ensure output directories exist
-    await mkdir('/tmp/outputs', { recursive: true });
-    await mkdir('/tmp/audit', { recursive: true });
-    await mkdir('.claude', { recursive: true });
+    await mkdir("/tmp/outputs", { recursive: true });
+    await mkdir("/tmp/audit", { recursive: true });
+    await mkdir(".claude", { recursive: true });
 
     // 2. Build context file
     const contextContent = await buildContextFile(ctx, agent.markdown);
-    await writeFile('/tmp/context.txt', contextContent);
+    await writeFile("/tmp/context.txt", contextContent);
 
     // 3. Create skills file
     if (agent.outputs && Object.keys(agent.outputs).length > 0) {
       const skillsContent = generateSkillsSection(agent.outputs, agent.allowed_paths);
       if (skillsContent) {
-        await writeFile('.claude/CLAUDE.md', skillsContent);
+        await writeFile(".claude/CLAUDE.md", skillsContent);
       }
     }
 
     // 4. Build allowed tools list
     const hasOutputs = agent.outputs && Object.keys(agent.outputs).length > 0;
-    const allowedTools = hasOutputs ? 'Write(/tmp/outputs/*),Read,Glob,Grep' : 'Read,Glob,Grep';
+    const allowedTools = hasOutputs ? "Write(/tmp/outputs/*),Read,Glob,Grep" : "Read,Glob,Grep";
 
     // 5. Run Claude Code CLI
     const claudeResult = await runClaudeCode(allowedTools);
@@ -64,20 +64,20 @@ export const runAgent: Stage = async (ctx: StageContext): Promise<StageResult> =
     const metrics = await extractMetrics();
 
     // Set outputs
-    outputs['cost'] = String(metrics.total_cost_usd ?? 'N/A');
-    outputs['turns'] = String(metrics.num_turns ?? 'N/A');
-    outputs['duration'] = String(metrics.duration_ms ?? 'N/A');
-    outputs['session-id'] = metrics.session_id ?? 'N/A';
-    outputs['is-error'] = String(metrics.is_error ?? claudeResult.exitCode !== 0);
+    outputs.cost = String(metrics.total_cost_usd ?? "N/A");
+    outputs.turns = String(metrics.num_turns ?? "N/A");
+    outputs.duration = String(metrics.duration_ms ?? "N/A");
+    outputs["session-id"] = metrics.session_id ?? "N/A";
+    outputs["is-error"] = String(metrics.is_error ?? claudeResult.exitCode !== 0);
 
     // 7. Save metrics artifact
-    await writeFile('/tmp/audit/metrics.json', JSON.stringify(metrics, null, 2));
+    await writeFile("/tmp/audit/metrics.json", JSON.stringify(metrics, null, 2));
 
-    artifacts.push({ name: 'audit-metrics', path: '/tmp/audit/' });
+    artifacts.push({ name: "audit-metrics", path: "/tmp/audit/" });
 
     // Upload outputs if any were created
-    if (hasOutputs && existsSync('/tmp/outputs')) {
-      artifacts.push({ name: 'agent-outputs', path: '/tmp/outputs/' });
+    if (hasOutputs && existsSync("/tmp/outputs")) {
+      artifacts.push({ name: "agent-outputs", path: "/tmp/outputs/" });
     }
 
     return {
@@ -90,7 +90,7 @@ export const runAgent: Stage = async (ctx: StageContext): Promise<StageResult> =
     return {
       success: false,
       outputs: {
-        'is-error': 'true',
+        "is-error": "true",
         error: errorMessage,
       },
       artifacts,
@@ -112,46 +112,46 @@ async function buildContextFile(ctx: StageContext, agentInstructions: string): P
   // Basic event info
   sections.push(`GitHub Event: ${ctx.eventName}`);
   sections.push(`Repository: ${ctx.repository}`);
-  sections.push('');
+  sections.push("");
 
   // Event payload from GITHUB_EVENT_PATH
   if (ctx.eventPath && existsSync(ctx.eventPath)) {
     try {
-      const eventPayload = await readFile(ctx.eventPath, 'utf-8');
+      const eventPayload = await readFile(ctx.eventPath, "utf-8");
       const event = JSON.parse(eventPayload);
 
       // Add issue context if present
       if (event.issue) {
         sections.push(`Issue #${event.issue.number}: ${event.issue.title}`);
-        sections.push(`Author: @${event.issue.user?.login || 'unknown'}`);
+        sections.push(`Author: @${event.issue.user?.login || "unknown"}`);
         if (event.issue.body) {
-          sections.push('Body:');
+          sections.push("Body:");
           sections.push(event.issue.body);
         }
-        sections.push('');
+        sections.push("");
       }
 
       // Add PR context if present
       if (event.pull_request) {
         sections.push(`PR #${event.pull_request.number}: ${event.pull_request.title}`);
-        sections.push(`Author: @${event.pull_request.user?.login || 'unknown'}`);
+        sections.push(`Author: @${event.pull_request.user?.login || "unknown"}`);
         if (event.pull_request.body) {
-          sections.push('Body:');
+          sections.push("Body:");
           sections.push(event.pull_request.body);
         }
-        sections.push('');
+        sections.push("");
       }
 
       // Add discussion context if present
       if (event.discussion) {
         sections.push(`Discussion #${event.discussion.number}: ${event.discussion.title}`);
-        sections.push(`Category: ${event.discussion.category?.name || 'unknown'}`);
-        sections.push(`Author: @${event.discussion.user?.login || 'unknown'}`);
+        sections.push(`Category: ${event.discussion.category?.name || "unknown"}`);
+        sections.push(`Author: @${event.discussion.user?.login || "unknown"}`);
         if (event.discussion.body) {
-          sections.push('Body:');
+          sections.push("Body:");
           sections.push(event.discussion.body);
         }
-        sections.push('');
+        sections.push("");
       }
     } catch {
       // Failed to parse event payload - continue without it
@@ -159,17 +159,17 @@ async function buildContextFile(ctx: StageContext, agentInstructions: string): P
   }
 
   // Add collected context if exists
-  const collectedContextPath = '/tmp/context/collected.md';
+  const collectedContextPath = "/tmp/context/collected.md";
   if (existsSync(collectedContextPath)) {
     try {
-      const collectedContext = await readFile(collectedContextPath, 'utf-8');
+      const collectedContext = await readFile(collectedContextPath, "utf-8");
       if (collectedContext.trim()) {
-        sections.push('## Collected Context');
-        sections.push('');
-        sections.push('The following data has been collected from the repository:');
-        sections.push('');
+        sections.push("## Collected Context");
+        sections.push("");
+        sections.push("The following data has been collected from the repository:");
+        sections.push("");
         sections.push(collectedContext);
-        sections.push('');
+        sections.push("");
       }
     } catch {
       // Failed to read collected context - continue without it
@@ -183,16 +183,16 @@ async function buildContextFile(ctx: StageContext, agentInstructions: string): P
     if (labelsResult.exitCode === 0 && labelsResult.stdout) {
       const labels = JSON.parse(labelsResult.stdout.toString());
       if (Array.isArray(labels) && labels.length > 0) {
-        sections.push('## Available Repository Labels');
-        sections.push('');
+        sections.push("## Available Repository Labels");
+        sections.push("");
         sections.push(
-          `The following labels are available in this repository: ${labels.join(', ')}`
+          `The following labels are available in this repository: ${labels.join(", ")}`,
         );
-        sections.push('');
+        sections.push("");
         sections.push(
-          '**Important**: You can only use labels that already exist. New labels cannot be created by this agent.'
+          "**Important**: You can only use labels that already exist. New labels cannot be created by this agent.",
         );
-        sections.push('');
+        sections.push("");
       }
     }
   } catch {
@@ -200,11 +200,11 @@ async function buildContextFile(ctx: StageContext, agentInstructions: string): P
   }
 
   // Add agent instructions
-  sections.push('---');
-  sections.push('');
+  sections.push("---");
+  sections.push("");
   sections.push(agentInstructions);
 
-  return sections.join('\n');
+  return sections.join("\n");
 }
 
 /**
@@ -214,7 +214,7 @@ async function buildContextFile(ctx: StageContext, agentInstructions: string): P
 async function runClaudeCode(allowedTools: string): Promise<{ exitCode: number; error?: string }> {
   try {
     // Read context file to pass as stdin
-    const contextContent = await readFile('/tmp/context.txt', 'utf-8');
+    const contextContent = await readFile("/tmp/context.txt", "utf-8");
 
     // Use Bun shell's stdin redirection from a Response object
     const contextBlob = new Response(contextContent);
@@ -227,7 +227,7 @@ async function runClaudeCode(allowedTools: string): Promise<{ exitCode: number; 
 
     // Write output to file for metrics extraction
     if (result.stdout) {
-      await writeFile('/tmp/claude-output.json', result.stdout.toString());
+      await writeFile("/tmp/claude-output.json", result.stdout.toString());
     }
 
     if (result.exitCode !== 0 && result.stderr) {
@@ -260,11 +260,11 @@ async function extractMetrics(): Promise<{
   result?: string;
 }> {
   try {
-    if (!existsSync('/tmp/claude-output.json')) {
+    if (!existsSync("/tmp/claude-output.json")) {
       return { is_error: true };
     }
 
-    const outputContent = await readFile('/tmp/claude-output.json', 'utf-8');
+    const outputContent = await readFile("/tmp/claude-output.json", "utf-8");
     const output = JSON.parse(outputContent);
 
     return {

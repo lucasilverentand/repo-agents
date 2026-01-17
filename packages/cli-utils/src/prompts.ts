@@ -1,4 +1,4 @@
-import * as readline from 'readline';
+import * as readline from "node:readline";
 
 /**
  * Prompts the user for input in the terminal

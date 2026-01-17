@@ -1,12 +1,12 @@
 import type {
+  CommitsContextConfig,
   ContextConfig,
+  DiscussionsContextConfig,
   IssuesContextConfig,
   PullRequestsContextConfig,
-  DiscussionsContextConfig,
-  CommitsContextConfig,
   ReleasesContextConfig,
   WorkflowRunsContextConfig,
-} from '@repo-agents/types';
+} from "@repo-agents/types";
 
 export class ContextCollector {
   /**
@@ -14,22 +14,22 @@ export class ContextCollector {
    * Returns empty result if no data found (to prevent agent execution)
    */
   generateCollectionScript(config: ContextConfig): string {
-    const since = config.since || 'last-run';
+    const since = config.since || "last-run";
     const minItems = config.min_items ?? 1;
 
     const scriptParts: string[] = [
-      '#!/bin/bash',
-      'set -e',
-      '',
-      '# Context Collection Script',
-      '# Collects configured context from GitHub and formats it for Claude',
-      '',
+      "#!/bin/bash",
+      "set -e",
+      "",
+      "# Context Collection Script",
+      "# Collects configured context from GitHub and formats it for Claude",
+      "",
       'COLLECTED_DATA=""',
-      'TOTAL_ITEMS=0',
-      '',
-      '# Determine time filter',
+      "TOTAL_ITEMS=0",
+      "",
+      "# Determine time filter",
       this.generateTimeFilterScript(since),
-      '',
+      "",
     ];
 
     // Add collection for each configured context type
@@ -46,7 +46,7 @@ export class ContextCollector {
 
     for (const script of contextScripts) {
       if (script) {
-        scriptParts.push(script, '');
+        scriptParts.push(script, "");
       }
     }
 
@@ -54,7 +54,7 @@ export class ContextCollector {
     scriptParts.push(`# Check if we have minimum items`);
     scriptParts.push(`if [ "$TOTAL_ITEMS" -lt "${minItems}" ]; then`);
     scriptParts.push(
-      `  echo "⚠️  Only found $TOTAL_ITEMS items (minimum: ${minItems}). Skipping agent execution."`
+      `  echo "⚠️  Only found $TOTAL_ITEMS items (minimum: ${minItems}). Skipping agent execution."`,
     );
     scriptParts.push(`  echo "has-context=false" >> $GITHUB_OUTPUT`);
     scriptParts.push(`  exit 0`);
@@ -72,7 +72,7 @@ export class ContextCollector {
     scriptParts.push(`echo "$TRUNCATED_DATA" >> $GITHUB_OUTPUT`);
     scriptParts.push(`echo "EOF" >> $GITHUB_OUTPUT`);
 
-    return scriptParts.join('\n');
+    return scriptParts.join("\n");
   }
 
   /**
@@ -80,11 +80,11 @@ export class ContextCollector {
    * GitHub API only accepts 'open', 'closed', or 'all' - not comma-separated values.
    */
   private normalizeState(states?: string[]): string {
-    if (!states || states.length === 0 || states.includes('all') || states.length > 1) {
-      return 'all';
+    if (!states || states.length === 0 || states.includes("all") || states.length > 1) {
+      return "all";
     }
     // For 'merged', we need to use 'closed' state and filter for merged_at
-    return states[0] === 'merged' ? 'closed' : states[0];
+    return states[0] === "merged" ? "closed" : states[0];
   }
 
   private generateTimeFilterScript(since: string): string {
@@ -124,8 +124,8 @@ fi`;
     const limit = config.limit || 100;
     // GitHub API only accepts 'open', 'closed', or 'all' - not comma-separated values
     const state = this.normalizeState(config.states);
-    const labels = config.labels?.join(',') || '';
-    const excludeLabels = config.exclude_labels?.join(',') || '';
+    const labels = config.labels?.join(",") || "";
+    const excludeLabels = config.exclude_labels?.join(",") || "";
 
     return `# Collect Issues
 echo "## 📋 Issues" >> /tmp/issues_section.md
@@ -137,8 +137,8 @@ ISSUES_JSON=$(gh api "repos/\${{ github.repository }}/issues?state=${state}&per_
   --jq '[.[] | select(.pull_request == null and (.updated_at >= "'$SINCE_DATE'"))]' 2>/dev/null || echo "[]")
 
 # Filter by labels if specified
-${labels ? `ISSUES_JSON=$(echo "$ISSUES_JSON" | jq '[.[] | select((.labels | type) == "array" and (.labels | map(.name) | any(IN("${labels.split(',').join('","')}"))))]')` : ''}
-${excludeLabels ? `ISSUES_JSON=$(echo "$ISSUES_JSON" | jq '[.[] | select((.labels | type) != "array" or (.labels | map(.name) | any(IN("${excludeLabels.split(',').join('","')}")) | not))]')` : ''}
+${labels ? `ISSUES_JSON=$(echo "$ISSUES_JSON" | jq '[.[] | select((.labels | type) == "array" and (.labels | map(.name) | any(IN("${labels.split(",").join('","')}"))))]')` : ""}
+${excludeLabels ? `ISSUES_JSON=$(echo "$ISSUES_JSON" | jq '[.[] | select((.labels | type) != "array" or (.labels | map(.name) | any(IN("${excludeLabels.split(",").join('","')}")) | not))]')` : ""}
 
 ISSUES_COUNT=$(echo "$ISSUES_JSON" | jq 'length')
 TOTAL_ITEMS=$((TOTAL_ITEMS + ISSUES_COUNT))
@@ -165,8 +165,8 @@ fi`;
     const limit = config.limit || 100;
     // GitHub API only accepts 'open', 'closed', or 'all' - not comma-separated values
     const state = this.normalizeState(config.states);
-    const labels = config.labels?.join(',') || '';
-    const excludeLabels = config.exclude_labels?.join(',') || '';
+    const labels = config.labels?.join(",") || "";
+    const excludeLabels = config.exclude_labels?.join(",") || "";
 
     return `# Collect Pull Requests
 echo "## 🔀 Pull Requests" >> /tmp/prs_section.md
@@ -178,14 +178,14 @@ PRS_JSON=$(gh api "repos/\${{ github.repository }}/pulls?state=${state}&per_page
   --jq '[.[] | select(.updated_at >= "'$SINCE_DATE'")]' 2>/dev/null || echo "[]")
 
 # Filter by labels if specified
-${labels ? `PRS_JSON=$(echo "$PRS_JSON" | jq '[.[] | select((.labels | type) == "array" and (.labels | map(.name) | any(IN("${labels.split(',').join('","')}"))))]')` : ''}
-${excludeLabels ? `PRS_JSON=$(echo "$PRS_JSON" | jq '[.[] | select((.labels | type) != "array" or (.labels | map(.name) | any(IN("${excludeLabels.split(',').join('","')}")) | not))]')` : ''}
+${labels ? `PRS_JSON=$(echo "$PRS_JSON" | jq '[.[] | select((.labels | type) == "array" and (.labels | map(.name) | any(IN("${labels.split(",").join('","')}"))))]')` : ""}
+${excludeLabels ? `PRS_JSON=$(echo "$PRS_JSON" | jq '[.[] | select((.labels | type) != "array" or (.labels | map(.name) | any(IN("${excludeLabels.split(",").join('","')}")) | not))]')` : ""}
 
 # Filter merged PRs if only merged is requested
 ${
-  config.states?.length === 1 && config.states[0] === 'merged'
+  config.states?.length === 1 && config.states[0] === "merged"
     ? `PRS_JSON=$(echo "$PRS_JSON" | jq '[.[] | select(.merged_at != null)]')`
-    : ''
+    : ""
 }
 
 PRS_COUNT=$(echo "$PRS_JSON" | jq 'length')
@@ -212,7 +212,7 @@ fi`;
 
   private generateDiscussionsScript(config: DiscussionsContextConfig): string {
     const limit = config.limit || 100;
-    const categories = config.categories?.map((c: string) => `"${c}"`).join(',') || '';
+    const categories = config.categories?.map((c: string) => `"${c}"`).join(",") || "";
 
     return `# Collect Discussions
 echo "## 💬 Discussions" >> /tmp/discussions_section.md
@@ -253,9 +253,9 @@ DISCUSSIONS_JSON=$(gh api graphql \\
 # Filter by updated date
 DISCUSSIONS_JSON=$(echo "$DISCUSSIONS_JSON" | jq '[.[] | select(.updatedAt >= "'$SINCE_DATE'")]')
 
-${categories ? `# Filter by categories\nDISCUSSIONS_JSON=$(echo "$DISCUSSIONS_JSON" | jq '[.[] | select(.category.name | IN(${categories}))]')` : ''}
-${config.answered ? `# Filter answered discussions\nDISCUSSIONS_JSON=$(echo "$DISCUSSIONS_JSON" | jq '[.[] | select(.answer.isAnswer == true)]')` : ''}
-${config.unanswered ? `# Filter unanswered discussions\nDISCUSSIONS_JSON=$(echo "$DISCUSSIONS_JSON" | jq '[.[] | select(.answer.isAnswer != true)]')` : ''}
+${categories ? `# Filter by categories\nDISCUSSIONS_JSON=$(echo "$DISCUSSIONS_JSON" | jq '[.[] | select(.category.name | IN(${categories}))]')` : ""}
+${config.answered ? `# Filter answered discussions\nDISCUSSIONS_JSON=$(echo "$DISCUSSIONS_JSON" | jq '[.[] | select(.answer.isAnswer == true)]')` : ""}
+${config.unanswered ? `# Filter unanswered discussions\nDISCUSSIONS_JSON=$(echo "$DISCUSSIONS_JSON" | jq '[.[] | select(.answer.isAnswer != true)]')` : ""}
 
 DISCUSSIONS_COUNT=$(echo "$DISCUSSIONS_JSON" | jq 'length')
 TOTAL_ITEMS=$((TOTAL_ITEMS + DISCUSSIONS_COUNT))
@@ -279,7 +279,7 @@ fi`;
   }
 
   private generateCommitsScript(config: CommitsContextConfig): string {
-    const branches = config.branches || ['main', 'master'];
+    const branches = config.branches || ["main", "master"];
     const limit = config.limit || 100;
 
     return `# Collect Commits
@@ -287,7 +287,7 @@ echo "## 📝 Commits" >> /tmp/commits_section.md
 echo "" >> /tmp/commits_section.md
 
 COMMITS_COUNT=0
-BRANCHES=(${branches.map((b: string) => `"${b}"`).join(' ')})
+BRANCHES=(${branches.map((b: string) => `"${b}"`).join(" ")})
 
 for BRANCH in "\${BRANCHES[@]}"; do
   # Check if branch exists
@@ -339,8 +339,8 @@ RELEASES_COUNT=0
 RELEASES_JSON=$(gh api "repos/\${{ github.repository }}/releases?per_page=${limit}" \\
   --jq '[.[] | select(.created_at >= "'$SINCE_DATE'")]' 2>/dev/null || echo "[]")
 
-${!config.prerelease ? `# Exclude prereleases\nRELEASES_JSON=$(echo "$RELEASES_JSON" | jq '[.[] | select(.prerelease == false)]')` : ''}
-${!config.draft ? `# Exclude drafts\nRELEASES_JSON=$(echo "$RELEASES_JSON" | jq '[.[] | select(.draft == false)]')` : ''}
+${!config.prerelease ? `# Exclude prereleases\nRELEASES_JSON=$(echo "$RELEASES_JSON" | jq '[.[] | select(.prerelease == false)]')` : ""}
+${!config.draft ? `# Exclude drafts\nRELEASES_JSON=$(echo "$RELEASES_JSON" | jq '[.[] | select(.draft == false)]')` : ""}
 
 RELEASES_COUNT=$(echo "$RELEASES_JSON" | jq 'length')
 TOTAL_ITEMS=$((TOTAL_ITEMS + RELEASES_COUNT))
@@ -365,7 +365,7 @@ fi`;
 
   private generateWorkflowRunsScript(config: WorkflowRunsContextConfig): string {
     const limit = config.limit || 50;
-    const statuses = config.status?.join(',') || 'failure';
+    const statuses = config.status?.join(",") || "failure";
 
     return `# Collect Workflow Runs
 echo "## ⚙️ Workflow Runs" >> /tmp/workflows_section.md
@@ -376,7 +376,7 @@ RUNS_JSON=$(gh api "repos/\${{ github.repository }}/actions/runs?per_page=${limi
   --jq '[.workflow_runs[] | select(.created_at >= "'$SINCE_DATE'")]' 2>/dev/null || echo "[]")
 
 # Filter by status
-RUNS_JSON=$(echo "$RUNS_JSON" | jq '[.[] | select(.conclusion | IN("${statuses.split(',').join('","')}"))]')
+RUNS_JSON=$(echo "$RUNS_JSON" | jq '[.[] | select(.conclusion | IN("${statuses.split(",").join('","')}"))]')
 
 WORKFLOWS_COUNT=$(echo "$RUNS_JSON" | jq 'length')
 TOTAL_ITEMS=$((TOTAL_ITEMS + WORKFLOWS_COUNT))

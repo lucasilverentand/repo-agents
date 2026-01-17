@@ -1,10 +1,10 @@
-import { z } from 'zod';
+import { z } from "zod";
 
 const workflowInputSchema = z.object({
   description: z.string(),
   required: z.boolean().optional(),
   default: z.string().optional(),
-  type: z.enum(['string', 'boolean', 'choice']).optional(),
+  type: z.enum(["string", "boolean", "choice"]).optional(),
   options: z.array(z.string()).optional(),
 });
 
@@ -28,7 +28,7 @@ const triggerConfigSchema = z.object({
     .array(
       z.object({
         cron: z.string(),
-      })
+      }),
     )
     .optional(),
   workflow_dispatch: z
@@ -45,10 +45,10 @@ const triggerConfigSchema = z.object({
 
 const permissionsSchema = z
   .object({
-    contents: z.enum(['read', 'write']).optional(),
-    issues: z.enum(['read', 'write']).optional(),
-    pull_requests: z.enum(['read', 'write']).optional(),
-    discussions: z.enum(['read', 'write']).optional(),
+    contents: z.enum(["read", "write"]).optional(),
+    issues: z.enum(["read", "write"]).optional(),
+    pull_requests: z.enum(["read", "write"]).optional(),
+    discussions: z.enum(["read", "write"]).optional(),
   })
   .optional();
 
@@ -70,17 +70,17 @@ const outputConfigSchema = z
 const outputSchema = z
   .record(
     z.enum([
-      'add-comment',
-      'add-label',
-      'remove-label',
-      'create-issue',
-      'create-discussion',
-      'create-pr',
-      'update-file',
-      'close-issue',
-      'close-pr',
+      "add-comment",
+      "add-label",
+      "remove-label",
+      "create-issue",
+      "create-discussion",
+      "create-pr",
+      "update-file",
+      "close-issue",
+      "close-pr",
     ]),
-    z.union([outputConfigSchema, z.boolean()])
+    z.union([outputConfigSchema, z.boolean()]),
   )
   .optional();
 
@@ -90,13 +90,13 @@ const toolSchema = z
       name: z.string(),
       description: z.string(),
       parameters: z.record(z.unknown()).optional(),
-    })
+    }),
   )
   .optional();
 
 const issuesContextSchema = z
   .object({
-    states: z.array(z.enum(['open', 'closed', 'all'])).optional(),
+    states: z.array(z.enum(["open", "closed", "all"])).optional(),
     labels: z.array(z.string()).optional(),
     assignees: z.array(z.string()).optional(),
     creators: z.array(z.string()).optional(),
@@ -109,7 +109,7 @@ const issuesContextSchema = z
 
 const pullRequestsContextSchema = z
   .object({
-    states: z.array(z.enum(['open', 'closed', 'merged', 'all'])).optional(),
+    states: z.array(z.enum(["open", "closed", "merged", "all"])).optional(),
     labels: z.array(z.string()).optional(),
     assignees: z.array(z.string()).optional(),
     creators: z.array(z.string()).optional(),
@@ -151,7 +151,7 @@ const releasesContextSchema = z
 const workflowRunsContextSchema = z
   .object({
     workflows: z.array(z.string()).optional(),
-    status: z.array(z.enum(['success', 'failure', 'cancelled', 'skipped'])).optional(),
+    status: z.array(z.enum(["success", "failure", "cancelled", "skipped"])).optional(),
     branches: z.array(z.string()).optional(),
     limit: z.number().min(1).max(1000).optional(),
   })
@@ -184,17 +184,17 @@ const auditConfigSchema = z
   .optional();
 
 export const agentFrontmatterSchema = z.object({
-  name: z.string().min(1, 'Agent name is required'),
+  name: z.string().min(1, "Agent name is required"),
   on: triggerConfigSchema,
   permissions: permissionsSchema,
-  provider: z.enum(['claude-code', 'opencode']).optional(),
+  provider: z.enum(["claude-code", "opencode"]).optional(),
   claude: claudeConfigSchema,
   outputs: outputSchema,
   tools: toolSchema,
-  'allowed-actors': z.array(z.string()).optional(),
-  'allowed-users': z.array(z.string()).optional(),
-  'allowed-teams': z.array(z.string()).optional(),
-  'allowed-paths': z.array(z.string()).optional(),
+  "allowed-actors": z.array(z.string()).optional(),
+  "allowed-users": z.array(z.string()).optional(),
+  "allowed-teams": z.array(z.string()).optional(),
+  "allowed-paths": z.array(z.string()).optional(),
   trigger_labels: z.array(z.string()).optional(),
   rate_limit_minutes: z.number().min(0).optional(),
   context: contextConfigSchema,

@@ -1,18 +1,18 @@
-import { join } from 'path';
-import { stat } from 'fs/promises';
-import chalk from 'chalk';
-import yaml from 'js-yaml';
-import { logger } from '@repo-agents/cli-utils/logger';
+import { stat } from "node:fs/promises";
+import { join } from "node:path";
 import {
-  findMarkdownFiles,
-  fileExists,
   agentNameToWorkflowName,
-} from '@repo-agents/cli-utils/files';
-import { agentParser } from '@repo-agents/parser';
-import { AgentDefinition, OutputConfig } from '@repo-agents/types';
+  fileExists,
+  findMarkdownFiles,
+} from "@repo-agents/cli-utils/files";
+import { logger } from "@repo-agents/cli-utils/logger";
+import { agentParser } from "@repo-agents/parser";
+import type { AgentDefinition, OutputConfig } from "@repo-agents/types";
+import chalk from "chalk";
+import yaml from "js-yaml";
 
 interface ListOptions {
-  format?: 'table' | 'json' | 'yaml';
+  format?: "table" | "json" | "yaml";
   details?: boolean;
 }
 
@@ -28,20 +28,20 @@ interface AgentInfo {
 
 export async function listCommand(options: ListOptions): Promise<void> {
   const cwd = process.cwd();
-  const agentsDir = join(cwd, '.github', 'agents');
-  const workflowsDir = join(cwd, '.github', 'workflows');
+  const agentsDir = join(cwd, ".github", "agents");
+  const workflowsDir = join(cwd, ".github", "workflows");
 
   const agentsDirExists = await fileExists(agentsDir);
   if (!agentsDirExists) {
-    logger.error('Agents directory not found');
-    logger.info('Run: repo-agents init');
+    logger.error("Agents directory not found");
+    logger.info("Run: repo-agents init");
     process.exit(1);
   }
 
   const files = await findMarkdownFiles(agentsDir);
 
   if (files.length === 0) {
-    logger.warn('No agent files found');
+    logger.warn("No agent files found");
     logger.info(`Create agent files in: ${agentsDir}`);
     return;
   }
@@ -51,7 +51,7 @@ export async function listCommand(options: ListOptions): Promise<void> {
   for (const file of files) {
     const { agent } = await agentParser.parseFile(file);
     if (agent) {
-      const fileName = file.split('/').pop() || file;
+      const fileName = file.split("/").pop() || file;
       const workflowName = agentNameToWorkflowName(agent.name);
       const workflowPath = join(workflowsDir, `${workflowName}.yml`);
       const compiled = await fileExists(workflowPath);
@@ -71,10 +71,10 @@ export async function listCommand(options: ListOptions): Promise<void> {
   }
 
   switch (options.format) {
-    case 'json':
+    case "json":
       printJson(agentInfos);
       break;
-    case 'yaml':
+    case "yaml":
       printYaml(agentInfos);
       break;
     default:
@@ -85,12 +85,12 @@ export async function listCommand(options: ListOptions): Promise<void> {
 function getTriggers(agent: AgentDefinition): string[] {
   const triggers: string[] = [];
 
-  if (agent.on.issues) triggers.push('issues');
-  if (agent.on.pull_request) triggers.push('pull_request');
-  if (agent.on.discussion) triggers.push('discussion');
-  if (agent.on.schedule) triggers.push('schedule');
-  if (agent.on.workflow_dispatch) triggers.push('manual');
-  if (agent.on.repository_dispatch) triggers.push('repository_dispatch');
+  if (agent.on.issues) triggers.push("issues");
+  if (agent.on.pull_request) triggers.push("pull_request");
+  if (agent.on.discussion) triggers.push("discussion");
+  if (agent.on.schedule) triggers.push("schedule");
+  if (agent.on.workflow_dispatch) triggers.push("manual");
+  if (agent.on.repository_dispatch) triggers.push("repository_dispatch");
 
   return triggers;
 }
@@ -105,7 +105,7 @@ function getPermissions(agent: AgentDefinition): string[] {
 
 function printTable(agents: AgentInfo[], details: boolean): void {
   if (agents.length === 0) {
-    logger.warn('No agents found');
+    logger.warn("No agents found");
     return;
   }
 
@@ -115,46 +115,46 @@ function printTable(agents: AgentInfo[], details: boolean): void {
   const fileWidth = Math.max(...agents.map((a) => a.file.length), 4);
 
   const header =
-    chalk.bold('Name').padEnd(nameWidth + 10) +
-    ' ' +
-    chalk.bold('File').padEnd(fileWidth + 10) +
-    ' ' +
-    chalk.bold('Triggers').padEnd(20) +
-    ' ' +
-    chalk.bold('Status');
+    chalk.bold("Name").padEnd(nameWidth + 10) +
+    " " +
+    chalk.bold("File").padEnd(fileWidth + 10) +
+    " " +
+    chalk.bold("Triggers").padEnd(20) +
+    " " +
+    chalk.bold("Status");
 
   logger.log(header);
-  logger.log('-'.repeat(80));
+  logger.log("-".repeat(80));
 
   for (const agent of agents) {
     const name = chalk.cyan(agent.name.padEnd(nameWidth));
     const file = agent.file.padEnd(fileWidth);
-    const triggers = agent.triggers.join(', ').padEnd(20);
-    const status = agent.compiled ? chalk.green('✓ compiled') : chalk.yellow('○ not compiled');
+    const triggers = agent.triggers.join(", ").padEnd(20);
+    const status = agent.compiled ? chalk.green("✓ compiled") : chalk.yellow("○ not compiled");
 
     logger.log(`${name} ${file} ${triggers} ${status}`);
 
     if (details) {
       if (agent.permissions && agent.permissions.length > 0) {
-        logger.log(chalk.gray(`  Permissions: ${agent.permissions.join(', ')}`));
+        logger.log(chalk.gray(`  Permissions: ${agent.permissions.join(", ")}`));
       }
       if (agent.outputs && Object.keys(agent.outputs).length > 0) {
         const outputList = Object.entries(agent.outputs)
           .map(([key, val]) => {
             if (val === true) return key;
-            if (typeof val === 'object') {
+            if (typeof val === "object") {
               const settings = Object.entries(val)
                 .map(([k, v]) => `${k}:${v}`)
-                .join(',');
+                .join(",");
               return `${key}(${settings})`;
             }
             return key;
           })
-          .join(', ');
+          .join(", ");
         logger.log(chalk.gray(`  Outputs: ${outputList}`));
       }
       logger.log(chalk.gray(`  Last Modified: ${agent.lastModified.toLocaleString()}`));
-      logger.log('');
+      logger.log("");
     }
   }
 }

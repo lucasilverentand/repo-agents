@@ -1,10 +1,10 @@
-import { join } from 'path';
-import ora from 'ora';
-import chalk from 'chalk';
-import { logger } from '@repo-agents/cli-utils/logger';
-import { findMarkdownFiles, fileExists } from '@repo-agents/cli-utils/files';
-import { agentParser } from '@repo-agents/parser';
-import { ValidationError } from '@repo-agents/types';
+import { join } from "node:path";
+import { fileExists, findMarkdownFiles } from "@repo-agents/cli-utils/files";
+import { logger } from "@repo-agents/cli-utils/logger";
+import { agentParser } from "@repo-agents/parser";
+import type { ValidationError } from "@repo-agents/types";
+import chalk from "chalk";
+import ora from "ora";
 
 interface ValidateOptions {
   all?: boolean;
@@ -19,36 +19,36 @@ interface ValidationResult {
 
 export async function validateCommand(
   file: string | undefined,
-  options: ValidateOptions
+  options: ValidateOptions,
 ): Promise<void> {
   const cwd = process.cwd();
-  const agentsDir = join(cwd, '.github', 'agents');
+  const agentsDir = join(cwd, ".github", "agents");
 
   if (options.all) {
     await validateAll(agentsDir, options.strict || false);
   } else if (file) {
     await validateSingle(file, options.strict || false);
   } else {
-    logger.error('Please specify a file or use --all to validate all agents');
+    logger.error("Please specify a file or use --all to validate all agents");
     process.exit(1);
   }
 }
 
 async function validateAll(agentsDir: string, strict: boolean): Promise<void> {
-  const spinner = ora('Finding agent files...').start();
+  const spinner = ora("Finding agent files...").start();
 
   const agentsDirExists = await fileExists(agentsDir);
   if (!agentsDirExists) {
-    spinner.fail('Agents directory not found');
+    spinner.fail("Agents directory not found");
     logger.error(`Directory not found: ${agentsDir}`);
-    logger.info('Run: repo-agents init');
+    logger.info("Run: repo-agents init");
     process.exit(1);
   }
 
   const files = await findMarkdownFiles(agentsDir);
 
   if (files.length === 0) {
-    spinner.warn('No agent files found');
+    spinner.warn("No agent files found");
     logger.info(`Create agent files in: ${agentsDir}`);
     return;
   }
@@ -74,9 +74,9 @@ async function validateAll(agentsDir: string, strict: boolean): Promise<void> {
 async function validateSingle(
   filePath: string,
   strict: boolean,
-  _showSummary = true
+  _showSummary = true,
 ): Promise<ValidationResult> {
-  const fileName = filePath.split('/').pop() || filePath;
+  const fileName = filePath.split("/").pop() || filePath;
   const spinner = ora(`Validating ${chalk.cyan(fileName)}...`).start();
 
   const exists = await fileExists(filePath);
@@ -85,7 +85,7 @@ async function validateSingle(
     return {
       filePath,
       success: false,
-      errors: [{ field: 'file', message: 'File not found', severity: 'error' }],
+      errors: [{ field: "file", message: "File not found", severity: "error" }],
     };
   }
 
@@ -95,8 +95,8 @@ async function validateSingle(
     spinner.fail(`Failed to parse ${fileName}`);
     logger.newline();
     parseErrors.forEach((error) => {
-      const icon = error.severity === 'error' ? '✗' : '⚠';
-      const color = error.severity === 'error' ? chalk.red : chalk.yellow;
+      const icon = error.severity === "error" ? "✗" : "⚠";
+      const color = error.severity === "error" ? chalk.red : chalk.yellow;
       logger.log(color(`  ${icon} ${error.field}: ${error.message}`));
     });
     return {
@@ -109,8 +109,8 @@ async function validateSingle(
   const validationErrors = agentParser.validateAgent(agent);
   const allErrors = [...parseErrors, ...validationErrors];
 
-  const hasErrors = allErrors.some((e) => e.severity === 'error');
-  const hasWarnings = allErrors.some((e) => e.severity === 'warning');
+  const hasErrors = allErrors.some((e) => e.severity === "error");
+  const hasWarnings = allErrors.some((e) => e.severity === "warning");
 
   if (hasErrors) {
     spinner.fail(`Validation failed for ${fileName}`);
@@ -125,8 +125,8 @@ async function validateSingle(
   if (allErrors.length > 0) {
     logger.newline();
     allErrors.forEach((error) => {
-      const icon = error.severity === 'error' ? '✗' : '⚠';
-      const color = error.severity === 'error' ? chalk.red : chalk.yellow;
+      const icon = error.severity === "error" ? "✗" : "⚠";
+      const color = error.severity === "error" ? chalk.red : chalk.yellow;
       logger.log(color(`  ${icon} ${error.field}: ${error.message}`));
     });
   }
@@ -143,19 +143,19 @@ async function validateSingle(
 function printSummary(results: ValidationResult[], strict: boolean): void {
   const successful = results.filter((r) => r.success).length;
   const failed = results.filter((r) => !r.success).length;
-  const withWarnings = results.filter((r) => r.errors.some((e) => e.severity === 'warning')).length;
+  const withWarnings = results.filter((r) => r.errors.some((e) => e.severity === "warning")).length;
 
-  logger.info('Validation Summary:');
-  logger.log(`  ${chalk.green('✓')} Valid: ${successful}`);
+  logger.info("Validation Summary:");
+  logger.log(`  ${chalk.green("✓")} Valid: ${successful}`);
   if (failed > 0) {
-    logger.log(`  ${chalk.red('✗')} Invalid: ${failed}`);
+    logger.log(`  ${chalk.red("✗")} Invalid: ${failed}`);
   }
   if (withWarnings > 0 && !strict) {
-    logger.log(`  ${chalk.yellow('⚠')} With warnings: ${withWarnings}`);
+    logger.log(`  ${chalk.yellow("⚠")} With warnings: ${withWarnings}`);
   }
 
   if (strict && withWarnings > 0) {
     logger.newline();
-    logger.warn('Strict mode enabled: warnings treated as errors');
+    logger.warn("Strict mode enabled: warnings treated as errors");
   }
 }

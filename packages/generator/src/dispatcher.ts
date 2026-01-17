@@ -1,28 +1,27 @@
-import { readFileSync } from 'node:fs';
-import { join } from 'node:path';
-
-import yaml from 'js-yaml';
+import { readFileSync } from "node:fs";
+import { join } from "node:path";
+import { agentNameToWorkflowName } from "@repo-agents/cli-utils";
 import type {
   AgentDefinition,
-  TriggerConfig,
   RoutingRule,
-  WorkflowStep,
+  TriggerConfig,
   TriggerEventType,
-} from '@repo-agents/types';
-import { agentNameToWorkflowName } from '@repo-agents/cli-utils';
+  WorkflowStep,
+} from "@repo-agents/types";
+import yaml from "js-yaml";
 
 // Read package.json version at module load time
-let packageVersion = '0.4.1'; // fallback
+let packageVersion = "0.4.1"; // fallback
 try {
-  const packageJsonPath = join(__dirname, '../package.json');
-  const packageJson = JSON.parse(readFileSync(packageJsonPath, 'utf-8'));
+  const packageJsonPath = join(__dirname, "../package.json");
+  const packageJson = JSON.parse(readFileSync(packageJsonPath, "utf-8"));
   packageVersion = packageJson.version;
 } catch {
   // Use fallback version if reading fails
 }
 
 interface DispatcherWorkflowJob {
-  'runs-on': string;
+  "runs-on": string;
   needs?: string | string[];
   if?: string;
   outputs?: Record<string, string>;
@@ -108,9 +107,9 @@ export class DispatcherGenerator {
     triggers.workflow_dispatch = {
       inputs: {
         agent: {
-          description: 'Specific agent to run (leave empty to auto-route based on event)',
+          description: "Specific agent to run (leave empty to auto-route based on event)",
           required: false,
-          type: 'string',
+          type: "string",
         },
       },
     };
@@ -124,8 +123,8 @@ export class DispatcherGenerator {
   private getAgentFilePath(agentName: string): string {
     const fileName = agentName
       .toLowerCase()
-      .replace(/[^a-z0-9]+/g, '-')
-      .replace(/^-|-$/g, '');
+      .replace(/[^a-z0-9]+/g, "-")
+      .replace(/^-|-$/g, "");
     return `.github/agents/${fileName}.md`;
   }
 
@@ -133,7 +132,7 @@ export class DispatcherGenerator {
    * Get the major version for package pinning.
    */
   private getMajorVersion(): string {
-    return packageVersion.split('.')[0];
+    return packageVersion.split(".")[0];
   }
 
   /**
@@ -153,7 +152,7 @@ export class DispatcherGenerator {
       // Issues
       if (agent.on.issues?.types) {
         rule.triggers.push({
-          eventType: 'issues' as TriggerEventType,
+          eventType: "issues" as TriggerEventType,
           eventActions: agent.on.issues.types,
         });
       }
@@ -161,7 +160,7 @@ export class DispatcherGenerator {
       // Pull requests
       if (agent.on.pull_request?.types) {
         rule.triggers.push({
-          eventType: 'pull_request' as TriggerEventType,
+          eventType: "pull_request" as TriggerEventType,
           eventActions: agent.on.pull_request.types,
         });
       }
@@ -169,7 +168,7 @@ export class DispatcherGenerator {
       // Discussions
       if (agent.on.discussion?.types) {
         rule.triggers.push({
-          eventType: 'discussion' as TriggerEventType,
+          eventType: "discussion" as TriggerEventType,
           eventActions: agent.on.discussion.types,
         });
       }
@@ -178,7 +177,7 @@ export class DispatcherGenerator {
       if (agent.on.schedule) {
         for (const schedule of agent.on.schedule) {
           rule.triggers.push({
-            eventType: 'schedule' as TriggerEventType,
+            eventType: "schedule" as TriggerEventType,
             schedule: schedule.cron,
           });
         }
@@ -187,14 +186,14 @@ export class DispatcherGenerator {
       // Repository dispatch
       if (agent.on.repository_dispatch?.types) {
         rule.triggers.push({
-          eventType: 'repository_dispatch' as TriggerEventType,
+          eventType: "repository_dispatch" as TriggerEventType,
           dispatchTypes: agent.on.repository_dispatch.types,
         });
       }
 
       // Workflow dispatch - all agents can be manually triggered
       rule.triggers.push({
-        eventType: 'workflow_dispatch' as TriggerEventType,
+        eventType: "workflow_dispatch" as TriggerEventType,
       });
 
       rules.push(rule);
@@ -208,17 +207,17 @@ export class DispatcherGenerator {
    */
   private aggregatePermissions(agents: AgentDefinition[]): Record<string, string> {
     const permissions: Record<string, string> = {
-      actions: 'write', // Required to trigger workflows
-      contents: 'read', // Default read access
-      issues: 'write', // Required for self-healing issue creation
+      actions: "write", // Required to trigger workflows
+      contents: "read", // Default read access
+      issues: "write", // Required for self-healing issue creation
     };
 
     for (const agent of agents) {
       if (agent.permissions) {
         for (const [key, value] of Object.entries(agent.permissions)) {
-          const kebabKey = key.replace(/_/g, '-');
+          const kebabKey = key.replace(/_/g, "-");
           // Upgrade to write if any agent needs write
-          if (value === 'write' || permissions[kebabKey] !== 'write') {
+          if (value === "write" || permissions[kebabKey] !== "write") {
             permissions[kebabKey] = value;
           }
         }
@@ -237,40 +236,40 @@ export class DispatcherGenerator {
     const permissions = this.aggregatePermissions(agents);
 
     const workflow: DispatcherWorkflow = {
-      name: 'Claude Agent Dispatcher',
+      name: "Claude Agent Dispatcher",
       on: triggers,
       permissions,
       jobs: {
-        'pre-flight': {
-          'runs-on': 'ubuntu-latest',
+        "pre-flight": {
+          "runs-on": "ubuntu-latest",
           outputs: {
-            'should-continue': '${{ steps.check-config.outputs.config-valid }}',
-            'app-token': '${{ steps.app-token.outputs.token }}',
-            'git-user': '${{ steps.app-token.outputs.git-user }}',
-            'git-email': '${{ steps.app-token.outputs.git-email }}',
-            'run-id': '${{ github.run_id }}',
+            "should-continue": "${{ steps.check-config.outputs.config-valid }}",
+            "app-token": "${{ steps.app-token.outputs.token }}",
+            "git-user": "${{ steps.app-token.outputs.git-user }}",
+            "git-email": "${{ steps.app-token.outputs.git-email }}",
+            "run-id": "${{ github.run_id }}",
           },
           steps: this.generatePreFlightSteps(),
         },
-        'prepare-context': {
-          'runs-on': 'ubuntu-latest',
-          needs: 'pre-flight',
+        "prepare-context": {
+          "runs-on": "ubuntu-latest",
+          needs: "pre-flight",
           if: "needs.pre-flight.outputs.should-continue == 'true'",
           outputs: {
-            'run-id': '${{ github.run_id }}',
+            "run-id": "${{ github.run_id }}",
           },
           steps: this.generateContextSteps(),
         },
-        'route-event': {
-          'runs-on': 'ubuntu-latest',
-          needs: 'pre-flight',
+        "route-event": {
+          "runs-on": "ubuntu-latest",
+          needs: "pre-flight",
           if: "needs.pre-flight.outputs.should-continue == 'true'",
           outputs: {
-            'matching-agents': '${{ steps.route.outputs.agents }}',
+            "matching-agents": "${{ steps.route.outputs.agents }}",
           },
           steps: this.generateRoutingSteps(routingTable),
         },
-        'dispatch-agents': this.generateDispatchJob(),
+        "dispatch-agents": this.generateDispatchJob(),
       },
     };
 
@@ -285,12 +284,12 @@ export class DispatcherGenerator {
   private generatePreFlightSteps(): WorkflowStep[] {
     return [
       {
-        name: 'Check configuration',
-        id: 'check-config',
+        name: "Check configuration",
+        id: "check-config",
         env: {
-          ANTHROPIC_API_KEY: '${{ secrets.ANTHROPIC_API_KEY }}',
-          CLAUDE_CODE_OAUTH_TOKEN: '${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}',
-          GH_TOKEN: '${{ secrets.GITHUB_TOKEN }}',
+          ANTHROPIC_API_KEY: "${{ secrets.ANTHROPIC_API_KEY }}",
+          CLAUDE_CODE_OAUTH_TOKEN: "${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}",
+          GH_TOKEN: "${{ secrets.GITHUB_TOKEN }}",
         },
         run: `ERRORS=""
 
@@ -309,10 +308,10 @@ else
 fi`,
       },
       {
-        name: 'Self-heal on configuration error',
+        name: "Self-heal on configuration error",
         if: "steps.check-config.outputs.config-valid == 'false'",
         env: {
-          GH_TOKEN: '${{ secrets.GITHUB_TOKEN }}',
+          GH_TOKEN: "${{ secrets.GITHUB_TOKEN }}",
         },
         run: `# Check for existing configuration issue
 EXISTING=$(gh issue list --state open --label "repo-agents-config" --json number -q '.[0].number' 2>/dev/null || echo "")
@@ -368,13 +367,13 @@ echo "Dispatcher workflow disabled due to configuration errors."`,
 
   private generateTokenGenerationStep(): WorkflowStep {
     return {
-      name: 'Generate GitHub token',
-      id: 'app-token',
+      name: "Generate GitHub token",
+      id: "app-token",
       if: "steps.check-config.outputs.config-valid == 'true'",
       env: {
-        GH_APP_ID: '${{ secrets.GH_APP_ID }}',
-        GH_APP_PRIVATE_KEY: '${{ secrets.GH_APP_PRIVATE_KEY }}',
-        FALLBACK_TOKEN: '${{ secrets.GITHUB_TOKEN }}',
+        GH_APP_ID: "${{ secrets.GH_APP_ID }}",
+        GH_APP_PRIVATE_KEY: "${{ secrets.GH_APP_PRIVATE_KEY }}",
+        FALLBACK_TOKEN: "${{ secrets.GITHUB_TOKEN }}",
       },
       run: `# Check if GitHub App is configured
 if [ -z "$GH_APP_ID" ] || [ -z "$GH_APP_PRIVATE_KEY" ]; then
@@ -464,109 +463,109 @@ echo "git-email=$APP_ID_NUM+$APP_SLUG[bot]@users.noreply.github.com" >> $GITHUB_
 
   private generateContextSteps(): WorkflowStep[] {
     // Use string concatenation to avoid TypeScript template literal parsing issues with ${{ }}
-    const ghExpr = (expr: string) => '$' + `{{ ${expr} }}`;
+    const ghExpr = (expr: string) => `\${{ ${expr} }}`;
 
     const contextScript = [
-      'mkdir -p /tmp/dispatch-context',
-      '',
-      '# Build context JSON using jq to handle escaping properly',
-      'jq -n \\',
-      `  --arg dispatchId "${ghExpr('github.run_id')}-${ghExpr('github.run_attempt')}" \\`,
+      "mkdir -p /tmp/dispatch-context",
+      "",
+      "# Build context JSON using jq to handle escaping properly",
+      "jq -n \\",
+      `  --arg dispatchId "${ghExpr("github.run_id")}-${ghExpr("github.run_attempt")}" \\`,
       '  --arg dispatchedAt "$(date -u +%Y-%m-%dT%H:%M:%SZ)" \\',
-      `  --arg dispatcherRunId "${ghExpr('github.run_id')}" \\`,
-      `  --arg dispatcherRunUrl "${ghExpr('github.server_url')}/${ghExpr('github.repository')}/actions/runs/${ghExpr('github.run_id')}" \\`,
-      `  --arg eventName "${ghExpr('github.event_name')}" \\`,
-      `  --arg eventAction "${ghExpr('github.event.action')}" \\`,
-      `  --arg repository "${ghExpr('github.repository')}" \\`,
-      `  --arg ref "${ghExpr('github.ref')}" \\`,
-      `  --arg sha "${ghExpr('github.sha')}" \\`,
-      `  --arg actor "${ghExpr('github.actor')}" \\`,
+      `  --arg dispatcherRunId "${ghExpr("github.run_id")}" \\`,
+      `  --arg dispatcherRunUrl "${ghExpr("github.server_url")}/${ghExpr("github.repository")}/actions/runs/${ghExpr("github.run_id")}" \\`,
+      `  --arg eventName "${ghExpr("github.event_name")}" \\`,
+      `  --arg eventAction "${ghExpr("github.event.action")}" \\`,
+      `  --arg repository "${ghExpr("github.repository")}" \\`,
+      `  --arg ref "${ghExpr("github.ref")}" \\`,
+      `  --arg sha "${ghExpr("github.sha")}" \\`,
+      `  --arg actor "${ghExpr("github.actor")}" \\`,
       "  '{",
-      '    dispatchId: $dispatchId,',
-      '    dispatchedAt: $dispatchedAt,',
-      '    dispatcherRunId: $dispatcherRunId,',
-      '    dispatcherRunUrl: $dispatcherRunUrl,',
-      '    eventName: $eventName,',
-      '    eventAction: $eventAction,',
-      '    repository: $repository,',
-      '    ref: $ref,',
-      '    sha: $sha,',
-      '    actor: $actor',
+      "    dispatchId: $dispatchId,",
+      "    dispatchedAt: $dispatchedAt,",
+      "    dispatcherRunId: $dispatcherRunId,",
+      "    dispatcherRunUrl: $dispatcherRunUrl,",
+      "    eventName: $eventName,",
+      "    eventAction: $eventAction,",
+      "    repository: $repository,",
+      "    ref: $ref,",
+      "    sha: $sha,",
+      "    actor: $actor",
       "  }' > /tmp/dispatch-context/context.json",
-      '',
-      '# Add event-specific data',
-      `EVENT_NAME="${ghExpr('github.event_name')}"`,
-      '',
+      "",
+      "# Add event-specific data",
+      `EVENT_NAME="${ghExpr("github.event_name")}"`,
+      "",
       'case "$EVENT_NAME" in',
-      '  issues)',
-      `    jq --arg author "${ghExpr('github.event.issue.user.login')}" \\`,
-      `       --arg state "${ghExpr('github.event.issue.state')}" \\`,
-      `       --arg url "${ghExpr('github.event.issue.html_url')}" \\`,
-      `       --argjson number ${ghExpr('github.event.issue.number')} \\`,
-      `       --argjson title ${ghExpr('toJson(github.event.issue.title)')} \\`,
-      `       --argjson body ${ghExpr('toJson(github.event.issue.body)')} \\`,
-      `       --argjson labels ${ghExpr('toJson(github.event.issue.labels.*.name)')} \\`,
+      "  issues)",
+      `    jq --arg author "${ghExpr("github.event.issue.user.login")}" \\`,
+      `       --arg state "${ghExpr("github.event.issue.state")}" \\`,
+      `       --arg url "${ghExpr("github.event.issue.html_url")}" \\`,
+      `       --argjson number ${ghExpr("github.event.issue.number")} \\`,
+      `       --argjson title ${ghExpr("toJson(github.event.issue.title)")} \\`,
+      `       --argjson body ${ghExpr("toJson(github.event.issue.body)")} \\`,
+      `       --argjson labels ${ghExpr("toJson(github.event.issue.labels.*.name)")} \\`,
       "       '. + {issue: {number: $number, title: $title, body: $body, author: $author, labels: $labels, state: $state, url: $url}}' \\",
-      '       /tmp/dispatch-context/context.json > /tmp/dispatch-context/context.tmp.json',
-      '    mv /tmp/dispatch-context/context.tmp.json /tmp/dispatch-context/context.json',
-      '    ;;',
-      '  pull_request)',
-      `    jq --arg author "${ghExpr('github.event.pull_request.user.login')}" \\`,
-      `       --arg state "${ghExpr('github.event.pull_request.state')}" \\`,
-      `       --arg baseBranch "${ghExpr('github.event.pull_request.base.ref')}" \\`,
-      `       --arg headBranch "${ghExpr('github.event.pull_request.head.ref')}" \\`,
-      `       --arg url "${ghExpr('github.event.pull_request.html_url')}" \\`,
-      `       --argjson number ${ghExpr('github.event.pull_request.number')} \\`,
-      `       --argjson title ${ghExpr('toJson(github.event.pull_request.title)')} \\`,
-      `       --argjson body ${ghExpr('toJson(github.event.pull_request.body)')} \\`,
-      `       --argjson labels ${ghExpr('toJson(github.event.pull_request.labels.*.name)')} \\`,
+      "       /tmp/dispatch-context/context.json > /tmp/dispatch-context/context.tmp.json",
+      "    mv /tmp/dispatch-context/context.tmp.json /tmp/dispatch-context/context.json",
+      "    ;;",
+      "  pull_request)",
+      `    jq --arg author "${ghExpr("github.event.pull_request.user.login")}" \\`,
+      `       --arg state "${ghExpr("github.event.pull_request.state")}" \\`,
+      `       --arg baseBranch "${ghExpr("github.event.pull_request.base.ref")}" \\`,
+      `       --arg headBranch "${ghExpr("github.event.pull_request.head.ref")}" \\`,
+      `       --arg url "${ghExpr("github.event.pull_request.html_url")}" \\`,
+      `       --argjson number ${ghExpr("github.event.pull_request.number")} \\`,
+      `       --argjson title ${ghExpr("toJson(github.event.pull_request.title)")} \\`,
+      `       --argjson body ${ghExpr("toJson(github.event.pull_request.body)")} \\`,
+      `       --argjson labels ${ghExpr("toJson(github.event.pull_request.labels.*.name)")} \\`,
       "       '. + {pullRequest: {number: $number, title: $title, body: $body, author: $author, labels: $labels, baseBranch: $baseBranch, headBranch: $headBranch, state: $state, url: $url}}' \\",
-      '       /tmp/dispatch-context/context.json > /tmp/dispatch-context/context.tmp.json',
-      '    mv /tmp/dispatch-context/context.tmp.json /tmp/dispatch-context/context.json',
-      '    ;;',
-      '  discussion)',
-      `    jq --arg author "${ghExpr('github.event.discussion.user.login')}" \\`,
-      `       --arg category "${ghExpr('github.event.discussion.category.name')}" \\`,
-      `       --arg url "${ghExpr('github.event.discussion.html_url')}" \\`,
-      `       --argjson number ${ghExpr('github.event.discussion.number')} \\`,
-      `       --argjson title ${ghExpr('toJson(github.event.discussion.title)')} \\`,
-      `       --argjson body ${ghExpr('toJson(github.event.discussion.body)')} \\`,
+      "       /tmp/dispatch-context/context.json > /tmp/dispatch-context/context.tmp.json",
+      "    mv /tmp/dispatch-context/context.tmp.json /tmp/dispatch-context/context.json",
+      "    ;;",
+      "  discussion)",
+      `    jq --arg author "${ghExpr("github.event.discussion.user.login")}" \\`,
+      `       --arg category "${ghExpr("github.event.discussion.category.name")}" \\`,
+      `       --arg url "${ghExpr("github.event.discussion.html_url")}" \\`,
+      `       --argjson number ${ghExpr("github.event.discussion.number")} \\`,
+      `       --argjson title ${ghExpr("toJson(github.event.discussion.title)")} \\`,
+      `       --argjson body ${ghExpr("toJson(github.event.discussion.body)")} \\`,
       "       '. + {discussion: {number: $number, title: $title, body: $body, author: $author, category: $category, url: $url}}' \\",
-      '       /tmp/dispatch-context/context.json > /tmp/dispatch-context/context.tmp.json',
-      '    mv /tmp/dispatch-context/context.tmp.json /tmp/dispatch-context/context.json',
-      '    ;;',
-      '  schedule)',
-      `    jq --arg cron "${ghExpr('github.event.schedule')}" \\`,
+      "       /tmp/dispatch-context/context.json > /tmp/dispatch-context/context.tmp.json",
+      "    mv /tmp/dispatch-context/context.tmp.json /tmp/dispatch-context/context.json",
+      "    ;;",
+      "  schedule)",
+      `    jq --arg cron "${ghExpr("github.event.schedule")}" \\`,
       "       '. + {schedule: {cron: $cron}}' \\",
-      '       /tmp/dispatch-context/context.json > /tmp/dispatch-context/context.tmp.json',
-      '    mv /tmp/dispatch-context/context.tmp.json /tmp/dispatch-context/context.json',
-      '    ;;',
-      '  repository_dispatch)',
-      `    jq --arg eventType "${ghExpr('github.event.action')}" \\`,
-      `       --argjson clientPayload ${ghExpr('toJson(github.event.client_payload)')} \\`,
+      "       /tmp/dispatch-context/context.json > /tmp/dispatch-context/context.tmp.json",
+      "    mv /tmp/dispatch-context/context.tmp.json /tmp/dispatch-context/context.json",
+      "    ;;",
+      "  repository_dispatch)",
+      `    jq --arg eventType "${ghExpr("github.event.action")}" \\`,
+      `       --argjson clientPayload ${ghExpr("toJson(github.event.client_payload)")} \\`,
       "       '. + {repositoryDispatch: {eventType: $eventType, clientPayload: $clientPayload}}' \\",
-      '       /tmp/dispatch-context/context.json > /tmp/dispatch-context/context.tmp.json',
-      '    mv /tmp/dispatch-context/context.tmp.json /tmp/dispatch-context/context.json',
-      '    ;;',
-      'esac',
-      '',
+      "       /tmp/dispatch-context/context.json > /tmp/dispatch-context/context.tmp.json",
+      "    mv /tmp/dispatch-context/context.tmp.json /tmp/dispatch-context/context.json",
+      "    ;;",
+      "esac",
+      "",
       'echo "Context prepared:"',
-      'cat /tmp/dispatch-context/context.json',
-    ].join('\n');
+      "cat /tmp/dispatch-context/context.json",
+    ].join("\n");
 
     return [
       {
-        name: 'Prepare dispatch context',
-        id: 'prepare-context',
+        name: "Prepare dispatch context",
+        id: "prepare-context",
         run: contextScript,
       },
       {
-        name: 'Upload context artifact',
-        uses: 'actions/upload-artifact@v4',
+        name: "Upload context artifact",
+        uses: "actions/upload-artifact@v4",
         with: {
-          name: `dispatch-context-${ghExpr('github.run_id')}`,
-          path: '/tmp/dispatch-context/',
-          'retention-days': '1',
+          name: `dispatch-context-${ghExpr("github.run_id")}`,
+          path: "/tmp/dispatch-context/",
+          "retention-days": "1",
         },
       },
     ];
@@ -577,10 +576,10 @@ echo "git-email=$APP_ID_NUM+$APP_SLUG[bot]@users.noreply.github.com" >> $GITHUB_
 
     return [
       {
-        name: 'Route event to agents',
-        id: 'route',
+        name: "Route event to agents",
+        id: "route",
         env: {
-          WORKFLOW_DISPATCH_AGENT: '${{ github.event.inputs.agent }}',
+          WORKFLOW_DISPATCH_AGENT: "${{ github.event.inputs.agent }}",
         },
         run: `EVENT_NAME="\${{ github.event_name }}"
 EVENT_ACTION="\${{ github.event.action }}"
@@ -643,78 +642,78 @@ fi`,
   private generateDispatchJob(): DispatcherWorkflowJob {
     const majorVersion = this.getMajorVersion();
     const cliCommand = `bunx repo-agent@${majorVersion}`;
-    const ghExpr = (expr: string) => '$' + `{{ ${expr} }}`;
+    const ghExpr = (expr: string) => `\${{ ${expr} }}`;
 
     return {
-      'runs-on': 'ubuntu-latest',
-      needs: ['pre-flight', 'prepare-context', 'route-event'],
+      "runs-on": "ubuntu-latest",
+      needs: ["pre-flight", "prepare-context", "route-event"],
       if: "needs.route-event.outputs.matching-agents != '[]'",
       strategy: {
         matrix: {
-          agent: '${{ fromJson(needs.route-event.outputs.matching-agents) }}',
+          agent: "${{ fromJson(needs.route-event.outputs.matching-agents) }}",
         },
-        'fail-fast': false,
+        "fail-fast": false,
       },
       steps: [
         {
-          uses: 'actions/checkout@v4',
+          uses: "actions/checkout@v4",
         },
         {
-          uses: 'oven-sh/setup-bun@v2',
+          uses: "oven-sh/setup-bun@v2",
         },
         {
-          name: 'Download dispatch context',
-          uses: 'actions/download-artifact@v4',
+          name: "Download dispatch context",
+          uses: "actions/download-artifact@v4",
           with: {
-            name: `dispatch-context-${ghExpr('needs.prepare-context.outputs.run-id')}`,
-            path: '/tmp/dispatch-context/',
+            name: `dispatch-context-${ghExpr("needs.prepare-context.outputs.run-id")}`,
+            path: "/tmp/dispatch-context/",
           },
         },
         {
-          name: `Run pre-flight for ${ghExpr('matrix.agent.agentName')}`,
-          id: 'pre-flight-check',
-          run: `${cliCommand} run pre-flight --agent ${ghExpr('matrix.agent.agentPath')}`,
+          name: `Run pre-flight for ${ghExpr("matrix.agent.agentName")}`,
+          id: "pre-flight-check",
+          run: `${cliCommand} run pre-flight --agent ${ghExpr("matrix.agent.agentPath")}`,
           env: {
-            ANTHROPIC_API_KEY: ghExpr('secrets.ANTHROPIC_API_KEY'),
-            CLAUDE_CODE_OAUTH_TOKEN: ghExpr('secrets.CLAUDE_CODE_OAUTH_TOKEN'),
-            GH_TOKEN: ghExpr('secrets.GITHUB_TOKEN'),
+            ANTHROPIC_API_KEY: ghExpr("secrets.ANTHROPIC_API_KEY"),
+            CLAUDE_CODE_OAUTH_TOKEN: ghExpr("secrets.CLAUDE_CODE_OAUTH_TOKEN"),
+            GH_TOKEN: ghExpr("secrets.GITHUB_TOKEN"),
           },
         },
         {
-          name: 'Upload validation audit',
-          uses: 'actions/upload-artifact@v4',
-          if: 'always()',
+          name: "Upload validation audit",
+          uses: "actions/upload-artifact@v4",
+          if: "always()",
           with: {
-            name: `validation-audit-${ghExpr('matrix.agent.agentName')}-${ghExpr('github.run_id')}`,
-            path: '/tmp/artifacts/validation-audit/',
+            name: `validation-audit-${ghExpr("matrix.agent.agentName")}-${ghExpr("github.run_id")}`,
+            path: "/tmp/artifacts/validation-audit/",
           },
         },
         {
-          name: `Dispatch to ${ghExpr('matrix.agent.agentName')}`,
+          name: `Dispatch to ${ghExpr("matrix.agent.agentName")}`,
           if: "steps.pre-flight-check.outputs.should-run == 'true'",
           env: {
-            GH_TOKEN: ghExpr('needs.pre-flight.outputs.app-token'),
+            GH_TOKEN: ghExpr("needs.pre-flight.outputs.app-token"),
           },
-          run: `echo "Triggering workflow: ${ghExpr('matrix.agent.workflowFile')}"
-echo "Agent: ${ghExpr('matrix.agent.agentName')}"
+          run: `echo "Triggering workflow: ${ghExpr("matrix.agent.workflowFile")}"
+echo "Agent: ${ghExpr("matrix.agent.agentName")}"
 
-gh workflow run "${ghExpr('matrix.agent.workflowFile')}" \\
-  --ref "${ghExpr('github.ref')}" \\
-  -f context-run-id="${ghExpr('needs.prepare-context.outputs.run-id')}"
+gh workflow run "${ghExpr("matrix.agent.workflowFile")}" \\
+  --ref "${ghExpr("github.ref")}" \\
+  -f context-run-id="${ghExpr("needs.prepare-context.outputs.run-id")}"
 
-echo "✓ Dispatched to ${ghExpr('matrix.agent.agentName')}"`,
+echo "✓ Dispatched to ${ghExpr("matrix.agent.agentName")}"`,
         },
         {
-          name: 'Skip notification',
+          name: "Skip notification",
           if: "steps.pre-flight-check.outputs.should-run != 'true'",
-          run: `echo "::notice::Skipping ${ghExpr('matrix.agent.agentName')}: ${ghExpr("steps.pre-flight-check.outputs.skip-reason || 'Pre-flight check failed'")}"`,
+          run: `echo "::notice::Skipping ${ghExpr("matrix.agent.agentName")}: ${ghExpr("steps.pre-flight-check.outputs.skip-reason || 'Pre-flight check failed'")}"`,
         },
       ],
     };
   }
 
   private formatYaml(yamlContent: string): string {
-    const lines = yamlContent.split('\n');
+    const lines = yamlContent.split("\n");
     const formatted: string[] = [];
     let previousLineWasStep = false;
     let inJobs = false;
@@ -725,7 +724,7 @@ echo "✓ Dispatched to ${ghExpr('matrix.agent.agentName')}"`,
       const trimmed = line.trim();
 
       // Track when we enter jobs section
-      if (line === 'jobs:') {
+      if (line === "jobs:") {
         inJobs = true;
         formatted.push(line);
         continue;
@@ -735,7 +734,7 @@ echo "✓ Dispatched to ${ghExpr('matrix.agent.agentName')}"`,
       const isJobKey = inJobs && /^\s{2}[a-z-]+:$/.test(line);
 
       // Check if entering steps section
-      if (trimmed === 'steps:') {
+      if (trimmed === "steps:") {
         inSteps = true;
         formatted.push(line);
         previousLineWasStep = false;
@@ -749,9 +748,9 @@ echo "✓ Dispatched to ${ghExpr('matrix.agent.agentName')}"`,
 
       // Add blank line before job keys (except the very first one after "jobs:")
       if (isJobKey) {
-        const lastNonEmptyLine = formatted.filter((l) => l.trim() !== '').pop();
-        if (lastNonEmptyLine && lastNonEmptyLine !== 'jobs:') {
-          formatted.push('');
+        const lastNonEmptyLine = formatted.filter((l) => l.trim() !== "").pop();
+        if (lastNonEmptyLine && lastNonEmptyLine !== "jobs:") {
+          formatted.push("");
         }
         formatted.push(line);
         previousLineWasStep = false;
@@ -761,14 +760,14 @@ echo "✓ Dispatched to ${ghExpr('matrix.agent.agentName')}"`,
       // Add blank line before each step (except the first one)
       const isStepStart = inSteps && /^\s{4}-\s/.test(line);
       if (isStepStart && previousLineWasStep) {
-        formatted.push('');
+        formatted.push("");
       }
 
       formatted.push(line);
       previousLineWasStep = isStepStart;
     }
 
-    return formatted.join('\n');
+    return formatted.join("\n");
   }
 }
 

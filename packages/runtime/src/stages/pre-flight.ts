@@ -1,17 +1,17 @@
-import { readFile } from 'fs/promises';
-import type { Stage, StageResult, StageContext } from '../types';
-import { agentParser } from '@repo-agents/parser';
-import type { AgentDefinition } from '@repo-agents/types';
+import { readFile } from "node:fs/promises";
+import { agentParser } from "@repo-agents/parser";
+import type { AgentDefinition } from "@repo-agents/types";
+import type { Stage, StageContext, StageResult } from "../types";
+import { writeArtifact } from "../utils/artifacts";
 import {
-  parseRepository,
+  getIssue,
+  getPullRequest,
+  getRecentWorkflowRuns,
   getRepositoryPermission,
   isOrgMember,
   isTeamMember,
-  getRecentWorkflowRuns,
-  getIssue,
-  getPullRequest,
-} from '../utils/index';
-import { writeArtifact } from '../utils/artifacts';
+  parseRepository,
+} from "../utils/index";
 
 /**
  * Validation status tracking for audit
@@ -28,8 +28,8 @@ interface ValidationStatus {
  */
 interface PermissionIssue {
   timestamp: string;
-  issue_type: 'missing_permission' | 'path_restriction' | 'rate_limit' | 'validation_error';
-  severity: 'error' | 'warning';
+  issue_type: "missing_permission" | "path_restriction" | "rate_limit" | "validation_error";
+  severity: "error" | "warning";
   message: string;
   context?: Record<string, unknown>;
 }
@@ -54,8 +54,8 @@ export const runPreFlight: Stage = async (ctx: StageContext): Promise<StageResul
   const permissionIssues: PermissionIssue[] = [];
 
   const outputs: Record<string, string> = {
-    'should-run': 'false',
-    'rate-limited': 'false',
+    "should-run": "false",
+    "rate-limited": "false",
   };
 
   try {
@@ -67,10 +67,10 @@ export const runPreFlight: Stage = async (ctx: StageContext): Promise<StageResul
     if (!secretsResult.valid) {
       permissionIssues.push({
         timestamp: new Date().toISOString(),
-        issue_type: 'missing_permission',
-        severity: 'error',
-        message: 'No Claude authentication configured',
-        context: { required: ['ANTHROPIC_API_KEY', 'CLAUDE_CODE_OAUTH_TOKEN'] },
+        issue_type: "missing_permission",
+        severity: "error",
+        message: "No Claude authentication configured",
+        context: { required: ["ANTHROPIC_API_KEY", "CLAUDE_CODE_OAUTH_TOKEN"] },
       });
       await writeAuditData(validationStatus, permissionIssues);
       return {
@@ -79,20 +79,20 @@ export const runPreFlight: Stage = async (ctx: StageContext): Promise<StageResul
       };
     }
     validationStatus.secrets_check = true;
-    console.log('Secrets check passed');
+    console.log("Secrets check passed");
 
     // Step 3: Check user authorization
     const authResult = await checkUserAuthorization(ctx, agent);
     if (!authResult.authorized) {
       permissionIssues.push({
         timestamp: new Date().toISOString(),
-        issue_type: 'missing_permission',
-        severity: 'error',
-        message: 'User not authorized to trigger agent',
+        issue_type: "missing_permission",
+        severity: "error",
+        message: "User not authorized to trigger agent",
         context: { user: ctx.actor, permission: authResult.permission },
       });
       await writeAuditData(validationStatus, permissionIssues);
-      outputs['skip-reason'] = authResult.reason ?? 'User not authorized';
+      outputs["skip-reason"] = authResult.reason ?? "User not authorized";
       return {
         success: false,
         outputs,
@@ -107,16 +107,16 @@ export const runPreFlight: Stage = async (ctx: StageContext): Promise<StageResul
       if (!labelsResult.valid) {
         permissionIssues.push({
           timestamp: new Date().toISOString(),
-          issue_type: 'validation_error',
-          severity: 'error',
-          message: 'Required label not found',
+          issue_type: "validation_error",
+          severity: "error",
+          message: "Required label not found",
           context: {
             required_labels: agent.trigger_labels,
             current_labels: labelsResult.currentLabels,
           },
         });
         await writeAuditData(validationStatus, permissionIssues);
-        outputs['skip-reason'] = labelsResult.reason ?? 'Required label not found';
+        outputs["skip-reason"] = labelsResult.reason ?? "Required label not found";
         return {
           success: true, // Not an error, just skipped
           outputs,
@@ -134,8 +134,8 @@ export const runPreFlight: Stage = async (ctx: StageContext): Promise<StageResul
     const rateLimitResult = await checkRateLimit(ctx, rateLimitMinutes);
     if (!rateLimitResult.allowed) {
       validationStatus.rate_limit_check = true; // We checked it, it's just not allowing execution
-      outputs['rate-limited'] = 'true';
-      outputs['skip-reason'] = rateLimitResult.reason ?? 'Rate limit exceeded';
+      outputs["rate-limited"] = "true";
+      outputs["skip-reason"] = rateLimitResult.reason ?? "Rate limit exceeded";
       await writeAuditData(validationStatus, permissionIssues);
       return {
         success: true, // Not an error, just rate limited
@@ -144,24 +144,24 @@ export const runPreFlight: Stage = async (ctx: StageContext): Promise<StageResul
       };
     }
     validationStatus.rate_limit_check = true;
-    console.log('Rate limit check passed');
+    console.log("Rate limit check passed");
 
     // All checks passed
-    outputs['should-run'] = 'true';
+    outputs["should-run"] = "true";
     await writeAuditData(validationStatus, permissionIssues);
 
-    console.log('All validation checks passed');
+    console.log("All validation checks passed");
     return {
       success: true,
       outputs,
-      artifacts: [{ name: 'validation-audit', path: '/tmp/artifacts/validation-audit' }],
+      artifacts: [{ name: "validation-audit", path: "/tmp/artifacts/validation-audit" }],
     };
   } catch (error) {
     const errorMessage = error instanceof Error ? error.message : String(error);
     permissionIssues.push({
       timestamp: new Date().toISOString(),
-      issue_type: 'validation_error',
-      severity: 'error',
+      issue_type: "validation_error",
+      severity: "error",
       message: `Pre-flight check failed: ${errorMessage}`,
     });
     await writeAuditData(validationStatus, permissionIssues);
@@ -178,25 +178,25 @@ export const runPreFlight: Stage = async (ctx: StageContext): Promise<StageResul
 async function loadAgent(agentPath: string): Promise<AgentDefinition> {
   const result = await agentParser.parseFile(agentPath);
 
-  if (result.errors.some((e) => e.severity === 'error')) {
+  if (result.errors.some((e) => e.severity === "error")) {
     const errorMessages = result.errors
-      .filter((e) => e.severity === 'error')
+      .filter((e) => e.severity === "error")
       .map((e) => `${e.field}: ${e.message}`)
-      .join('; ');
+      .join("; ");
     throw new Error(`Agent validation failed: ${errorMessages}`);
   }
 
   if (!result.agent) {
-    throw new Error('Failed to parse agent definition');
+    throw new Error("Failed to parse agent definition");
   }
 
   // Run additional business logic validation
   const validationErrors = agentParser.validateAgent(result.agent);
-  if (validationErrors.some((e) => e.severity === 'error')) {
+  if (validationErrors.some((e) => e.severity === "error")) {
     const errorMessages = validationErrors
-      .filter((e) => e.severity === 'error')
+      .filter((e) => e.severity === "error")
       .map((e) => `${e.field}: ${e.message}`)
-      .join('; ');
+      .join("; ");
     throw new Error(`Agent validation failed: ${errorMessages}`);
   }
 
@@ -214,15 +214,15 @@ function checkSecrets(): { valid: boolean; error?: string } {
     return {
       valid: false,
       error:
-        'No Claude authentication found. Please set either ANTHROPIC_API_KEY or CLAUDE_CODE_OAUTH_TOKEN.',
+        "No Claude authentication found. Please set either ANTHROPIC_API_KEY or CLAUDE_CODE_OAUTH_TOKEN.",
     };
   }
 
   if (anthropicKey) {
-    console.log('ANTHROPIC_API_KEY is configured');
+    console.log("ANTHROPIC_API_KEY is configured");
   }
   if (oauthToken) {
-    console.log('CLAUDE_CODE_OAUTH_TOKEN is configured');
+    console.log("CLAUDE_CODE_OAUTH_TOKEN is configured");
   }
 
   return { valid: true };
@@ -233,7 +233,7 @@ function checkSecrets(): { valid: boolean; error?: string } {
  */
 async function checkUserAuthorization(
   ctx: StageContext,
-  agent: AgentDefinition
+  agent: AgentDefinition,
 ): Promise<{ authorized: boolean; permission?: string; reason?: string }> {
   const { owner, repo } = parseRepository(ctx.repository);
   const actor = ctx.actor;
@@ -247,7 +247,7 @@ async function checkUserAuthorization(
     // Default behavior: check repo permission level
     const permission = await getRepositoryPermission(owner, repo, actor);
 
-    if (permission === 'admin' || permission === 'write') {
+    if (permission === "admin" || permission === "write") {
       return {
         authorized: true,
         permission,
@@ -261,7 +261,7 @@ async function checkUserAuthorization(
       return {
         authorized: true,
         permission,
-        reason: 'User is organization member',
+        reason: "User is organization member",
       };
     }
 
@@ -276,7 +276,7 @@ async function checkUserAuthorization(
   if (allowedUsers.includes(actor)) {
     return {
       authorized: true,
-      reason: 'User is in allowed users list',
+      reason: "User is in allowed users list",
     };
   }
 
@@ -302,7 +302,7 @@ async function checkUserAuthorization(
  */
 async function checkTriggerLabels(
   ctx: StageContext,
-  requiredLabels: string[]
+  requiredLabels: string[],
 ): Promise<{ valid: boolean; currentLabels?: string[]; foundLabel?: string; reason?: string }> {
   const { owner, repo } = parseRepository(ctx.repository);
 
@@ -310,14 +310,14 @@ async function checkTriggerLabels(
   const number = await getIssueOrPrNumber(ctx);
 
   if (!number) {
-    console.log('No issue or PR number found, skipping label check');
-    return { valid: true, reason: 'No issue or PR to check labels' };
+    console.log("No issue or PR number found, skipping label check");
+    return { valid: true, reason: "No issue or PR to check labels" };
   }
 
   // Get current labels
   let currentLabels: string[] = [];
   try {
-    if (ctx.eventName === 'pull_request') {
+    if (ctx.eventName === "pull_request") {
       const pr = await getPullRequest(owner, repo, number);
       currentLabels = pr.labels;
     } else {
@@ -326,7 +326,7 @@ async function checkTriggerLabels(
     }
   } catch (error) {
     console.log(`Failed to fetch labels: ${error}`);
-    return { valid: false, currentLabels: [], reason: 'Failed to fetch current labels' };
+    return { valid: false, currentLabels: [], reason: "Failed to fetch current labels" };
   }
 
   // Check for at least one required label
@@ -339,7 +339,7 @@ async function checkTriggerLabels(
   return {
     valid: false,
     currentLabels,
-    reason: `Required label not found. Need one of: ${requiredLabels.join(', ')}`,
+    reason: `Required label not found. Need one of: ${requiredLabels.join(", ")}`,
   };
 }
 
@@ -348,16 +348,16 @@ async function checkTriggerLabels(
  */
 async function checkRateLimit(
   ctx: StageContext,
-  rateLimitMinutes: number
+  rateLimitMinutes: number,
 ): Promise<{ allowed: boolean; reason?: string }> {
   // Bypass rate limit for manual workflow_dispatch runs
-  if (ctx.eventName === 'workflow_dispatch') {
-    console.log('Manual run - bypassing rate limit check');
+  if (ctx.eventName === "workflow_dispatch") {
+    console.log("Manual run - bypassing rate limit check");
     return { allowed: true };
   }
 
   const { owner, repo } = parseRepository(ctx.repository);
-  const workflowName = process.env.GITHUB_WORKFLOW ?? '';
+  const workflowName = process.env.GITHUB_WORKFLOW ?? "";
 
   const recentRuns = await getRecentWorkflowRuns(owner, repo, workflowName, 5);
 
@@ -393,7 +393,7 @@ async function getIssueOrPrNumber(ctx: StageContext): Promise<number | undefined
       return undefined;
     }
 
-    const eventPayload = JSON.parse(await readFile(eventPath, 'utf-8'));
+    const eventPayload = JSON.parse(await readFile(eventPath, "utf-8"));
 
     if (eventPayload.issue?.number) {
       return eventPayload.issue.number;
@@ -414,17 +414,17 @@ async function getIssueOrPrNumber(ctx: StageContext): Promise<number | undefined
  */
 async function writeAuditData(
   validationStatus: ValidationStatus,
-  permissionIssues: PermissionIssue[]
+  permissionIssues: PermissionIssue[],
 ): Promise<void> {
   await writeArtifact(
-    'validation-audit',
-    'validation-status.json',
-    JSON.stringify(validationStatus, null, 2)
+    "validation-audit",
+    "validation-status.json",
+    JSON.stringify(validationStatus, null, 2),
   );
 
   await writeArtifact(
-    'validation-audit',
-    'permission-issues.json',
-    JSON.stringify(permissionIssues, null, 2)
+    "validation-audit",
+    "permission-issues.json",
+    JSON.stringify(permissionIssues, null, 2),
   );
 }

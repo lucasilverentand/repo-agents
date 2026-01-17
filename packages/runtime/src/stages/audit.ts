@@ -9,15 +9,15 @@
  * 5. Create a GitHub issue for failures (if configured)
  */
 
-import { existsSync } from 'node:fs';
-import { mkdir, readdir, readFile, writeFile } from 'node:fs/promises';
-import { join } from 'node:path';
+import { existsSync } from "node:fs";
+import { mkdir, readdir, readFile, writeFile } from "node:fs/promises";
+import { join } from "node:path";
 
-import { agentParser } from '@repo-agents/parser';
-import type { AgentDefinition, ClaudeExecutionMetrics, PermissionIssue } from '@repo-agents/types';
-import { $ } from 'bun';
+import { agentParser } from "@repo-agents/parser";
+import type { AgentDefinition, ClaudeExecutionMetrics, PermissionIssue } from "@repo-agents/types";
+import { $ } from "bun";
 
-import type { Stage, StageContext, StageResult } from '../types';
+import type { Stage, StageContext, StageResult } from "../types";
 
 /** Paths where audit data is collected from previous stages */
 const AUDIT_PATHS = {
@@ -26,12 +26,12 @@ const AUDIT_PATHS = {
    * Note: Pre-flight runs in the dispatcher workflow, so these files are only
    * available if explicitly downloaded from the dispatcher's artifacts.
    */
-  validationStatus: '/tmp/audit-data/validation/validation-status.json',
-  permissionIssues: '/tmp/audit-data/validation/permission-issues.json',
+  validationStatus: "/tmp/audit-data/validation/validation-status.json",
+  permissionIssues: "/tmp/audit-data/validation/permission-issues.json",
   /** From agent execution stage */
-  metrics: '/tmp/audit-data/metrics/metrics.json',
+  metrics: "/tmp/audit-data/metrics/metrics.json",
   /** From outputs stage */
-  outputsDir: '/tmp/audit-data/outputs',
+  outputsDir: "/tmp/audit-data/outputs",
 } as const;
 
 /** Validation status (from pre-flight, if available) */
@@ -69,7 +69,7 @@ interface FailureInfo {
  */
 async function readJsonFile<T>(filePath: string): Promise<T | undefined> {
   try {
-    const content = await readFile(filePath, 'utf-8');
+    const content = await readFile(filePath, "utf-8");
     return JSON.parse(content) as T;
   } catch {
     return undefined;
@@ -92,9 +92,9 @@ async function collectAuditData(): Promise<AuditData> {
     if (existsSync(AUDIT_PATHS.outputsDir)) {
       const files = await readdir(AUDIT_PATHS.outputsDir);
       for (const file of files) {
-        if (file.endsWith('.json')) {
+        if (file.endsWith(".json")) {
           const result = await readJsonFile<OutputValidationResult>(
-            join(AUDIT_PATHS.outputsDir, file)
+            join(AUDIT_PATHS.outputsDir, file),
           );
           if (result) {
             outputResults.push(result);
@@ -130,16 +130,16 @@ function detectFailures(ctx: StageContext, auditData: AuditData): FailureInfo {
   // Note: Pre-flight checks run in dispatcher, not in agent workflows
   if (
     jobStatuses?.claudeAgent &&
-    jobStatuses.claudeAgent !== 'success' &&
-    jobStatuses.claudeAgent !== 'skipped'
+    jobStatuses.claudeAgent !== "success" &&
+    jobStatuses.claudeAgent !== "skipped"
   ) {
     reasons.push(`Claude agent execution failed (${jobStatuses.claudeAgent})`);
   }
 
   if (
     jobStatuses?.executeOutputs &&
-    jobStatuses.executeOutputs !== 'success' &&
-    jobStatuses.executeOutputs !== 'skipped'
+    jobStatuses.executeOutputs !== "success" &&
+    jobStatuses.executeOutputs !== "skipped"
   ) {
     reasons.push(`Output execution failed (${jobStatuses.executeOutputs})`);
   }
@@ -151,14 +151,14 @@ function detectFailures(ctx: StageContext, auditData: AuditData): FailureInfo {
 
   // Check if Claude had an error
   if (auditData.metrics?.is_error) {
-    reasons.push('Claude execution returned an error');
+    reasons.push("Claude execution returned an error");
   }
 
   // Check output validation failures
   const failedOutputs = auditData.outputResults.filter((r) => !r.success);
   if (failedOutputs.length > 0) {
     reasons.push(
-      `Output validation failed for: ${failedOutputs.map((r) => r.outputType).join(', ')}`
+      `Output validation failed for: ${failedOutputs.map((r) => r.outputType).join(", ")}`,
     );
   }
 
@@ -175,32 +175,32 @@ function generateAuditReport(
   agent: AgentDefinition,
   ctx: StageContext,
   auditData: AuditData,
-  failures: FailureInfo
+  failures: FailureInfo,
 ): string {
   const timestamp = new Date().toISOString();
-  const serverUrl = process.env.GITHUB_SERVER_URL ?? 'https://github.com';
+  const serverUrl = process.env.GITHUB_SERVER_URL ?? "https://github.com";
   const runUrl = `${serverUrl}/${ctx.repository}/actions/runs/${ctx.runId}`;
 
   const lines: string[] = [
-    '# Agent Execution Audit Report',
-    '',
+    "# Agent Execution Audit Report",
+    "",
     `**Agent:** ${agent.name}`,
     `**Workflow Run:** [${ctx.runId}](${runUrl})`,
     `**Triggered by:** @${ctx.actor}`,
     `**Event:** ${ctx.eventName}`,
     `**Timestamp:** ${timestamp}`,
-    '',
+    "",
   ];
 
   // Job Results section
-  lines.push('## Job Results', '');
-  lines.push('| Job | Result |');
-  lines.push('|-----|--------|');
+  lines.push("## Job Results", "");
+  lines.push("| Job | Result |");
+  lines.push("|-----|--------|");
 
   const formatJobResult = (result?: string): string => {
-    if (!result) return '- N/A';
-    if (result === 'success') return `[OK] ${result}`;
-    if (result === 'skipped') return `[SKIP] ${result}`;
+    if (!result) return "- N/A";
+    if (result === "success") return `[OK] ${result}`;
+    if (result === "skipped") return `[SKIP] ${result}`;
     return `[FAIL] ${result}`;
   };
 
@@ -214,79 +214,79 @@ function generateAuditReport(
     lines.push(`| execute-outputs | ${formatJobResult(ctx.jobStatuses.executeOutputs)} |`);
   }
 
-  lines.push('');
+  lines.push("");
 
   // Execution Metrics section
   if (auditData.metrics) {
     const { total_cost_usd, num_turns, duration_ms, session_id } = auditData.metrics;
 
-    lines.push('## Execution Metrics', '');
-    lines.push('| Metric | Value |');
-    lines.push('|--------|-------|');
-    lines.push(`| Cost | $${total_cost_usd ?? 'N/A'} |`);
-    lines.push(`| Turns | ${num_turns ?? 'N/A'} |`);
-    lines.push(`| Duration | ${duration_ms ?? 'N/A'}ms |`);
-    lines.push(`| Session | \`${session_id ?? 'N/A'}\` |`);
-    lines.push('');
+    lines.push("## Execution Metrics", "");
+    lines.push("| Metric | Value |");
+    lines.push("|--------|-------|");
+    lines.push(`| Cost | $${total_cost_usd ?? "N/A"} |`);
+    lines.push(`| Turns | ${num_turns ?? "N/A"} |`);
+    lines.push(`| Duration | ${duration_ms ?? "N/A"}ms |`);
+    lines.push(`| Session | \`${session_id ?? "N/A"}\` |`);
+    lines.push("");
   }
 
   // Validation Results section
   if (auditData.validationStatus) {
-    lines.push('## Validation Results', '');
-    lines.push('| Check | Status |');
-    lines.push('|-------|--------|');
+    lines.push("## Validation Results", "");
+    lines.push("| Check | Status |");
+    lines.push("|-------|--------|");
 
-    const formatCheck = (passed: boolean): string => (passed ? '[OK] Passed' : '[FAIL] Failed');
+    const formatCheck = (passed: boolean): string => (passed ? "[OK] Passed" : "[FAIL] Failed");
 
     lines.push(`| Secrets | ${formatCheck(auditData.validationStatus.secrets_check)} |`);
     lines.push(
-      `| User Authorization | ${formatCheck(auditData.validationStatus.user_authorization)} |`
+      `| User Authorization | ${formatCheck(auditData.validationStatus.user_authorization)} |`,
     );
     lines.push(`| Labels | ${formatCheck(auditData.validationStatus.labels_check)} |`);
     lines.push(`| Rate Limit | ${formatCheck(auditData.validationStatus.rate_limit_check)} |`);
-    lines.push('');
+    lines.push("");
   }
 
   // Permission Issues section
   if (auditData.permissionIssues.length > 0) {
-    lines.push('## Permission Issues', '');
+    lines.push("## Permission Issues", "");
     for (const issue of auditData.permissionIssues) {
       lines.push(`- **[${issue.severity.toUpperCase()}]** ${issue.issue_type}: ${issue.message}`);
     }
-    lines.push('');
+    lines.push("");
   }
 
   // Output Execution section
   if (auditData.outputResults.length > 0) {
-    lines.push('## Output Execution', '');
-    lines.push('| Output Type | Status | Details |');
-    lines.push('|-------------|--------|---------|');
+    lines.push("## Output Execution", "");
+    lines.push("| Output Type | Status | Details |");
+    lines.push("|-------------|--------|---------|");
 
     for (const result of auditData.outputResults) {
-      const status = result.success ? '[OK] Success' : '[FAIL] Failed';
-      const details = result.error ?? '-';
+      const status = result.success ? "[OK] Success" : "[FAIL] Failed";
+      const details = result.error ?? "-";
       lines.push(`| ${result.outputType} | ${status} | ${details} |`);
     }
-    lines.push('');
+    lines.push("");
   }
 
   // Errors section (if any failures)
   if (failures.hasFailures) {
-    lines.push('## Errors', '');
+    lines.push("## Errors", "");
     for (const reason of failures.reasons) {
       lines.push(`- ${reason}`);
     }
-    lines.push('');
+    lines.push("");
   }
 
-  return lines.join('\n');
+  return lines.join("\n");
 }
 
 /**
  * Checks if a similar failure issue already exists.
  */
 async function findExistingIssue(agentName: string, labels: string[]): Promise<number | undefined> {
-  const searchLabel = labels[0] ?? 'agent-failure';
+  const searchLabel = labels[0] ?? "agent-failure";
   const searchQuery = `${agentName} failure`;
 
   try {
@@ -308,13 +308,13 @@ async function createOrUpdateFailureIssue(
   agent: AgentDefinition,
   ctx: StageContext,
   report: string,
-  failures: FailureInfo
+  failures: FailureInfo,
 ): Promise<string | undefined> {
   const auditConfig = agent.audit ?? {};
-  const labels = auditConfig.labels ?? ['agent-failure'];
+  const labels = auditConfig.labels ?? ["agent-failure"];
   const assignees = auditConfig.assignees ?? [];
 
-  const serverUrl = process.env.GITHUB_SERVER_URL ?? 'https://github.com';
+  const serverUrl = process.env.GITHUB_SERVER_URL ?? "https://github.com";
   const runUrl = `${serverUrl}/${ctx.repository}/actions/runs/${ctx.runId}`;
   const timestamp = new Date().toISOString();
 
@@ -330,7 +330,7 @@ The **${agent.name}** agent encountered failures during execution.
 - **Time:** ${timestamp}
 
 ### Failure Summary
-${failures.reasons.map((r) => `- ${r}`).join('\n')}
+${failures.reasons.map((r) => `- ${r}`).join("\n")}
 
 ---
 
@@ -354,17 +354,17 @@ ${report}
       await $`gh issue comment ${existingIssue} --body ${issueBody}`.quiet();
       return `${serverUrl}/${ctx.repository}/issues/${existingIssue}`;
     } else {
-      console.log('Creating new failure issue');
+      console.log("Creating new failure issue");
       const title = `${agent.name}: Agent Execution Failed`;
 
       // Build command arguments
-      const args: string[] = ['issue', 'create', '--title', title, '--body', issueBody];
+      const args: string[] = ["issue", "create", "--title", title, "--body", issueBody];
 
       if (labels.length > 0) {
-        args.push('--label', labels.join(','));
+        args.push("--label", labels.join(","));
       }
       if (assignees.length > 0) {
-        args.push('--assignee', assignees.join(','));
+        args.push("--assignee", assignees.join(","));
       }
 
       // Run gh issue create and capture the URL
@@ -374,7 +374,7 @@ ${report}
       return result.trim();
     }
   } catch (error) {
-    console.error('Failed to create/update failure issue:', error);
+    console.error("Failed to create/update failure issue:", error);
     return undefined;
   }
 }
@@ -383,34 +383,34 @@ ${report}
  * Audit stage: collects metrics, generates reports, and handles failure notifications.
  */
 export const runAudit: Stage = async (ctx: StageContext): Promise<StageResult> => {
-  console.log('=== Audit Stage ===');
+  console.log("=== Audit Stage ===");
 
   const artifacts: Array<{ name: string; path: string }> = [];
 
   // Load agent definition
   const { agent, errors } = await agentParser.parseFile(ctx.agentPath);
 
-  if (!agent || errors.some((e) => e.severity === 'error')) {
-    console.error('Failed to parse agent definition:', errors);
+  if (!agent || errors.some((e) => e.severity === "error")) {
+    console.error("Failed to parse agent definition:", errors);
     // Still return success - audit stage should not fail the workflow
     return {
       success: true,
       outputs: {
-        'has-failures': 'true',
-        'parse-error': 'true',
+        "has-failures": "true",
+        "parse-error": "true",
       },
     };
   }
 
   // Check for rate-limited runs (not a failure, just skipped)
   if (ctx.jobStatuses?.rateLimited) {
-    console.log('Agent run was rate-limited. This is expected behavior, not a failure.');
+    console.log("Agent run was rate-limited. This is expected behavior, not a failure.");
     return {
       success: true,
       outputs: {
-        'has-failures': 'false',
+        "has-failures": "false",
       },
-      skipReason: 'Rate-limited run',
+      skipReason: "Rate-limited run",
     };
   }
 
@@ -424,23 +424,23 @@ export const runAudit: Stage = async (ctx: StageContext): Promise<StageResult> =
   const report = generateAuditReport(agent, ctx, auditData, failures);
 
   // Write report to file
-  const auditDir = '/tmp/audit';
+  const auditDir = "/tmp/audit";
   await mkdir(auditDir, { recursive: true });
-  await writeFile(join(auditDir, 'report.md'), report);
+  await writeFile(join(auditDir, "report.md"), report);
 
-  artifacts.push({ name: 'audit-report', path: auditDir });
+  artifacts.push({ name: "audit-report", path: auditDir });
 
   // Log summary
   if (failures.hasFailures) {
-    console.error('Agent execution had failures:');
+    console.error("Agent execution had failures:");
     for (const reason of failures.reasons) {
       console.error(`  - ${reason}`);
     }
-    console.log('\n--- Audit Report ---');
+    console.log("\n--- Audit Report ---");
     console.log(report);
   } else {
-    console.log('Agent execution completed successfully');
-    console.log('View full audit report in workflow artifacts');
+    console.log("Agent execution completed successfully");
+    console.log("View full audit report in workflow artifacts");
   }
 
   // Create failure issue if configured and there are failures
@@ -458,8 +458,8 @@ export const runAudit: Stage = async (ctx: StageContext): Promise<StageResult> =
   return {
     success: true,
     outputs: {
-      'has-failures': failures.hasFailures ? 'true' : 'false',
-      ...(issueUrl && { 'issue-url': issueUrl }),
+      "has-failures": failures.hasFailures ? "true" : "false",
+      ...(issueUrl && { "issue-url": issueUrl }),
     },
     artifacts,
   };

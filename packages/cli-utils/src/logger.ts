@@ -1,4 +1,4 @@
-import chalk from 'chalk';
+import chalk from "chalk";
 
 export class Logger {
   private verbose: boolean;
@@ -8,24 +8,24 @@ export class Logger {
   }
 
   info(message: string): void {
-    console.log(chalk.blue('ℹ'), message);
+    console.log(chalk.blue("ℹ"), message);
   }
 
   success(message: string): void {
-    console.log(chalk.green('✓'), message);
+    console.log(chalk.green("✓"), message);
   }
 
   warn(message: string): void {
-    console.log(chalk.yellow('⚠'), message);
+    console.log(chalk.yellow("⚠"), message);
   }
 
   error(message: string): void {
-    console.error(chalk.red('✗'), message);
+    console.error(chalk.red("✗"), message);
   }
 
   debug(message: string): void {
     if (this.verbose) {
-      console.log(chalk.gray('[DEBUG]'), message);
+      console.log(chalk.gray("[DEBUG]"), message);
     }
   }
 

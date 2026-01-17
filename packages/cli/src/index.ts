@@ -1,89 +1,89 @@
 #!/usr/bin/env node
 
-import { Command } from 'commander';
-import { initCommand } from './commands/init';
-import { compileCommand } from './commands/compile';
-import { validateCommand } from './commands/validate';
-import { listCommand } from './commands/list';
-import { authCommand } from './commands/auth';
-import { setupAppCommand } from './commands/setup-app';
-import { setupCommand } from './commands/setup';
-import { addCommand } from './commands/add';
+import { Command } from "commander";
 // Import root package.json for version (gets inlined during bundling)
-import packageJson from '../../../package.json';
+import packageJson from "../../../package.json";
+import { addCommand } from "./commands/add";
+import { authCommand } from "./commands/auth";
+import { compileCommand } from "./commands/compile";
+import { initCommand } from "./commands/init";
+import { listCommand } from "./commands/list";
+import { setupCommand } from "./commands/setup";
+import { setupAppCommand } from "./commands/setup-app";
+import { validateCommand } from "./commands/validate";
 
 const program = new Command();
 
 program
-  .name('repo-agents')
+  .name("repo-agents")
   .description(
-    'CLI tool for creating AI-powered GitHub Actions workflows from markdown agent definitions'
+    "CLI tool for creating AI-powered GitHub Actions workflows from markdown agent definitions",
   )
   .version(packageJson.version);
 
 program
-  .command('init')
-  .description('Initialize Repo Agents in the current repository')
-  .option('--examples', 'Include example agent templates')
-  .option('--force', 'Overwrite existing files')
+  .command("init")
+  .description("Initialize Repo Agents in the current repository")
+  .option("--examples", "Include example agent templates")
+  .option("--force", "Overwrite existing files")
   .action(initCommand);
 
 program
-  .command('compile')
+  .command("compile")
   .description(
-    'Compile all agent markdown files to GitHub Actions workflows (generates dispatcher + agent workflows)'
+    "Compile all agent markdown files to GitHub Actions workflows (generates dispatcher + agent workflows)",
   )
-  .option('-d, --dry-run', 'Show what would be generated without writing files')
-  .option('-o, --output-dir <dir>', 'Output directory for workflows')
+  .option("-d, --dry-run", "Show what would be generated without writing files")
+  .option("-o, --output-dir <dir>", "Output directory for workflows")
   .action(compileCommand);
 
 program
-  .command('validate [file]')
-  .description('Validate agent markdown files')
-  .option('-a, --all', 'Validate all agents')
-  .option('-s, --strict', 'Enable strict validation')
+  .command("validate [file]")
+  .description("Validate agent markdown files")
+  .option("-a, --all", "Validate all agents")
+  .option("-s, --strict", "Enable strict validation")
   .action(validateCommand);
 
 program
-  .command('list')
-  .description('List all Claude agents')
-  .option('-f, --format <format>', 'Output format (table, json, yaml)', 'table')
-  .option('-d, --details', 'Show detailed information')
+  .command("list")
+  .description("List all Claude agents")
+  .option("-f, --format <format>", "Output format (table, json, yaml)", "table")
+  .option("-d, --details", "Show detailed information")
   .action(listCommand);
 
 program
-  .command('setup-token')
+  .command("setup-token")
   .description(
-    'Set up Claude API token (checks subscription token first, then prompts for API key)'
+    "Set up Claude API token (checks subscription token first, then prompts for API key)",
   )
-  .option('--force', 'Overwrite existing token')
+  .option("--force", "Overwrite existing token")
   .action(authCommand);
 
 program
-  .command('setup-app')
-  .description('Configure a GitHub App for branded Claude agent identity and CI triggering')
-  .option('--force', 'Overwrite existing GitHub App secrets')
+  .command("setup-app")
+  .description("Configure a GitHub App for branded Claude agent identity and CI triggering")
+  .option("--force", "Overwrite existing GitHub App secrets")
   .option(
-    '--org <organization>',
-    'Organization name (auto-detected from current repo if not specified)'
+    "--org <organization>",
+    "Organization name (auto-detected from current repo if not specified)",
   )
   .action(setupAppCommand);
 
 program
-  .command('setup')
+  .command("setup")
   .description(
-    'Interactive setup wizard for Repo Agents (configures authentication and GitHub App)'
+    "Interactive setup wizard for Repo Agents (configures authentication and GitHub App)",
   )
-  .option('--force', 'Overwrite existing configuration')
-  .option('--skip-auth', 'Skip Claude authentication setup')
-  .option('--skip-app', 'Skip GitHub App setup')
+  .option("--force", "Overwrite existing configuration")
+  .option("--skip-auth", "Skip Claude authentication setup")
+  .option("--skip-app", "Skip GitHub App setup")
   .action(setupCommand);
 
 program
-  .command('add')
-  .description('Add Claude agents from the library')
-  .option('-a, --all', 'Add all agents from the library')
-  .option('--force', 'Overwrite existing agents')
+  .command("add")
+  .description("Add Claude agents from the library")
+  .option("-a, --all", "Add all agents from the library")
+  .option("--force", "Overwrite existing agents")
   .action(addCommand);
 
 program.parse();

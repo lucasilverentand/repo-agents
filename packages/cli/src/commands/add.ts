@@ -1,8 +1,8 @@
-import { readdirSync, readFileSync, copyFileSync, existsSync, mkdirSync } from 'fs';
-import { join, resolve } from 'path';
-import { logger } from '@repo-agents/cli-utils/logger';
-import { promptForInput } from '@repo-agents/cli-utils/prompts';
-import matter from 'gray-matter';
+import { copyFileSync, existsSync, mkdirSync, readdirSync, readFileSync } from "node:fs";
+import { join, resolve } from "node:path";
+import { logger } from "@repo-agents/cli-utils/logger";
+import { promptForInput } from "@repo-agents/cli-utils/prompts";
+import matter from "gray-matter";
 
 interface AddOptions {
   force?: boolean;
@@ -19,12 +19,12 @@ interface AgentInfo {
  * Extracts the first content line from markdown (skipping frontmatter and headers)
  */
 function extractDescription(content: string): string {
-  const lines = content.split('\n');
+  const lines = content.split("\n");
   const descriptionLine = lines.find((line) => {
     const trimmed = line.trim();
-    return trimmed && !trimmed.startsWith('---') && !trimmed.startsWith('#');
+    return trimmed && !trimmed.startsWith("---") && !trimmed.startsWith("#");
   });
-  return descriptionLine?.trim() || 'No description available';
+  return descriptionLine?.trim() || "No description available";
 }
 
 /**
@@ -33,7 +33,7 @@ function extractDescription(content: string): string {
 function getAvailableAgents(examplesDir: string): AgentInfo[] {
   let files: string[];
   try {
-    files = readdirSync(examplesDir).filter((f) => f.endsWith('.md') && f !== 'README.md');
+    files = readdirSync(examplesDir).filter((f) => f.endsWith(".md") && f !== "README.md");
   } catch (error) {
     logger.error(`Failed to read examples directory: ${(error as Error).message}`);
     process.exit(1);
@@ -43,13 +43,13 @@ function getAvailableAgents(examplesDir: string): AgentInfo[] {
 
   for (const filename of files) {
     const filePath = join(examplesDir, filename);
-    const content = readFileSync(filePath, 'utf-8');
+    const content = readFileSync(filePath, "utf-8");
 
     try {
       const { data } = matter(content);
       agents.push({
         filename,
-        name: (data.name as string) || filename.replace('.md', ''),
+        name: (data.name as string) || filename.replace(".md", ""),
         description: extractDescription(content),
       });
     } catch {
@@ -64,12 +64,12 @@ function getAvailableAgents(examplesDir: string): AgentInfo[] {
  * Displays the agent library and prompts user to select agents
  */
 async function selectAgents(agents: AgentInfo[]): Promise<string[]> {
-  logger.info('═══════════════════════════════════════════════════════════════');
-  logger.info('                       Agent Library                           ');
-  logger.info('═══════════════════════════════════════════════════════════════');
+  logger.info("═══════════════════════════════════════════════════════════════");
+  logger.info("                       Agent Library                           ");
+  logger.info("═══════════════════════════════════════════════════════════════");
   logger.newline();
 
-  logger.info('Available agents:');
+  logger.info("Available agents:");
   logger.newline();
 
   agents.forEach((agent, index) => {
@@ -78,26 +78,26 @@ async function selectAgents(agents: AgentInfo[]): Promise<string[]> {
     logger.newline();
   });
 
-  logger.info('═══════════════════════════════════════════════════════════════');
+  logger.info("═══════════════════════════════════════════════════════════════");
   logger.newline();
 
-  logger.info('Enter the numbers of agents you want to add (comma-separated),');
+  logger.info("Enter the numbers of agents you want to add (comma-separated),");
   logger.info('or type "all" to add all agents:');
   logger.newline();
 
-  const selection = await promptForInput('Selection: ');
+  const selection = await promptForInput("Selection: ");
 
-  if (selection.toLowerCase() === 'all') {
+  if (selection.toLowerCase() === "all") {
     return agents.map((a) => a.filename);
   }
 
   const selectedIndices = selection
-    .split(',')
+    .split(",")
     .map((s) => parseInt(s.trim(), 10))
-    .filter((n) => !isNaN(n) && n > 0 && n <= agents.length);
+    .filter((n) => !Number.isNaN(n) && n > 0 && n <= agents.length);
 
   if (selectedIndices.length === 0) {
-    logger.error('No valid agents selected');
+    logger.error("No valid agents selected");
     process.exit(1);
   }
 
@@ -111,7 +111,7 @@ function copyAgents(
   examplesDir: string,
   targetDir: string,
   filenames: string[],
-  force: boolean
+  force: boolean,
 ): void {
   // Ensure target directory exists
   if (!existsSync(targetDir)) {
@@ -160,7 +160,7 @@ function copyAgents(
   if (skipped.length > 0) {
     logger.warn(`Skipped ${skipped.length} existing agent(s):`);
     skipped.forEach((f) => logger.log(`  • ${f}`));
-    logger.log('Use --force to overwrite existing agents');
+    logger.log("Use --force to overwrite existing agents");
     logger.newline();
   }
 }
@@ -169,15 +169,15 @@ function copyAgents(
  * Add command to install agents from the library
  */
 export async function addCommand(options: AddOptions): Promise<void> {
-  logger.info('Adding agents from the library...');
+  logger.info("Adding agents from the library...");
   logger.newline();
 
   // Find the examples directory (package installation location)
-  const examplesDir = resolve(__dirname, '..//../examples');
+  const examplesDir = resolve(__dirname, "..//../examples");
 
   if (!existsSync(examplesDir)) {
-    logger.error('Examples directory not found');
-    logger.error('Make sure Repo Agents is properly installed');
+    logger.error("Examples directory not found");
+    logger.error("Make sure Repo Agents is properly installed");
     process.exit(1);
   }
 
@@ -185,7 +185,7 @@ export async function addCommand(options: AddOptions): Promise<void> {
   const agents = getAvailableAgents(examplesDir);
 
   if (agents.length === 0) {
-    logger.warn('No agents found in the library');
+    logger.warn("No agents found in the library");
     return;
   }
 
@@ -194,22 +194,22 @@ export async function addCommand(options: AddOptions): Promise<void> {
 
   if (options.all) {
     selectedFilenames = agents.map((a) => a.filename);
-    logger.info('Adding all agents from library...');
+    logger.info("Adding all agents from library...");
     logger.newline();
   } else {
     selectedFilenames = await selectAgents(agents);
   }
 
   if (selectedFilenames.length === 0) {
-    logger.warn('No agents selected');
+    logger.warn("No agents selected");
     return;
   }
 
   // Check if repository is initialized
-  const targetDir = '.github/agents';
+  const targetDir = ".github/agents";
   if (!existsSync(targetDir)) {
-    logger.error('Repository not initialized with Repo Agents');
-    logger.error('Run: repo-agents init');
+    logger.error("Repository not initialized with Repo Agents");
+    logger.error("Run: repo-agents init");
     process.exit(1);
   }
 
@@ -217,12 +217,12 @@ export async function addCommand(options: AddOptions): Promise<void> {
   copyAgents(examplesDir, targetDir, selectedFilenames, options.force || false);
 
   // Next steps
-  logger.success('Agents added successfully!');
+  logger.success("Agents added successfully!");
   logger.newline();
 
-  logger.info('Next steps:');
-  logger.log('  1. Review and customize agents in .github/agents/');
-  logger.log('  2. Compile agents: repo-agents compile');
-  logger.log('  3. Commit and push the changes');
+  logger.info("Next steps:");
+  logger.log("  1. Review and customize agents in .github/agents/");
+  logger.log("  2. Compile agents: repo-agents compile");
+  logger.log("  3. Commit and push the changes");
   logger.newline();
 }

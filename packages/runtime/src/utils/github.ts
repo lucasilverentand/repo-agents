@@ -1,8 +1,8 @@
-import { $ } from 'bun';
-import type { GitHubIssue, GitHubPullRequest } from '@repo-agents/types';
+import type { GitHubIssue, GitHubPullRequest } from "@repo-agents/types";
+import { $ } from "bun";
 
 export interface GitHubApiOptions {
-  method?: 'GET' | 'POST' | 'PUT' | 'PATCH' | 'DELETE';
+  method?: "GET" | "POST" | "PUT" | "PATCH" | "DELETE";
   body?: unknown;
 }
 
@@ -10,14 +10,14 @@ export interface GitHubApiOptions {
  * Make a GitHub API request using the gh CLI
  */
 export async function ghApi<T>(endpoint: string, options?: GitHubApiOptions): Promise<T> {
-  const args: string[] = ['api', endpoint];
+  const args: string[] = ["api", endpoint];
 
   if (options?.method) {
-    args.push('--method', options.method);
+    args.push("--method", options.method);
   }
 
   if (options?.body) {
-    args.push('--input', '-');
+    args.push("--input", "-");
   }
 
   try {
@@ -44,7 +44,7 @@ export async function ghApi<T>(endpoint: string, options?: GitHubApiOptions): Pr
   }
 }
 
-export type RepositoryPermission = 'admin' | 'write' | 'read' | 'none';
+export type RepositoryPermission = "admin" | "write" | "read" | "none";
 
 /**
  * Get the permission level for a user in a repository
@@ -52,20 +52,20 @@ export type RepositoryPermission = 'admin' | 'write' | 'read' | 'none';
 export async function getRepositoryPermission(
   owner: string,
   repo: string,
-  username: string
+  username: string,
 ): Promise<RepositoryPermission> {
   try {
     const response = await ghApi<{ permission: string }>(
-      `repos/${owner}/${repo}/collaborators/${username}/permission`
+      `repos/${owner}/${repo}/collaborators/${username}/permission`,
     );
 
     const permission = response.permission;
-    if (permission === 'admin' || permission === 'write' || permission === 'read') {
+    if (permission === "admin" || permission === "write" || permission === "read") {
       return permission;
     }
-    return 'none';
+    return "none";
   } catch {
-    return 'none';
+    return "none";
   }
 }
 
@@ -119,7 +119,7 @@ export async function getIssue(owner: string, repo: string, number: number): Pro
 export async function getPullRequest(
   owner: string,
   repo: string,
-  number: number
+  number: number,
 ): Promise<GitHubPullRequest> {
   const response = await ghApi<{
     number: number;
@@ -160,7 +160,7 @@ export async function getPullRequest(
  * Parse a repository string (owner/repo) into its components
  */
 export function parseRepository(repo: string): { owner: string; repo: string } {
-  const parts = repo.split('/');
+  const parts = repo.split("/");
   if (parts.length !== 2) {
     throw new Error(`Invalid repository format: ${repo}. Expected 'owner/repo'.`);
   }
@@ -173,9 +173,9 @@ export function parseRepository(repo: string): { owner: string; repo: string } {
 export async function isTeamMember(org: string, team: string, username: string): Promise<boolean> {
   try {
     const response = await ghApi<{ state: string }>(
-      `orgs/${org}/teams/${team}/memberships/${username}`
+      `orgs/${org}/teams/${team}/memberships/${username}`,
     );
-    return response.state === 'active';
+    return response.state === "active";
   } catch {
     return false;
   }
@@ -197,18 +197,18 @@ export async function getRecentWorkflowRuns(
   owner: string,
   repo: string,
   workflowName: string,
-  limit = 5
+  limit = 5,
 ): Promise<WorkflowRun[]> {
   try {
     const response = await ghApi<{ workflow_runs: WorkflowRun[] }>(
-      `repos/${owner}/${repo}/actions/runs`
+      `repos/${owner}/${repo}/actions/runs`,
     );
 
     // Filter by workflow name and completed status
     const filtered = response.workflow_runs
       .filter(
         (run) =>
-          run.name === workflowName && run.status === 'completed' && run.conclusion === 'success'
+          run.name === workflowName && run.status === "completed" && run.conclusion === "success",
       )
       .slice(0, limit);
 

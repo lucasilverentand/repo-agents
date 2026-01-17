@@ -1,9 +1,9 @@
-import type { OutputConfig } from '@repo-agents/types';
-import { generateLabelsContextScript } from './base';
-import type { OutputHandler, RuntimeContext } from './base';
+import type { OutputConfig } from "@repo-agents/types";
+import type { OutputHandler, RuntimeContext } from "./base";
+import { generateLabelsContextScript } from "./base";
 
 class RemoveLabelHandler implements OutputHandler {
-  name = 'remove-label';
+  name = "remove-label";
 
   getContextScript(runtime: RuntimeContext): string | null {
     return generateLabelsContextScript(runtime.repository);

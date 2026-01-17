@@ -1,8 +1,8 @@
-import type { OutputConfig } from '@repo-agents/types';
-import type { OutputHandler, RuntimeContext } from './base';
+import type { OutputConfig } from "@repo-agents/types";
+import type { OutputHandler, RuntimeContext } from "./base";
 
 class CloseIssueHandler implements OutputHandler {
-  name = 'close-issue';
+  name = "close-issue";
 
   getContextScript(_runtime: RuntimeContext): string | null {
     // No dynamic context needed for close-issue
@@ -61,7 +61,7 @@ if [ -f "/tmp/outputs/close-issue.json" ]; then
       echo "✓ close-issue validation passed"
 
       # Check if we have an issue number
-      ISSUE_NUMBER="${runtime.issueNumber || ''}"
+      ISSUE_NUMBER="${runtime.issueNumber || ""}"
       if [ -z "$ISSUE_NUMBER" ]; then
         echo "- **close-issue**: No issue number available" > /tmp/validation-errors/close-issue.txt
       else

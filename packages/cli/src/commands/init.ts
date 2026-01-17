@@ -1,8 +1,8 @@
-import { mkdir, writeFile, access } from 'fs/promises';
-import { join } from 'path';
-import ora from 'ora';
-import { logger } from '@repo-agents/cli-utils/logger';
-import { isGitRepository, hasGitHubRemote } from '@repo-agents/cli-utils/git';
+import { access, mkdir, writeFile } from "node:fs/promises";
+import { join } from "node:path";
+import { hasGitHubRemote, isGitRepository } from "@repo-agents/cli-utils/git";
+import { logger } from "@repo-agents/cli-utils/logger";
+import ora from "ora";
 
 interface InitOptions {
   examples?: boolean;
@@ -128,76 +128,76 @@ security:
 export async function initCommand(options: InitOptions): Promise<void> {
   const cwd = process.cwd();
 
-  logger.info('Initializing Repo Agents...');
+  logger.info("Initializing Repo Agents...");
   logger.newline();
 
   const gitCheck = isGitRepository(cwd);
   if (!gitCheck) {
-    logger.error('Not a git repository. Please run this command in a git repository.');
+    logger.error("Not a git repository. Please run this command in a git repository.");
     process.exit(1);
   }
 
   const githubCheck = hasGitHubRemote(cwd);
   if (!githubCheck) {
-    logger.warn('No GitHub remote found. Make sure this is a GitHub repository.');
+    logger.warn("No GitHub remote found. Make sure this is a GitHub repository.");
   }
 
-  const githubDir = join(cwd, '.github');
-  const agentsDir = join(githubDir, 'agents');
-  const workflowsDir = join(githubDir, 'workflows');
-  const configFile = join(githubDir, 'agents.yml');
+  const githubDir = join(cwd, ".github");
+  const agentsDir = join(githubDir, "agents");
+  const workflowsDir = join(githubDir, "workflows");
+  const configFile = join(githubDir, "agents.yml");
 
-  const spinner = ora('Creating directory structure...').start();
+  const spinner = ora("Creating directory structure...").start();
 
   try {
     await mkdir(githubDir, { recursive: true });
     await mkdir(agentsDir, { recursive: true });
     await mkdir(workflowsDir, { recursive: true });
-    spinner.succeed('Created directory structure');
+    spinner.succeed("Created directory structure");
   } catch (error) {
-    spinner.fail('Failed to create directories');
+    spinner.fail("Failed to create directories");
     logger.error((error as Error).message);
     process.exit(1);
   }
 
-  const configSpinner = ora('Creating configuration file...').start();
+  const configSpinner = ora("Creating configuration file...").start();
   try {
     const configExists = await access(configFile)
       .then(() => true)
       .catch(() => false);
 
     if (configExists && !options.force) {
-      configSpinner.warn('Configuration file already exists (use --force to overwrite)');
+      configSpinner.warn("Configuration file already exists (use --force to overwrite)");
     } else {
       await writeFile(configFile, DEFAULT_CONFIG);
-      configSpinner.succeed('Created configuration file');
+      configSpinner.succeed("Created configuration file");
     }
   } catch (error) {
-    configSpinner.fail('Failed to create configuration');
+    configSpinner.fail("Failed to create configuration");
     logger.error((error as Error).message);
     process.exit(1);
   }
 
   if (options.examples) {
-    const examplesSpinner = ora('Creating example agents...').start();
+    const examplesSpinner = ora("Creating example agents...").start();
     try {
-      await writeFile(join(agentsDir, 'issue-triage.md'), EXAMPLE_ISSUE_TRIAGE);
-      await writeFile(join(agentsDir, 'pr-review.md'), EXAMPLE_PR_REVIEW);
-      examplesSpinner.succeed('Created example agents');
+      await writeFile(join(agentsDir, "issue-triage.md"), EXAMPLE_ISSUE_TRIAGE);
+      await writeFile(join(agentsDir, "pr-review.md"), EXAMPLE_PR_REVIEW);
+      examplesSpinner.succeed("Created example agents");
     } catch (error) {
-      examplesSpinner.fail('Failed to create examples');
+      examplesSpinner.fail("Failed to create examples");
       logger.error((error as Error).message);
     }
   }
 
   logger.newline();
-  logger.success('Successfully initialized Repo Agents!');
+  logger.success("Successfully initialized Repo Agents!");
   logger.newline();
-  logger.info('Next steps:');
-  logger.log('  1. Set up your API token: repo-agents setup-token');
-  logger.log('  2. Create agent files in .github/agents/');
-  logger.log('  3. Run: repo-agents compile');
-  logger.log('  4. Commit and push the generated workflows');
+  logger.info("Next steps:");
+  logger.log("  1. Set up your API token: repo-agents setup-token");
+  logger.log("  2. Create agent files in .github/agents/");
+  logger.log("  3. Run: repo-agents compile");
+  logger.log("  4. Commit and push the generated workflows");
   logger.newline();
-  logger.info('Documentation: https://github.com/lucasilverentand/repo-agents');
+  logger.info("Documentation: https://github.com/lucasilverentand/repo-agents");
 }

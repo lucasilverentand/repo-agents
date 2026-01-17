@@ -1,8 +1,8 @@
-import { readFile } from 'fs/promises';
-import matter from 'gray-matter';
-import { agentFrontmatterSchema, AgentFrontmatter } from './schemas';
-import type { AgentDefinition, ValidationError } from '@repo-agents/types';
-import { ZodError } from 'zod';
+import { readFile } from "node:fs/promises";
+import type { AgentDefinition, ValidationError } from "@repo-agents/types";
+import matter from "gray-matter";
+import { ZodError } from "zod";
+import { type AgentFrontmatter, agentFrontmatterSchema } from "./schemas";
 
 export class AgentParser {
   async parseFile(filePath: string): Promise<{
@@ -10,15 +10,15 @@ export class AgentParser {
     errors: ValidationError[];
   }> {
     try {
-      const content = await readFile(filePath, 'utf-8');
+      const content = await readFile(filePath, "utf-8");
       return this.parseContent(content);
     } catch (error) {
       return {
         errors: [
           {
-            field: 'file',
+            field: "file",
             message: `Failed to read file: ${(error as Error).message}`,
-            severity: 'error',
+            severity: "error",
           },
         ],
       };
@@ -31,16 +31,16 @@ export class AgentParser {
   } {
     const errors: ValidationError[] = [];
 
-    let parsed;
+    let parsed: ReturnType<typeof matter>;
     try {
       parsed = matter(content);
     } catch (error) {
       return {
         errors: [
           {
-            field: 'frontmatter',
+            field: "frontmatter",
             message: `Failed to parse frontmatter: ${(error as Error).message}`,
-            severity: 'error',
+            severity: "error",
           },
         ],
       };
@@ -50,9 +50,9 @@ export class AgentParser {
       return {
         errors: [
           {
-            field: 'frontmatter',
-            message: 'Frontmatter is required',
-            severity: 'error',
+            field: "frontmatter",
+            message: "Frontmatter is required",
+            severity: "error",
           },
         ],
       };
@@ -65,9 +65,9 @@ export class AgentParser {
       if (error instanceof ZodError) {
         return {
           errors: error.errors.map((err) => ({
-            field: err.path.join('.'),
+            field: err.path.join("."),
             message: err.message,
-            severity: 'error' as const,
+            severity: "error" as const,
           })),
         };
       }
@@ -76,9 +76,9 @@ export class AgentParser {
 
     if (!parsed.content || parsed.content.trim().length === 0) {
       errors.push({
-        field: 'markdown',
-        message: 'Agent instructions (markdown body) are required',
-        severity: 'warning',
+        field: "markdown",
+        message: "Agent instructions (markdown body) are required",
+        severity: "warning",
       });
     }
 
@@ -90,10 +90,10 @@ export class AgentParser {
       claude: frontmatter.claude,
       outputs: frontmatter.outputs,
       tools: frontmatter.tools,
-      allowed_actors: frontmatter['allowed-actors'],
-      allowed_users: frontmatter['allowed-users'],
-      allowed_teams: frontmatter['allowed-teams'],
-      allowed_paths: frontmatter['allowed-paths'],
+      allowed_actors: frontmatter["allowed-actors"],
+      allowed_users: frontmatter["allowed-users"],
+      allowed_teams: frontmatter["allowed-teams"],
+      allowed_paths: frontmatter["allowed-paths"],
       trigger_labels: frontmatter.trigger_labels,
       rate_limit_minutes: frontmatter.rate_limit_minutes,
       context: frontmatter.context,
@@ -109,23 +109,23 @@ export class AgentParser {
     const outputTypes = agent.outputs ? Object.keys(agent.outputs) : [];
 
     if (
-      outputTypes.includes('update-file') &&
+      outputTypes.includes("update-file") &&
       (!agent.allowed_paths || agent.allowed_paths.length === 0)
     ) {
       errors.push({
-        field: 'outputs',
-        message: 'update-file requires allowed-paths to be specified',
-        severity: 'error',
+        field: "outputs",
+        message: "update-file requires allowed-paths to be specified",
+        severity: "error",
       });
     }
 
-    const outputsRequiringContentsWrite = ['create-pr', 'update-file'];
+    const outputsRequiringContentsWrite = ["create-pr", "update-file"];
     for (const outputType of outputsRequiringContentsWrite) {
-      if (outputTypes.includes(outputType) && agent.permissions?.contents !== 'write') {
+      if (outputTypes.includes(outputType) && agent.permissions?.contents !== "write") {
         errors.push({
-          field: 'permissions',
+          field: "permissions",
           message: `${outputType} requires contents: write permission`,
-          severity: 'error',
+          severity: "error",
         });
       }
     }
@@ -140,9 +140,9 @@ export class AgentParser {
 
     if (!hasTrigger) {
       errors.push({
-        field: 'on',
-        message: 'At least one trigger must be specified',
-        severity: 'error',
+        field: "on",
+        message: "At least one trigger must be specified",
+        severity: "error",
       });
     }
 
@@ -152,6 +152,6 @@ export class AgentParser {
 
 export const agentParser = new AgentParser();
 
+export type { AgentFrontmatter } from "./schemas";
 // Re-export schema types
-export { agentFrontmatterSchema } from './schemas';
-export type { AgentFrontmatter } from './schemas';
+export { agentFrontmatterSchema } from "./schemas";

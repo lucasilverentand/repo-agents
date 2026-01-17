@@ -1,8 +1,8 @@
-import type { OutputConfig } from '@repo-agents/types';
-import type { OutputHandler, RuntimeContext } from './base';
+import type { OutputConfig } from "@repo-agents/types";
+import type { OutputHandler, RuntimeContext } from "./base";
 
 class ClosePRHandler implements OutputHandler {
-  name = 'close-pr';
+  name = "close-pr";
 
   getContextScript(_runtime: RuntimeContext): string | null {
     // No dynamic context needed for close-pr
@@ -58,7 +58,7 @@ if [ -f "/tmp/outputs/close-pr.json" ]; then
     echo "✓ close-pr validation passed"
 
     # Check if we have a PR number
-    PR_NUMBER="${runtime.prNumber || ''}"
+    PR_NUMBER="${runtime.prNumber || ""}"
     if [ -z "$PR_NUMBER" ]; then
       echo "- **close-pr**: No pull request number available" > /tmp/validation-errors/close-pr.txt
     else

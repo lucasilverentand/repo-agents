@@ -1,11 +1,11 @@
-import { appendFile } from 'fs/promises';
+import { appendFile } from "node:fs/promises";
 
 /**
  * Generate a random delimiter for multiline values
  */
 function generateDelimiter(): string {
-  const chars = 'abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789';
-  let result = 'ghadelimiter_';
+  const chars = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789";
+  let result = "ghadelimiter_";
   for (let i = 0; i < 16; i++) {
     result += chars.charAt(Math.floor(Math.random() * chars.length));
   }
@@ -27,7 +27,7 @@ export async function setOutput(name: string, value: string): Promise<void> {
 
   let content: string;
 
-  if (value.includes('\n')) {
+  if (value.includes("\n")) {
     // Multiline value - use heredoc-style delimiter
     const delimiter = generateDelimiter();
     content = `${name}<<${delimiter}\n${value}\n${delimiter}\n`;
@@ -36,7 +36,7 @@ export async function setOutput(name: string, value: string): Promise<void> {
     content = `${name}=${value}\n`;
   }
 
-  await appendFile(outputFile, content, 'utf-8');
+  await appendFile(outputFile, content, "utf-8");
 }
 
 /**

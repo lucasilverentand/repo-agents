@@ -1,4 +1,4 @@
-import type { Output, OutputConfig } from '@repo-agents/types';
+import type { Output, OutputConfig } from "@repo-agents/types";
 
 /**
  * Generates the "Available Operations" section for Claude based on enabled outputs.
@@ -6,21 +6,21 @@ import type { Output, OutputConfig } from '@repo-agents/types';
  */
 export function generateSkillsSection(
   outputs: Record<string, OutputConfig | boolean> | undefined,
-  allowedPaths?: string[]
+  allowedPaths?: string[],
 ): string {
   if (!outputs || Object.keys(outputs).length === 0) {
-    return '';
+    return "";
   }
 
   const skillDocs = Object.entries(outputs)
     .map(([output, config]) =>
       generateSkillForOutput(
         output as Output,
-        typeof config === 'object' ? config : {},
-        allowedPaths
-      )
+        typeof config === "object" ? config : {},
+        allowedPaths,
+      ),
     )
-    .join('\n\n');
+    .join("\n\n");
 
   return `
 ---
@@ -38,36 +38,36 @@ ${skillDocs}
 export function generateSkillForOutput(
   output: Output,
   config: OutputConfig | Record<string, never>,
-  allowedPaths?: string[]
+  allowedPaths?: string[],
 ): string {
   switch (output) {
-    case 'add-comment':
+    case "add-comment":
       return generateAddCommentSkill(config);
-    case 'add-label':
+    case "add-label":
       return generateAddLabelSkill(config);
-    case 'remove-label':
+    case "remove-label":
       return generateRemoveLabelSkill(config);
-    case 'create-issue':
+    case "create-issue":
       return generateCreateIssueSkill(config);
-    case 'create-pr':
+    case "create-pr":
       return generateCreatePRSkill(config);
-    case 'update-file':
+    case "update-file":
       return generateUpdateFileSkill(config, allowedPaths);
-    case 'close-issue':
+    case "close-issue":
       return generateCloseIssueSkill(config);
-    case 'close-pr':
+    case "close-pr":
       return generateClosePRSkill(config);
     default:
-      return '';
+      return "";
   }
 }
 
 function getMaxConstraint(config: OutputConfig | Record<string, never>): string | number {
-  return 'max' in config && config.max ? config.max : 'unlimited';
+  return "max" in config && config.max ? config.max : "unlimited";
 }
 
 function hasSignConfig(config: OutputConfig | Record<string, never>): boolean {
-  return 'sign' in config && config.sign === true;
+  return "sign" in config && config.sign === true;
 }
 
 function generateAddCommentSkill(config: OutputConfig | Record<string, never>): string {
@@ -173,7 +173,7 @@ Create a pull request with code changes.
 **Workflow:**
 1. Create a new branch from the base branch
 2. Make file modifications using the Edit or Write tools
-3. Commit changes${signCommits ? ' with signing' : ''}
+3. Commit changes${signCommits ? " with signing" : ""}
 4. Push the branch
 5. Create the pull request using GitHub MCP
 
@@ -184,7 +184,7 @@ Create a pull request with code changes.
 
 **Constraints:**
 - Maximum PRs: ${getMaxConstraint(config)}
-${signCommits ? '- Commits must be signed (configured)' : ''}
+${signCommits ? "- Commits must be signed (configured)" : ""}
 
 **Example workflow:**
 \`\`\`bash
@@ -213,7 +213,7 @@ Then use \`mcp__github__create_pull_request\` with:
 
 function generateUpdateFileSkill(
   config: OutputConfig | Record<string, never>,
-  allowedPaths?: string[]
+  allowedPaths?: string[],
 ): string {
   const signCommits = hasSignConfig(config);
   const hasAllowedPaths = allowedPaths && allowedPaths.length > 0;
@@ -221,7 +221,7 @@ function generateUpdateFileSkill(
   const pathsSection = hasAllowedPaths
     ? `
 **Allowed paths (glob patterns):**
-${allowedPaths.map((p) => `  - \`${p}\``).join('\n')}
+${allowedPaths.map((p) => `  - \`${p}\``).join("\n")}
 
 **Security notice:** You MUST only modify files matching these patterns. Attempts to modify other files will fail validation.
 
@@ -229,7 +229,7 @@ ${allowedPaths.map((p) => `  - \`${p}\``).join('\n')}
 - \`src/**/*.ts\` matches all TypeScript files in src/ directory and subdirectories
 - \`*.md\` matches all markdown files in the root directory
 - \`docs/**/*\` matches all files in the docs/ directory`
-    : '';
+    : "";
 
   return `## Operation: Update Files
 
@@ -243,12 +243,12 @@ Modify existing files in the repository.
 **Method 2: Using Git Workflow**
 1. Use the Read tool to view current file contents
 2. Use the Edit tool to make precise changes
-3. Commit changes${signCommits ? ' with signing' : ''}
+3. Commit changes${signCommits ? " with signing" : ""}
 4. Push using \`git push\` or \`mcp__github__push_files\`
 ${pathsSection}
 
 **Constraints:**
-${signCommits ? '- Commits must be signed (configured)' : '- Standard commit workflow'}
+${signCommits ? "- Commits must be signed (configured)" : "- Standard commit workflow"}
 
 **Example (MCP method):**
 \`\`\`
