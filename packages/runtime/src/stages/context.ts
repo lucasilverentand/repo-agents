@@ -2,9 +2,14 @@ import { mkdir, writeFile } from "node:fs/promises";
 import { dirname } from "node:path";
 import { AgentParser } from "@repo-agents/parser";
 import type {
+  BranchesContextConfig,
+  CheckRunsContextConfig,
   CodeScanningAlertsContextConfig,
+  CommentsContextConfig,
   CommitsContextConfig,
+  ContributorsContextConfig,
   DependabotPRsContextConfig,
+  DeploymentsContextConfig,
   DiscussionsContextConfig,
   GitHubCommit,
   GitHubDiscussion,
@@ -13,8 +18,10 @@ import type {
   GitHubRelease,
   GitHubWorkflowRun,
   IssuesContextConfig,
+  MilestonesContextConfig,
   PullRequestsContextConfig,
   ReleasesContextConfig,
+  RepositoryTrafficContextConfig,
   SecurityAlertsContextConfig,
   WorkflowRunsContextConfig,
 } from "@repo-agents/types";
@@ -159,7 +166,7 @@ export async function runContext(ctx: StageContext): Promise<StageResult> {
 
   // Collect dependabot PRs
   if (config.dependabot_prs) {
-    const { markdown, count} = await collectDependabotPRs(owner, repo, config.dependabot_prs);
+    const { markdown, count } = await collectDependabotPRs(owner, repo, config.dependabot_prs);
     if (count > 0) {
       collectedSections.push(markdown);
       totalItems += count;
@@ -179,6 +186,85 @@ export async function runContext(ctx: StageContext): Promise<StageResult> {
       totalItems += count;
     }
     console.log(`Found ${count} code scanning alert(s)`);
+  }
+
+  // Collect deployments
+  if (config.deployments) {
+    const { markdown, count } = await collectDeployments(owner, repo, config.deployments);
+    if (count > 0) {
+      collectedSections.push(markdown);
+      totalItems += count;
+    }
+    console.log(`Found ${count} deployment(s)`);
+  }
+
+  // Collect milestones
+  if (config.milestones) {
+    const { markdown, count } = await collectMilestones(owner, repo, config.milestones);
+    if (count > 0) {
+      collectedSections.push(markdown);
+      totalItems += count;
+    }
+    console.log(`Found ${count} milestone(s)`);
+  }
+
+  // Collect contributors
+  if (config.contributors) {
+    const { markdown, count } = await collectContributors(
+      owner,
+      repo,
+      config.contributors,
+      sinceDate,
+    );
+    if (count > 0) {
+      collectedSections.push(markdown);
+      totalItems += count;
+    }
+    console.log(`Found ${count} contributor(s)`);
+  }
+
+  // Collect comments
+  if (config.comments) {
+    const { markdown, count } = await collectComments(owner, repo, config.comments, sinceDate);
+    if (count > 0) {
+      collectedSections.push(markdown);
+      totalItems += count;
+    }
+    console.log(`Found ${count} comment(s)`);
+  }
+
+  // Collect repository traffic
+  if (config.repository_traffic) {
+    const { markdown, count } = await collectRepositoryTraffic(
+      owner,
+      repo,
+      config.repository_traffic,
+    );
+    if (count > 0) {
+      collectedSections.push(markdown);
+      totalItems += count;
+    }
+    console.log(`Found repository traffic data`);
+  }
+
+  // Collect branches
+  if (config.branches) {
+    const { markdown, count } = await collectBranches(owner, repo, config.branches);
+    if (count > 0) {
+      collectedSections.push(markdown);
+      totalItems += count;
+    }
+    console.log(`Found ${count} branch(es)`);
+  }
+
+  // Collect check runs
+  if (config.check_runs) {
+    const { markdown, count } = await collectCheckRuns(owner, repo, config.check_runs, sinceDate);
+    if (count > 0) {
+      collectedSections.push(markdown);
+      totalItems += count;
+    }
+    console.log(`Found ${count} check run(s)`);
   }
 
   // Check min_items threshold
@@ -1250,8 +1336,7 @@ async function collectCodeScanningAlerts(
     if (config.severity && config.severity.length > 0) {
       alerts = alerts.filter((alert) => {
         const severity =
-          alert.rule.security_severity_level?.toLowerCase() ||
-          alert.rule.severity?.toLowerCase();
+          alert.rule.security_severity_level?.toLowerCase() || alert.rule.severity?.toLowerCase();
         return config.severity?.includes(severity as never);
       });
     }
@@ -1264,62 +1349,54 @@ async function collectCodeScanningAlerts(
     const markdown = formatCodeScanningAlertsMarkdown(alerts);
     return { markdown, count: alerts.length };
   } catch (error) {
-    console.log(
-      "Failed to collect code scanning alerts (may require security_events permission)",
-    );
+    console.log("Failed to collect code scanning alerts (may require security_events permission)");
     console.error(error);
     return { markdown: "", count: 0 };
   }
 }
 
-function formatCodeScanningAlertsMarkdown(alerts: Array<{
-  number: number;
-  state: string;
-  rule: {
-    id: string;
-    severity: string;
-    description: string;
-    name: string;
-    security_severity_level?: string;
-  };
-  tool: {
-    name: string;
-    version: string | null;
-  };
-  most_recent_instance: {
-    location: {
-      path: string;
-      start_line: number;
-      end_line: number;
+function formatCodeScanningAlertsMarkdown(
+  alerts: Array<{
+    number: number;
+    state: string;
+    rule: {
+      id: string;
+      severity: string;
+      description: string;
+      name: string;
+      security_severity_level?: string;
     };
-    message: {
-      text: string;
+    tool: {
+      name: string;
+      version: string | null;
     };
-  };
-  html_url: string;
-  created_at: string;
-  fixed_at: string | null;
-  dismissed_at: string | null;
-}>): string {
+    most_recent_instance: {
+      location: {
+        path: string;
+        start_line: number;
+        end_line: number;
+      };
+      message: {
+        text: string;
+      };
+    };
+    html_url: string;
+    created_at: string;
+    fixed_at: string | null;
+    dismissed_at: string | null;
+  }>,
+): string {
   if (alerts.length === 0) return "";
 
   const lines = ["## Code Scanning Alerts", ""];
 
   for (const alert of alerts) {
-    const status = alert.fixed_at
-      ? "Fixed"
-      : alert.dismissed_at
-        ? "Dismissed"
-        : "Open";
+    const status = alert.fixed_at ? "Fixed" : alert.dismissed_at ? "Dismissed" : "Open";
 
-    const severity = (
-      alert.rule.security_severity_level || alert.rule.severity
-    ).toUpperCase();
+    const severity = (alert.rule.security_severity_level || alert.rule.severity).toUpperCase();
 
     lines.push(`### [Alert #${alert.number}] ${alert.rule.name}`);
-    lines.push(
-      `**Severity:** ${severity} | **Status:** ${status} | **Tool:** ${alert.tool.name}`,
-    );
+    lines.push(`**Severity:** ${severity} | **Status:** ${status} | **Tool:** ${alert.tool.name}`);
     lines.push(`**Rule:** ${alert.rule.id}`);
     lines.push(`**Description:** ${alert.rule.description}`);
     lines.push(
@@ -1328,6 +1405,820 @@ function formatCodeScanningAlertsMarkdown(alerts: Array<{
     lines.push(`**Message:** ${alert.most_recent_instance.message.text}`);
     lines.push(`**URL:** ${alert.html_url}`);
     lines.push(`**Created:** ${alert.created_at}`);
+    lines.push("", "---", "");
+  }
+
+  return lines.join("\n");
+}
+
+/**
+ * Collect deployments from GitHub
+ */
+async function collectDeployments(
+  owner: string,
+  repo: string,
+  config: DeploymentsContextConfig,
+): Promise<CollectionResult> {
+  const limit = config.limit || 50;
+
+  interface DeploymentStatus {
+    state: string;
+    description: string | null;
+    environment: string;
+    created_at: string;
+    updated_at: string;
+    target_url: string | null;
+    log_url: string | null;
+  }
+
+  interface DeploymentResponse {
+    id: number;
+    sha: string;
+    ref: string;
+    task: string;
+    environment: string;
+    description: string | null;
+    created_at: string;
+    updated_at: string;
+    creator: { login: string };
+    statuses_url: string;
+  }
+
+  try {
+    const response = await ghApi<DeploymentResponse[]>(
+      `repos/${owner}/${repo}/deployments?per_page=${limit}`,
+    );
+
+    let deployments = response;
+
+    // Filter by environment if specified
+    if (config.environments && config.environments.length > 0) {
+      deployments = deployments.filter((d) => config.environments?.includes(d.environment));
+    }
+
+    // Fetch statuses for each deployment and filter by state if specified
+    const deploymentsWithStatus = await Promise.all(
+      deployments.map(async (deployment) => {
+        try {
+          const statuses = await ghApi<DeploymentStatus[]>(
+            `repos/${owner}/${repo}/deployments/${deployment.id}/statuses`,
+          );
+          const latestStatus = statuses[0]; // Most recent status first
+          return { deployment, status: latestStatus };
+        } catch {
+          return { deployment, status: null };
+        }
+      }),
+    );
+
+    // Filter by state if specified
+    let filteredDeployments = deploymentsWithStatus;
+    if (config.states && config.states.length > 0) {
+      filteredDeployments = deploymentsWithStatus.filter((d) =>
+        d.status ? config.states?.includes(d.status.state as never) : false,
+      );
+    }
+
+    const markdown = formatDeploymentsMarkdown(filteredDeployments);
+    return { markdown, count: filteredDeployments.length };
+  } catch (error) {
+    console.log("Failed to collect deployments");
+    console.error(error);
+    return { markdown: "", count: 0 };
+  }
+}
+
+function formatDeploymentsMarkdown(
+  deployments: Array<{
+    deployment: {
+      id: number;
+      sha: string;
+      ref: string;
+      environment: string;
+      description: string | null;
+      created_at: string;
+      creator: { login: string };
+    };
+    status: {
+      state: string;
+      description: string | null;
+      created_at: string;
+      target_url: string | null;
+      log_url: string | null;
+    } | null;
+  }>,
+): string {
+  if (deployments.length === 0) return "";
+
+  const lines = ["## Deployments", ""];
+
+  for (const { deployment, status } of deployments) {
+    const shortSha = deployment.sha.substring(0, 7);
+    lines.push(`### Deployment #${deployment.id} - ${deployment.environment}`);
+    lines.push(
+      `**Ref:** ${deployment.ref} (\`${shortSha}\`) | **Creator:** @${deployment.creator.login}`,
+    );
+    if (status) {
+      lines.push(`**Status:** ${status.state.toUpperCase()} | **Updated:** ${status.created_at}`);
+      if (status.description) {
+        lines.push(`**Description:** ${status.description}`);
+      }
+      if (status.target_url) {
+        lines.push(`**Deployment URL:** ${status.target_url}`);
+      }
+      if (status.log_url) {
+        lines.push(`**Logs:** ${status.log_url}`);
+      }
+    } else {
+      lines.push("**Status:** No status available");
+    }
+    if (deployment.description) {
+      lines.push(`**Notes:** ${deployment.description}`);
+    }
+    lines.push(`**Created:** ${deployment.created_at}`);
+    lines.push("", "---", "");
+  }
+
+  return lines.join("\n");
+}
+
+/**
+ * Collect milestones from GitHub
+ */
+async function collectMilestones(
+  owner: string,
+  repo: string,
+  config: MilestonesContextConfig,
+): Promise<CollectionResult> {
+  const limit = config.limit || 20;
+  const state = config.states?.[0] || "open";
+  const sort = config.sort || "due_on";
+
+  interface MilestoneResponse {
+    number: number;
+    title: string;
+    description: string | null;
+    state: string;
+    open_issues: number;
+    closed_issues: number;
+    created_at: string;
+    updated_at: string;
+    due_on: string | null;
+    closed_at: string | null;
+    creator: { login: string };
+    html_url: string;
+  }
+
+  try {
+    const response = await ghApi<MilestoneResponse[]>(
+      `repos/${owner}/${repo}/milestones?state=${state}&sort=${sort}&per_page=${limit}`,
+    );
+
+    const milestones = response;
+
+    const markdown = formatMilestonesMarkdown(milestones);
+    return { markdown, count: milestones.length };
+  } catch (error) {
+    console.log("Failed to collect milestones");
+    console.error(error);
+    return { markdown: "", count: 0 };
+  }
+}
+
+function formatMilestonesMarkdown(
+  milestones: Array<{
+    number: number;
+    title: string;
+    description: string | null;
+    state: string;
+    open_issues: number;
+    closed_issues: number;
+    due_on: string | null;
+    created_at: string;
+    html_url: string;
+    creator: { login: string };
+  }>,
+): string {
+  if (milestones.length === 0) return "";
+
+  const lines = ["## Milestones", ""];
+
+  for (const milestone of milestones) {
+    const totalIssues = milestone.open_issues + milestone.closed_issues;
+    const completionPercent =
+      totalIssues > 0 ? Math.round((milestone.closed_issues / totalIssues) * 100) : 0;
+
+    lines.push(`### [Milestone #${milestone.number}] ${milestone.title}`);
+    lines.push(
+      `**State:** ${milestone.state} | **Completion:** ${completionPercent}% (${milestone.closed_issues}/${totalIssues})`,
+    );
+    if (milestone.due_on) {
+      const dueDate = new Date(milestone.due_on);
+      const now = new Date();
+      const isOverdue = dueDate < now && milestone.state === "open";
+      const dueDateStr = dueDate.toISOString().split("T")[0];
+      lines.push(`**Due:** ${dueDateStr}${isOverdue ? " (OVERDUE)" : ""}`);
+    }
+    lines.push(`**Creator:** @${milestone.creator.login} | **Created:** ${milestone.created_at}`);
+    lines.push(`**URL:** ${milestone.html_url}`);
+    if (milestone.description) {
+      lines.push("", milestone.description);
+    }
+    lines.push("", "---", "");
+  }
+
+  return lines.join("\n");
+}
+
+/**
+ * Collect contributors from GitHub
+ */
+async function collectContributors(
+  owner: string,
+  repo: string,
+  config: ContributorsContextConfig,
+  sinceDate: Date,
+): Promise<CollectionResult> {
+  const limit = config.limit || 50;
+
+  interface ContributorResponse {
+    login: string;
+    id: number;
+    avatar_url: string;
+    html_url: string;
+    contributions: number;
+    type: string;
+  }
+
+  try {
+    const response = await ghApi<ContributorResponse[]>(
+      `repos/${owner}/${repo}/contributors?per_page=${limit}`,
+    );
+
+    const contributors = response;
+
+    // For new contributor detection, we need to check their first contribution date
+    // This requires checking commits, PRs, or issues created by each contributor
+    const contributorsWithDetails = await Promise.all(
+      contributors.map(async (contributor) => {
+        try {
+          // Get recent commits by this contributor
+          const commits = await ghApi<
+            Array<{
+              commit: { author: { date: string } };
+            }>
+          >(
+            `repos/${owner}/${repo}/commits?author=${contributor.login}&per_page=1&since=${sinceDate.toISOString()}`,
+          );
+
+          const hasRecentActivity = commits.length > 0;
+          const firstCommitDate =
+            commits.length > 0 ? new Date(commits[0].commit.author.date) : null;
+
+          return {
+            ...contributor,
+            hasRecentActivity,
+            firstCommitDate,
+          };
+        } catch {
+          return {
+            ...contributor,
+            hasRecentActivity: false,
+            firstCommitDate: null,
+          };
+        }
+      }),
+    );
+
+    // Filter to only contributors with recent activity
+    const recentContributors = contributorsWithDetails.filter((c) => c.hasRecentActivity);
+
+    const markdown = formatContributorsMarkdown(recentContributors);
+    return { markdown, count: recentContributors.length };
+  } catch (error) {
+    console.log("Failed to collect contributors");
+    console.error(error);
+    return { markdown: "", count: 0 };
+  }
+}
+
+function formatContributorsMarkdown(
+  contributors: Array<{
+    login: string;
+    avatar_url: string;
+    html_url: string;
+    contributions: number;
+    hasRecentActivity: boolean;
+    firstCommitDate: Date | null;
+  }>,
+): string {
+  if (contributors.length === 0) return "";
+
+  const lines = ["## Contributors", ""];
+
+  for (const contributor of contributors) {
+    lines.push(`### @${contributor.login}`);
+    lines.push(`**Total Contributions:** ${contributor.contributions}`);
+    if (contributor.firstCommitDate) {
+      lines.push(`**First Contribution in Period:** ${contributor.firstCommitDate.toISOString()}`);
+    }
+    lines.push(`**Profile:** ${contributor.html_url}`);
+    lines.push("", "---", "");
+  }
+
+  return lines.join("\n");
+}
+
+/**
+ * Collect comments from GitHub (issue comments, PR comments, review comments)
+ */
+async function collectComments(
+  owner: string,
+  repo: string,
+  config: CommentsContextConfig,
+  sinceDate: Date,
+): Promise<CollectionResult> {
+  const limit = config.limit || 100;
+  const allComments: Array<{
+    id: number;
+    type: string;
+    body: string;
+    author: string;
+    createdAt: string;
+    updatedAt: string;
+    url: string;
+    parentNumber?: number;
+    parentTitle?: string;
+  }> = [];
+
+  interface IssueCommentResponse {
+    id: number;
+    body: string;
+    user: { login: string };
+    created_at: string;
+    updated_at: string;
+    html_url: string;
+    issue_url: string;
+  }
+
+  interface PullRequestCommentResponse {
+    id: number;
+    body: string;
+    user: { login: string };
+    created_at: string;
+    updated_at: string;
+    html_url: string;
+    pull_request_url: string;
+    path?: string;
+    position?: number;
+  }
+
+  try {
+    // Collect issue comments
+    if (config.issue_comments !== false) {
+      try {
+        const issueComments = await ghApi<IssueCommentResponse[]>(
+          `repos/${owner}/${repo}/issues/comments?per_page=${limit}&sort=created&direction=desc`,
+        );
+
+        const recentComments = issueComments.filter((c) => new Date(c.created_at) >= sinceDate);
+
+        for (const comment of recentComments) {
+          // Extract issue number from issue_url
+          const issueMatch = comment.issue_url.match(/\/issues\/(\d+)$/);
+          const issueNumber = issueMatch ? parseInt(issueMatch[1], 10) : undefined;
+
+          allComments.push({
+            id: comment.id,
+            type: "issue_comment",
+            body: comment.body,
+            author: comment.user.login,
+            createdAt: comment.created_at,
+            updatedAt: comment.updated_at,
+            url: comment.html_url,
+            parentNumber: issueNumber,
+          });
+        }
+      } catch (error) {
+        console.log("Failed to collect issue comments");
+        console.error(error);
+      }
+    }
+
+    // Collect PR review comments
+    if (config.pr_review_comments !== false) {
+      try {
+        const prComments = await ghApi<PullRequestCommentResponse[]>(
+          `repos/${owner}/${repo}/pulls/comments?per_page=${limit}&sort=created&direction=desc`,
+        );
+
+        const recentComments = prComments.filter((c) => new Date(c.created_at) >= sinceDate);
+
+        for (const comment of recentComments) {
+          // Extract PR number from pull_request_url
+          const prMatch = comment.pull_request_url.match(/\/pulls\/(\d+)$/);
+          const prNumber = prMatch ? parseInt(prMatch[1], 10) : undefined;
+
+          allComments.push({
+            id: comment.id,
+            type: "pr_review_comment",
+            body: comment.body,
+            author: comment.user.login,
+            createdAt: comment.created_at,
+            updatedAt: comment.updated_at,
+            url: comment.html_url,
+            parentNumber: prNumber,
+          });
+        }
+      } catch (error) {
+        console.log("Failed to collect PR review comments");
+        console.error(error);
+      }
+    }
+
+    const markdown = formatCommentsMarkdown(allComments);
+    return { markdown, count: allComments.length };
+  } catch (error) {
+    console.log("Failed to collect comments");
+    console.error(error);
+    return { markdown: "", count: 0 };
+  }
+}
+
+function formatCommentsMarkdown(
+  comments: Array<{
+    id: number;
+    type: string;
+    body: string;
+    author: string;
+    createdAt: string;
+    url: string;
+    parentNumber?: number;
+  }>,
+): string {
+  if (comments.length === 0) return "";
+
+  const lines = ["## Comments", ""];
+
+  for (const comment of comments) {
+    const typeLabel = comment.type === "issue_comment" ? "Issue" : "PR Review";
+    const parentRef = comment.parentNumber ? `#${comment.parentNumber}` : "Unknown";
+
+    lines.push(`### ${typeLabel} Comment on ${parentRef}`);
+    lines.push(`**Author:** @${comment.author} | **Created:** ${comment.createdAt}`);
+    lines.push(`**URL:** ${comment.url}`);
+    lines.push("", comment.body);
+    lines.push("", "---", "");
+  }
+
+  return lines.join("\n");
+}
+
+/**
+ * Collect repository traffic data from GitHub
+ */
+async function collectRepositoryTraffic(
+  owner: string,
+  repo: string,
+  config: RepositoryTrafficContextConfig,
+): Promise<CollectionResult> {
+  const sections: string[] = [];
+  let totalDataPoints = 0;
+
+  interface TrafficViews {
+    count: number;
+    uniques: number;
+    views: Array<{
+      timestamp: string;
+      count: number;
+      uniques: number;
+    }>;
+  }
+
+  interface TrafficClones {
+    count: number;
+    uniques: number;
+    clones: Array<{
+      timestamp: string;
+      count: number;
+      uniques: number;
+    }>;
+  }
+
+  interface TrafficReferrer {
+    referrer: string;
+    count: number;
+    uniques: number;
+  }
+
+  interface TrafficPath {
+    path: string;
+    title: string;
+    count: number;
+    uniques: number;
+  }
+
+  try {
+    // Collect views
+    if (config.views !== false) {
+      try {
+        const views = await ghApi<TrafficViews>(`repos/${owner}/${repo}/traffic/views`);
+        sections.push(`### Views\n`);
+        sections.push(`**Total:** ${views.count} views (${views.uniques} unique visitors)\n`);
+        if (views.views.length > 0) {
+          sections.push("**Daily Breakdown:**");
+          for (const day of views.views.slice(0, 7)) {
+            const date = new Date(day.timestamp).toISOString().split("T")[0];
+            sections.push(`- ${date}: ${day.count} views (${day.uniques} unique)`);
+          }
+        }
+        sections.push("");
+        totalDataPoints += 1;
+      } catch (_error) {
+        console.log("Failed to collect views (requires push permission)");
+      }
+    }
+
+    // Collect clones
+    if (config.clones !== false) {
+      try {
+        const clones = await ghApi<TrafficClones>(`repos/${owner}/${repo}/traffic/clones`);
+        sections.push(`### Clones\n`);
+        sections.push(`**Total:** ${clones.count} clones (${clones.uniques} unique cloners)\n`);
+        if (clones.clones.length > 0) {
+          sections.push("**Daily Breakdown:**");
+          for (const day of clones.clones.slice(0, 7)) {
+            const date = new Date(day.timestamp).toISOString().split("T")[0];
+            sections.push(`- ${date}: ${day.count} clones (${day.uniques} unique)`);
+          }
+        }
+        sections.push("");
+        totalDataPoints += 1;
+      } catch (_error) {
+        console.log("Failed to collect clones (requires push permission)");
+      }
+    }
+
+    // Collect referrers
+    if (config.referrers !== false) {
+      try {
+        const referrers = await ghApi<TrafficReferrer[]>(
+          `repos/${owner}/${repo}/traffic/popular/referrers`,
+        );
+        if (referrers.length > 0) {
+          sections.push(`### Top Referrers\n`);
+          for (const referrer of referrers.slice(0, 10)) {
+            sections.push(
+              `- **${referrer.referrer}**: ${referrer.count} views (${referrer.uniques} unique)`,
+            );
+          }
+          sections.push("");
+          totalDataPoints += 1;
+        }
+      } catch (_error) {
+        console.log("Failed to collect referrers (requires push permission)");
+      }
+    }
+
+    // Collect popular paths
+    if (config.paths !== false) {
+      try {
+        const paths = await ghApi<TrafficPath[]>(`repos/${owner}/${repo}/traffic/popular/paths`);
+        if (paths.length > 0) {
+          sections.push(`### Popular Paths\n`);
+          for (const path of paths.slice(0, 10)) {
+            sections.push(
+              `- **${path.path}** (${path.title}): ${path.count} views (${path.uniques} unique)`,
+            );
+          }
+          sections.push("");
+          totalDataPoints += 1;
+        }
+      } catch (_error) {
+        console.log("Failed to collect popular paths (requires push permission)");
+      }
+    }
+
+    if (sections.length === 0) {
+      return { markdown: "", count: 0 };
+    }
+
+    const markdown = ["## Repository Traffic", "", ...sections].join("\n");
+    return { markdown, count: totalDataPoints };
+  } catch (error) {
+    console.log("Failed to collect repository traffic (requires push permission)");
+    console.error(error);
+    return { markdown: "", count: 0 };
+  }
+}
+
+/**
+ * Collect branches from GitHub
+ */
+async function collectBranches(
+  owner: string,
+  repo: string,
+  config: BranchesContextConfig,
+): Promise<CollectionResult> {
+  const limit = config.limit || 100;
+  const staleDays = config.stale_days || 30;
+
+  interface BranchResponse {
+    name: string;
+    commit: {
+      sha: string;
+      commit: {
+        author: {
+          name: string;
+          date: string;
+        };
+      };
+    };
+    protected: boolean;
+  }
+
+  try {
+    const response = await ghApi<BranchResponse[]>(
+      `repos/${owner}/${repo}/branches?per_page=${limit}`,
+    );
+
+    let branches = response;
+
+    // Filter by protected status if specified
+    if (config.protected !== undefined) {
+      branches = branches.filter((b) => b.protected === config.protected);
+    }
+
+    // Calculate stale branches
+    const staleThreshold = new Date(Date.now() - staleDays * 24 * 60 * 60 * 1000);
+    const branchesWithStatus = branches.map((branch) => {
+      const lastCommitDate = new Date(branch.commit.commit.author.date);
+      const isStale = lastCommitDate < staleThreshold;
+      const daysSinceCommit = Math.floor(
+        (Date.now() - lastCommitDate.getTime()) / (1000 * 60 * 60 * 24),
+      );
+
+      return {
+        ...branch,
+        lastCommitDate,
+        isStale,
+        daysSinceCommit,
+      };
+    });
+
+    const markdown = formatBranchesMarkdown(branchesWithStatus);
+    return { markdown, count: branchesWithStatus.length };
+  } catch (error) {
+    console.log("Failed to collect branches");
+    console.error(error);
+    return { markdown: "", count: 0 };
+  }
+}
+
+function formatBranchesMarkdown(
+  branches: Array<{
+    name: string;
+    commit: {
+      sha: string;
+      commit: {
+        author: {
+          name: string;
+          date: string;
+        };
+      };
+    };
+    protected: boolean;
+    lastCommitDate: Date;
+    isStale: boolean;
+    daysSinceCommit: number;
+  }>,
+): string {
+  if (branches.length === 0) return "";
+
+  const lines = ["## Branches", ""];
+
+  for (const branch of branches) {
+    const shortSha = branch.commit.sha.substring(0, 7);
+    const staleIndicator = branch.isStale ? " (STALE)" : "";
+    const protectedIndicator = branch.protected ? " [Protected]" : "";
+
+    lines.push(`### ${branch.name}${protectedIndicator}${staleIndicator}`);
+    lines.push(`**Last Commit:** \`${shortSha}\` by ${branch.commit.commit.author.name}`);
+    lines.push(
+      `**Last Activity:** ${branch.lastCommitDate.toISOString()} (${branch.daysSinceCommit} days ago)`,
+    );
+    lines.push("", "---", "");
+  }
+
+  return lines.join("\n");
+}
+
+/**
+ * Collect check runs from GitHub
+ */
+async function collectCheckRuns(
+  owner: string,
+  repo: string,
+  config: CheckRunsContextConfig,
+  sinceDate: Date,
+): Promise<CollectionResult> {
+  const limit = config.limit || 100;
+
+  interface CheckRunResponse {
+    total_count: number;
+    check_runs: Array<{
+      id: number;
+      name: string;
+      head_sha: string;
+      status: string;
+      conclusion: string | null;
+      started_at: string;
+      completed_at: string | null;
+      app: {
+        name: string;
+      };
+      output: {
+        title: string | null;
+        summary: string | null;
+      };
+      html_url: string;
+    }>;
+  }
+
+  try {
+    // Note: GitHub API doesn't support filtering check runs by date directly
+    // We need to get recent commits and then check runs for each
+    const response = await ghApi<CheckRunResponse>(
+      `repos/${owner}/${repo}/commits/HEAD/check-runs?per_page=${limit}`,
+    );
+
+    let checkRuns = response.check_runs.filter((run) => {
+      const startedAt = new Date(run.started_at);
+      return startedAt >= sinceDate;
+    });
+
+    // Filter by workflow names if specified
+    if (config.workflows && config.workflows.length > 0) {
+      checkRuns = checkRuns.filter((run) => config.workflows?.some((w) => run.name.includes(w)));
+    }
+
+    // Filter by status/conclusion if specified
+    if (config.status && config.status.length > 0) {
+      checkRuns = checkRuns.filter((run) => config.status?.includes(run.conclusion as never));
+    }
+
+    const markdown = formatCheckRunsMarkdown(checkRuns);
+    return { markdown, count: checkRuns.length };
+  } catch (error) {
+    console.log("Failed to collect check runs");
+    console.error(error);
+    return { markdown: "", count: 0 };
+  }
+}
+
+function formatCheckRunsMarkdown(
+  checkRuns: Array<{
+    id: number;
+    name: string;
+    head_sha: string;
+    status: string;
+    conclusion: string | null;
+    started_at: string;
+    completed_at: string | null;
+    app: {
+      name: string;
+    };
+    output: {
+      title: string | null;
+      summary: string | null;
+    };
+    html_url: string;
+  }>,
+): string {
+  if (checkRuns.length === 0) return "";
+
+  const lines = ["## Check Runs", ""];
+
+  for (const run of checkRuns) {
+    const shortSha = run.head_sha.substring(0, 7);
+    const conclusion = run.conclusion || run.status;
+    const duration =
+      run.completed_at && run.started_at
+        ? `${Math.round((new Date(run.completed_at).getTime() - new Date(run.started_at).getTime()) / 1000)}s`
+        : "in progress";
+
+    lines.push(`### ${run.name} - ${conclusion.toUpperCase()}`);
+    lines.push(
+      `**App:** ${run.app.name} | **Commit:** \`${shortSha}\` | **Duration:** ${duration}`,
+    );
+    lines.push(`**Started:** ${run.started_at}`);
+    if (run.output.title) {
+      lines.push(`**Output:** ${run.output.title}`);
+    }
+    if (run.output.summary) {
+      lines.push(`**Summary:** ${run.output.summary}`);
+    }
+    lines.push(`**URL:** ${run.html_url}`);
     lines.push("", "---", "");
   }
 
