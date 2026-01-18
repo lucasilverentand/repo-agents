@@ -21,59 +21,59 @@ Copy the agents from `.github/agents/` to your repository and configure:
 
 | Agent | Trigger | Purpose |
 |-------|---------|---------|
-| [Issue Analyzer](issue-analyzer.md) | Issue opened | Analyze completeness, request info or mark ready |
-| [Issue Triage](issue-triage.md) | `ready-for-triage` label | Auto-categorize with type/priority/area labels |
-| [Issue Formatter](issue-formatter.md) | `needs-formatting` label | Restructure into templates without altering content |
-| [Issue Implementer](issue-implementer.md) | `approved` label | Implement and create pull request |
+| [Issue Analyzer](issue-lifecycle/issue-analyzer.md) | Issue opened | Analyze completeness, request info or mark ready |
+| [Issue Triage](issue-lifecycle/issue-triage.md) | `ready-for-triage` label | Auto-categorize with type/priority/area labels |
+| [Issue Formatter](issue-lifecycle/issue-formatter.md) | `needs-formatting` label | Restructure into templates without altering content |
+| [Issue Implementer](issue-lifecycle/issue-implementer.md) | `approved` label | Implement and create pull request |
 
 ### Pull Request Lifecycle
 
 | Agent | Trigger | Purpose |
 |-------|---------|---------|
-| [PR Reviewer](pr-reviewer.md) | PR opened/updated | Review for quality, security, test coverage |
-| [PR Fixer](pr-fixer.md) | `fix-requested` label | Apply fixes based on review feedback |
-| [Security Review](security-review.md) | PR opened/updated | Deep security vulnerability analysis |
-| [Breaking Change Detector](breaking-change-detector.md) | PR opened/updated | Identify API breaking changes |
-| [Performance Analyzer](performance-analyzer.md) | PR opened/updated, weekly | Find performance bottlenecks |
+| [PR Reviewer](pr-lifecycle/pr-reviewer.md) | PR opened/updated | Review for quality, security, test coverage |
+| [PR Fixer](pr-lifecycle/pr-fixer.md) | `fix-requested` label | Apply fixes based on review feedback |
+| [Security Review](pr-lifecycle/security-review.md) | PR opened/updated | Deep security vulnerability analysis |
+| [Breaking Change Detector](pr-lifecycle/breaking-change-detector.md) | PR opened/updated | Identify API breaking changes |
+| [Performance Analyzer](pr-lifecycle/performance-analyzer.md) | PR opened/updated, weekly | Find performance bottlenecks |
 
 ### Continuous Improvement
 
 | Agent | Schedule | Purpose |
 |-------|----------|---------|
-| [Code Quality](code-quality.md) | Monday 6am UTC | Fix lint issues, code smells, style violations |
-| [Dead Code Finder](dead-code-finder.md) | Tuesday 6am UTC | Remove unused code, dependencies, files |
-| [Test Coverage](test-coverage.md) | Wednesday 6am UTC | Generate missing tests |
-| [Documentation Sync](documentation-sync.md) | Friday 8am UTC + PR merge | Keep docs in sync with code |
-| [Refactoring Agent](refactoring.md) | 1st of month | Improve code structure, reduce duplication |
+| [Code Quality](continuous-improvement/code-quality.md) | Monday 6am UTC | Fix lint issues, code smells, style violations |
+| [Dead Code Finder](continuous-improvement/dead-code-finder.md) | Tuesday 6am UTC | Remove unused code, dependencies, files |
+| [Test Coverage](continuous-improvement/test-coverage.md) | Wednesday 6am UTC | Generate missing tests |
+| [Documentation Sync](continuous-improvement/documentation-sync.md) | Friday 8am UTC + PR merge | Keep docs in sync with code |
+| [Refactoring Agent](continuous-improvement/refactoring.md) | 1st of month | Improve code structure, reduce duplication |
 
 ### Documentation
 
 | Agent | Trigger | Purpose |
 |-------|---------|---------|
-| [API Docs Generator](api-docs-generator.md) | PR merge, weekly | Generate API documentation from code |
-| [Example Validator](example-validator.md) | PR merge, weekly | Test code examples in docs |
-| [Translation Sync](translation-sync.md) | PR merge, weekly | Keep translations in sync |
+| [API Docs Generator](documentation/api-docs-generator.md) | PR merge, weekly | Generate API documentation from code |
+| [Example Validator](documentation/example-validator.md) | PR merge, weekly | Test code examples in docs |
+| [Translation Sync](documentation/translation-sync.md) | PR merge, weekly | Keep translations in sync |
 
 ### Release & Migration
 
 | Agent | Trigger | Purpose |
 |-------|---------|---------|
-| [Release Notes Generator](release-notes-generator.md) | Release published | Generate changelogs from PRs |
-| [Migration Assistant](migration-assistant.md) | `migration` label | Help upgrade frameworks/libraries |
+| [Release Notes Generator](releases/release-notes-generator.md) | Release published | Generate changelogs from PRs |
+| [Migration Assistant](releases/migration-assistant.md) | `migration` label | Help upgrade frameworks/libraries |
 
 ### Project Management
 
 | Agent | Schedule | Purpose |
 |-------|----------|---------|
-| [Sprint Planner](sprint-planner.md) | Bi-weekly | Suggest sprint priorities |
-| [Workload Balancer](workload-balancer.md) | `ready` label, daily | Distribute work across team |
+| [Sprint Planner](project-management/sprint-planner.md) | Bi-weekly | Suggest sprint priorities |
+| [Workload Balancer](project-management/workload-balancer.md) | `ready` label, daily | Distribute work across team |
 
 ### Utilities
 
 | Agent | Trigger | Purpose |
 |-------|---------|---------|
-| [Duplicate Detector](duplicate-detector.md) | Issue opened/edited | Find and link/close duplicate issues |
-| [Stale Issue Manager](stale-issue-manager.md) | Monday 9am UTC | Warn and close inactive issues |
+| [Duplicate Detector](utilities/duplicate-detector.md) | Issue opened/edited | Find and link/close duplicate issues |
+| [Stale Issue Manager](utilities/stale-issue-manager.md) | Monday 9am UTC | Warn and close inactive issues |
 
 ---
 
