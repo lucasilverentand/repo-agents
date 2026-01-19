@@ -1,6 +1,6 @@
 name: Issue Analyzer
 'on':
-  workflow_call:
+  workflow_dispatch:
     inputs:
       context-run-id:
         type: string

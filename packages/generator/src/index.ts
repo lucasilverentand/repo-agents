@@ -123,7 +123,7 @@ export class WorkflowGenerator {
     interface SimplifiedWorkflow {
       name: string;
       on: {
-        workflow_call: {
+        workflow_dispatch: {
           inputs: {
             "context-run-id": {
               type: string;
@@ -139,7 +139,7 @@ export class WorkflowGenerator {
     const workflow: SimplifiedWorkflow = {
       name: agent.name,
       on: {
-        workflow_call: {
+        workflow_dispatch: {
           inputs: {
             "context-run-id": {
               type: "string",
