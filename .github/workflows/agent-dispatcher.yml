@@ -2,6 +2,7 @@ name: Claude Agent Dispatcher
 'on':
   issues:
     types:
+      - labeled
       - opened
   workflow_dispatch:
     inputs:
@@ -11,8 +12,9 @@ name: Claude Agent Dispatcher
         type: string
 permissions:
   actions: write
-  contents: read
+  contents: write
   issues: write
+  pull-requests: write
 jobs:
   pre-flight:
     runs-on: ubuntu-latest
