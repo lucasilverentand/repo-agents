@@ -109,52 +109,113 @@ export const runAgent: Stage = async (ctx: StageContext): Promise<StageResult> =
 async function buildContextFile(ctx: StageContext, agentInstructions: string): Promise<string> {
   const sections: string[] = [];
 
-  // Basic event info
-  sections.push(`GitHub Event: ${ctx.eventName}`);
-  sections.push(`Repository: ${ctx.repository}`);
-  sections.push("");
+  // Check for dispatcher context first (when triggered via dispatcher)
+  const dispatchContextPath = "/tmp/dispatch-context/context.json";
+  let eventHandled = false;
 
-  // Event payload from GITHUB_EVENT_PATH
-  if (ctx.eventPath && existsSync(ctx.eventPath)) {
+  if (existsSync(dispatchContextPath)) {
     try {
-      const eventPayload = await readFile(ctx.eventPath, "utf-8");
-      const event = JSON.parse(eventPayload);
+      const dispatchContextContent = await readFile(dispatchContextPath, "utf-8");
+      const dispatchContext = JSON.parse(dispatchContextContent);
+
+      // Use original event info from dispatcher
+      sections.push(`GitHub Event: ${dispatchContext.eventName}`);
+      sections.push(`Event Action: ${dispatchContext.eventAction}`);
+      sections.push(`Repository: ${dispatchContext.repository}`);
+      sections.push("");
 
       // Add issue context if present
-      if (event.issue) {
-        sections.push(`Issue #${event.issue.number}: ${event.issue.title}`);
-        sections.push(`Author: @${event.issue.user?.login || "unknown"}`);
-        if (event.issue.body) {
+      if (dispatchContext.issue) {
+        sections.push(`Issue #${dispatchContext.issue.number}: ${dispatchContext.issue.title}`);
+        sections.push(`Author: @${dispatchContext.issue.author || "unknown"}`);
+        if (dispatchContext.issue.body) {
           sections.push("Body:");
-          sections.push(event.issue.body);
+          sections.push(dispatchContext.issue.body);
         }
         sections.push("");
       }
 
       // Add PR context if present
-      if (event.pull_request) {
-        sections.push(`PR #${event.pull_request.number}: ${event.pull_request.title}`);
-        sections.push(`Author: @${event.pull_request.user?.login || "unknown"}`);
-        if (event.pull_request.body) {
+      if (dispatchContext.pullRequest) {
+        sections.push(
+          `PR #${dispatchContext.pullRequest.number}: ${dispatchContext.pullRequest.title}`,
+        );
+        sections.push(`Author: @${dispatchContext.pullRequest.author || "unknown"}`);
+        if (dispatchContext.pullRequest.body) {
           sections.push("Body:");
-          sections.push(event.pull_request.body);
+          sections.push(dispatchContext.pullRequest.body);
         }
         sections.push("");
       }
 
       // Add discussion context if present
-      if (event.discussion) {
-        sections.push(`Discussion #${event.discussion.number}: ${event.discussion.title}`);
-        sections.push(`Category: ${event.discussion.category?.name || "unknown"}`);
-        sections.push(`Author: @${event.discussion.user?.login || "unknown"}`);
-        if (event.discussion.body) {
+      if (dispatchContext.discussion) {
+        sections.push(
+          `Discussion #${dispatchContext.discussion.number}: ${dispatchContext.discussion.title}`,
+        );
+        sections.push(`Author: @${dispatchContext.discussion.author || "unknown"}`);
+        if (dispatchContext.discussion.body) {
           sections.push("Body:");
-          sections.push(event.discussion.body);
+          sections.push(dispatchContext.discussion.body);
         }
         sections.push("");
       }
-    } catch {
-      // Failed to parse event payload - continue without it
+
+      eventHandled = true;
+    } catch (error) {
+      console.warn("Failed to read dispatch context:", error);
+      // Fall through to standard event path handling
+    }
+  }
+
+  // Standard event handling (direct workflow trigger or fallback)
+  if (!eventHandled) {
+    sections.push(`GitHub Event: ${ctx.eventName}`);
+    sections.push(`Repository: ${ctx.repository}`);
+    sections.push("");
+
+    // Event payload from GITHUB_EVENT_PATH
+    if (ctx.eventPath && existsSync(ctx.eventPath)) {
+      try {
+        const eventPayload = await readFile(ctx.eventPath, "utf-8");
+        const event = JSON.parse(eventPayload);
+
+        // Add issue context if present
+        if (event.issue) {
+          sections.push(`Issue #${event.issue.number}: ${event.issue.title}`);
+          sections.push(`Author: @${event.issue.user?.login || "unknown"}`);
+          if (event.issue.body) {
+            sections.push("Body:");
+            sections.push(event.issue.body);
+          }
+          sections.push("");
+        }
+
+        // Add PR context if present
+        if (event.pull_request) {
+          sections.push(`PR #${event.pull_request.number}: ${event.pull_request.title}`);
+          sections.push(`Author: @${event.pull_request.user?.login || "unknown"}`);
+          if (event.pull_request.body) {
+            sections.push("Body:");
+            sections.push(event.pull_request.body);
+          }
+          sections.push("");
+        }
+
+        // Add discussion context if present
+        if (event.discussion) {
+          sections.push(`Discussion #${event.discussion.number}: ${event.discussion.title}`);
+          sections.push(`Category: ${event.discussion.category?.name || "unknown"}`);
+          sections.push(`Author: @${event.discussion.user?.login || "unknown"}`);
+          if (event.discussion.body) {
+            sections.push("Body:");
+            sections.push(event.discussion.body);
+          }
+          sections.push("");
+        }
+      } catch {
+        // Failed to parse event payload - continue without it
+      }
     }
   }
 
