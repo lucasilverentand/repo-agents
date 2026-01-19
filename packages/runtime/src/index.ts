@@ -67,6 +67,19 @@ program
   .action(async (stage: string, options: RunOptions) => {
     // Check if this is a dispatcher stage
     if (stage in dispatcherStages) {
+      // Extract event action from event payload
+      let eventAction = "";
+      const eventPath = process.env.GITHUB_EVENT_PATH;
+      if (eventPath) {
+        try {
+          const { readFileSync } = await import("node:fs");
+          const eventPayload = JSON.parse(readFileSync(eventPath, "utf-8"));
+          eventAction = eventPayload.action ?? "";
+        } catch {
+          // Failed to read event payload
+        }
+      }
+
       const dispatcherCtx = {
         github: {
           repository: process.env.GITHUB_REPOSITORY ?? "",
@@ -74,7 +87,7 @@ program
           runAttempt: process.env.GITHUB_RUN_ATTEMPT ?? "1",
           serverUrl: process.env.GITHUB_SERVER_URL ?? "https://github.com",
           eventName: process.env.GITHUB_EVENT_NAME ?? "",
-          eventAction: process.env.GITHUB_EVENT_ACTION ?? "",
+          eventAction,
           ref: process.env.GITHUB_REF ?? "",
           sha: process.env.GITHUB_SHA ?? "",
           actor: process.env.GITHUB_ACTOR ?? "",
