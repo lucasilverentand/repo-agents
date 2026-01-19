@@ -273,6 +273,21 @@ export class WorkflowGenerator {
             uses: "oven-sh/setup-bun@v2",
           },
           {
+            name: "Install dependencies",
+            run: "bun install --frozen-lockfile",
+          },
+          {
+            name: "Download dispatch context",
+            uses: "actions/download-artifact@v4",
+            with: {
+              name: `dispatch-context-${ghExpr("inputs.context-run-id")}`,
+              path: "/tmp/dispatch-context/",
+              "run-id": ghExpr("inputs.context-run-id"),
+              "github-token": ghExpr("secrets.GITHUB_TOKEN"),
+            },
+          },
+          {
+            name: "Download output files",
             uses: "actions/download-artifact@v4",
             with: {
               name: `claude-outputs-${ghExpr("github.run_id")}`,
@@ -280,6 +295,7 @@ export class WorkflowGenerator {
             },
           },
           {
+            name: `Execute ${ghExpr("matrix.output-type")} outputs`,
             run: `${cliCommand} run outputs --agent ${agentFilePath} --output-type ${ghExpr("matrix.output-type")}`,
             env: {
               GH_TOKEN: ghExpr("secrets.GITHUB_TOKEN"),
