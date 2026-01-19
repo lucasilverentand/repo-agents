@@ -22,7 +22,10 @@ jobs:
       git-user: ${{ steps.global-preflight.outputs.git-user }}
       git-email: ${{ steps.global-preflight.outputs.git-email }}
     steps:
+      - uses: actions/checkout@v4
       - uses: oven-sh/setup-bun@v2
+      - name: Install dependencies
+        run: bun install --frozen-lockfile
       - name: Global pre-flight check
         id: global-preflight
         env:
@@ -32,7 +35,7 @@ jobs:
           GH_APP_PRIVATE_KEY: ${{ secrets.GH_APP_PRIVATE_KEY }}
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           FALLBACK_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        run: bunx repo-agent@0 run dispatcher:global-preflight
+        run: bun packages/cli/src/index.ts run dispatcher:global-preflight
 
   prepare-context:
     runs-on: ubuntu-latest
@@ -41,10 +44,13 @@ jobs:
     outputs:
       run-id: ${{ steps.prepare-context.outputs.run-id }}
     steps:
+      - uses: actions/checkout@v4
       - uses: oven-sh/setup-bun@v2
+      - name: Install dependencies
+        run: bun install --frozen-lockfile
       - name: Prepare dispatch context
         id: prepare-context
-        run: bunx repo-agent@0 run dispatcher:prepare-context
+        run: bun packages/cli/src/index.ts run dispatcher:prepare-context
       - name: Upload context artifact
         uses: actions/upload-artifact@v4
         with:
@@ -61,12 +67,14 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - uses: oven-sh/setup-bun@v2
+      - name: Install dependencies
+        run: bun install --frozen-lockfile
       - name: Route event to agents
         id: route
         env:
           WORKFLOW_DISPATCH_AGENT: ${{ github.event.inputs.agent }}
           GITHUB_EVENT_SCHEDULE: ${{ github.event.schedule }}
-        run: bunx repo-agent@0 run dispatcher:route --agents-dir .github/agents
+        run: bun packages/cli/src/index.ts run dispatcher:route --agents-dir .github/agents
 
   dispatch-agents:
     runs-on: ubuntu-latest
@@ -82,6 +90,8 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - uses: oven-sh/setup-bun@v2
+      - name: Install dependencies
+        run: bun install --frozen-lockfile
       - name: Download dispatch context
         uses: actions/download-artifact@v4
         with:
@@ -89,7 +99,7 @@ jobs:
           path: /tmp/dispatch-context/
       - name: Validate dispatch for ${{ matrix.agent.agentName }}
         id: validate-dispatch
-        run: bunx repo-agent@0 run dispatcher:dispatch --agent ${{ matrix.agent.agentPath }} --workflow-file ${{ matrix.agent.workflowFile }}
+        run: bun packages/cli/src/index.ts run dispatcher:dispatch --agent ${{ matrix.agent.agentPath }} --workflow-file ${{ matrix.agent.workflowFile }}
       - name: Upload validation audit
         uses: actions/upload-artifact@v4
         if: always()
