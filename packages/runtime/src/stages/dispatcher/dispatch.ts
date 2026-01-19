@@ -214,14 +214,20 @@ async function checkUserAuthorization(
     }
   }
 
-  // Check org membership (if no specific users/teams configured)
+  // Check repository permission level (works for both org and personal repos)
   const { owner, repo } = parseRepository(repository);
+  const permission = await getRepositoryPermission(owner, repo, actor);
+  if (permission === "admin" || permission === "write") {
+    return { authorized: true, permission };
+  }
+
+  // Check if this is a personal repo and actor is the owner
+  if (owner === actor) {
+    return { authorized: true, permission: "admin" };
+  }
+
+  // Check org membership for organization repositories
   if (await isOrgMember(owner, actor)) {
-    // Check repository permission level
-    const permission = await getRepositoryPermission(owner, repo, actor);
-    if (permission === "admin" || permission === "write") {
-      return { authorized: true, permission };
-    }
     return {
       authorized: false,
       reason: `User ${actor} has read-only access`,
