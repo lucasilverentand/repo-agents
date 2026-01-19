@@ -298,6 +298,16 @@ export class DispatcherGenerator {
 
     return [
       {
+        uses: "actions/checkout@v4",
+      },
+      {
+        uses: "oven-sh/setup-bun@v2",
+      },
+      {
+        name: "Install dependencies",
+        run: "bun install --frozen-lockfile",
+      },
+      {
         name: "Prepare dispatch context",
         id: "prepare-context",
         run: `${cliCommand} run dispatcher:prepare-context`,
@@ -319,6 +329,16 @@ export class DispatcherGenerator {
     const cliCommand = "bun packages/runtime/src/index.ts";
 
     return [
+      {
+        uses: "actions/checkout@v4",
+      },
+      {
+        uses: "oven-sh/setup-bun@v2",
+      },
+      {
+        name: "Install dependencies",
+        run: "bun install --frozen-lockfile",
+      },
       {
         name: "Route event to agents",
         id: "route",

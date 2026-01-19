@@ -44,6 +44,10 @@ jobs:
     outputs:
       run-id: ${{ steps.prepare-context.outputs.run-id }}
     steps:
+      - uses: actions/checkout@v4
+      - uses: oven-sh/setup-bun@v2
+      - name: Install dependencies
+        run: bun install --frozen-lockfile
       - name: Prepare dispatch context
         id: prepare-context
         run: bun packages/runtime/src/index.ts run dispatcher:prepare-context
@@ -61,6 +65,10 @@ jobs:
     outputs:
       matching-agents: ${{ steps.route.outputs.matching-agents }}
     steps:
+      - uses: actions/checkout@v4
+      - uses: oven-sh/setup-bun@v2
+      - name: Install dependencies
+        run: bun install --frozen-lockfile
       - name: Route event to agents
         id: route
         env:
