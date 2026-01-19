@@ -1,20 +1,7 @@
-import { readFileSync } from "node:fs";
 import { writeFile } from "node:fs/promises";
-import { join } from "node:path";
 import { agentNameToWorkflowName } from "@repo-agents/cli-utils";
 import type { AgentDefinition, WorkflowStep } from "@repo-agents/types";
 import yaml from "js-yaml";
-
-// Read package.json version at module load time
-let packageVersion = "0.4.1"; // fallback
-try {
-  // Try to read from package.json relative to this file (works in both src and dist)
-  const packageJsonPath = join(__dirname, "..//package.json");
-  const packageJson = JSON.parse(readFileSync(packageJsonPath, "utf-8"));
-  packageVersion = packageJson.version;
-} catch {
-  // Use fallback version if reading fails
-}
 
 // Types for generated GitHub Actions workflow structures
 interface GitHubWorkflowJob {
@@ -99,20 +86,12 @@ export class WorkflowGenerator {
   }
 
   /**
-   * Get the major version for package pinning (e.g., "1" from "1.2.3")
-   */
-  private getMajorVersion(): string {
-    const major = packageVersion.split(".")[0];
-    return major;
-  }
-
-  /**
    * Generate a workflow that uses the runtime CLI instead of embedded bash scripts.
    * This produces clean workflows that delegate logic to `repo-agent run <stage>`.
    */
   generate(agent: AgentDefinition, agentFilePath: string): string {
-    const majorVersion = this.getMajorVersion();
-    const cliCommand = `bunx repo-agent@${majorVersion}`;
+    // For this repository, use local code. For user repos, would use bunx @repo-agents/cli@X
+    const cliCommand = "bun packages/runtime/src/index.ts";
     const hasContext = !!agent.context;
     const hasOutputs = agent.outputs && Object.keys(agent.outputs).length > 0;
     const outputTypes = hasOutputs ? Object.keys(agent.outputs!) : [];
@@ -209,11 +188,17 @@ export class WorkflowGenerator {
         uses: "oven-sh/setup-bun@v2",
       },
       {
+        name: "Install dependencies",
+        run: "bun install --frozen-lockfile",
+      },
+      {
         name: "Download dispatch context",
         uses: "actions/download-artifact@v4",
         with: {
           name: `dispatch-context-${ghExpr("inputs.context-run-id")}`,
           path: "/tmp/dispatch-context/",
+          "run-id": ghExpr("inputs.context-run-id"),
+          "github-token": ghExpr("secrets.GITHUB_TOKEN"),
         },
       },
     ];

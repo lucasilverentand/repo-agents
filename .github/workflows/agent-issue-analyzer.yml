@@ -11,13 +11,17 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - uses: oven-sh/setup-bun@v2
+      - name: Install dependencies
+        run: bun install --frozen-lockfile
       - name: Download dispatch context
         uses: actions/download-artifact@v4
         with:
           name: dispatch-context-${{ inputs.context-run-id }}
           path: /tmp/dispatch-context/
+          run-id: ${{ inputs.context-run-id }}
+          github-token: ${{ secrets.GITHUB_TOKEN }}
       - id: run
-        run: bunx repo-agent@0 run agent --agent .github/agents/issue-lifecycle/issue-analyzer.md
+        run: bun packages/runtime/src/index.ts run agent --agent .github/agents/issue-lifecycle/issue-analyzer.md
         env:
           ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
           CLAUDE_CODE_OAUTH_TOKEN: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
@@ -47,7 +51,7 @@ jobs:
         with:
           name: claude-outputs-${{ github.run_id }}
           path: /tmp/outputs/
-      - run: bunx repo-agent@0 run outputs --agent .github/agents/issue-lifecycle/issue-analyzer.md --output-type ${{ matrix.output-type }}
+      - run: bun packages/runtime/src/index.ts run outputs --agent .github/agents/issue-lifecycle/issue-analyzer.md --output-type ${{ matrix.output-type }}
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
@@ -67,7 +71,7 @@ jobs:
           merge-multiple: true
         continue-on-error: true
       - run: |-
-          bunx repo-agent@0 run audit --agent .github/agents/issue-lifecycle/issue-analyzer.md \
+          bun packages/runtime/src/index.ts run audit --agent .github/agents/issue-lifecycle/issue-analyzer.md \
                       --claude-agent-result ${{ needs.claude-agent.result }} \
                       --execute-outputs-result ${{ needs.execute-outputs.result }}
         env:
