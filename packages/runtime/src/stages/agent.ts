@@ -55,7 +55,7 @@ export const runAgent: Stage = async (ctx: StageContext): Promise<StageResult> =
 
     // 4. Build allowed tools list
     const hasOutputs = agent.outputs && Object.keys(agent.outputs).length > 0;
-    const allowedTools = hasOutputs ? "Write(/tmp/outputs/*),Read,Glob,Grep" : "Read,Glob,Grep";
+    const allowedTools = hasOutputs ? "Write,Read,Glob,Grep" : "Read,Glob,Grep";
 
     // 5. Run Claude Code CLI
     const claudeResult = await runClaudeCode(allowedTools);
