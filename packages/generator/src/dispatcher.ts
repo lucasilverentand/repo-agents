@@ -403,7 +403,7 @@ export class DispatcherGenerator {
           name: `Dispatch to ${ghExpr("matrix.agent.agentName")}`,
           if: "steps.validate-dispatch.outputs.should-run == 'true'",
           env: {
-            GH_TOKEN: ghExpr("needs.pre-flight.outputs.app-token"),
+            GH_TOKEN: ghExpr("needs.pre-flight.outputs.app-token || github.token"),
           },
           run: `echo "Triggering workflow: ${ghExpr("matrix.agent.workflowFile")}"
 echo "Agent: ${ghExpr("matrix.agent.agentName")}"
