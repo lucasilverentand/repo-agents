@@ -95,6 +95,7 @@ export class AgentParser {
       allowed_teams: frontmatter["allowed-teams"],
       allowed_paths: frontmatter["allowed-paths"],
       trigger_labels: frontmatter.trigger_labels,
+      max_open_prs: frontmatter.max_open_prs,
       rate_limit_minutes: frontmatter.rate_limit_minutes,
       context: frontmatter.context,
       audit: frontmatter.audit,

@@ -12,7 +12,8 @@ export interface AgentDefinition {
   allowed_users?: string[]; // Alias for allowed_actors (explicit user list)
   allowed_teams?: string[];
   allowed_paths?: string[];
-  trigger_labels?: string[]; // Labels that must be present to trigger the agent
+  trigger_labels?: string[]; // Labels that must ALL be present to trigger the agent
+  max_open_prs?: number; // Maximum number of open PRs before skipping execution
   rate_limit_minutes?: number; // Minimum minutes between agent runs (default: 5)
   context?: ContextConfig; // Data collection configuration
   audit?: AuditConfig; // Audit and failure reporting configuration

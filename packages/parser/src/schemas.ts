@@ -308,6 +308,7 @@ export const agentFrontmatterSchema = z.object({
   "allowed-teams": z.array(z.string()).optional(),
   "allowed-paths": z.array(z.string()).optional(),
   trigger_labels: z.array(z.string()).optional(),
+  max_open_prs: z.number().min(1).optional(),
   rate_limit_minutes: z.number().min(0).optional(),
   context: contextConfigSchema,
   audit: auditConfigSchema,
