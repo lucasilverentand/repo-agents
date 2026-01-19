@@ -3,6 +3,7 @@ import type { AgentDefinition } from "@repo-agents/types";
 import type { StageResult } from "../../types";
 import { writeArtifact } from "../../utils/artifacts";
 import {
+  countOpenPRs,
   getRecentWorkflowRuns,
   getRepositoryPermission,
   isOrgMember,
@@ -19,6 +20,7 @@ interface ValidationStatus {
   user_authorization: boolean;
   labels_check: boolean;
   rate_limit_check: boolean;
+  max_open_prs_check: boolean;
 }
 
 /**
@@ -54,6 +56,7 @@ export async function runDispatch(ctx: DispatcherContext): Promise<StageResult> 
     user_authorization: false,
     labels_check: false,
     rate_limit_check: false,
+    max_open_prs_check: false,
   };
   const permissionIssues: PermissionIssue[] = [];
 
@@ -136,6 +139,21 @@ export async function runDispatch(ctx: DispatcherContext): Promise<StageResult> 
     }
     validationStatus.rate_limit_check = true;
     console.log("✓ Rate limit check passed");
+
+    // Step 5: Check max open PRs limit (if configured)
+    const maxOpenPrsResult = await checkMaxOpenPRs(ctx, agent);
+    if (!maxOpenPrsResult.allowed) {
+      // Silently skip - no comment, just don't run. Will retry on PR close/merge.
+      await writeAuditData(validationStatus, permissionIssues, agent.name);
+      outputs["skip-reason"] = maxOpenPrsResult.reason ?? "Max open PRs limit reached";
+      outputs["pr-limited"] = "true";
+      return {
+        success: true, // Not an error, just skipped
+        outputs,
+      };
+    }
+    validationStatus.max_open_prs_check = true;
+    console.log("✓ Max open PRs check passed");
 
     // All checks passed
     await writeAuditData(validationStatus, permissionIssues, agent.name);
@@ -255,25 +273,24 @@ async function checkTriggerLabels(
 
   const eventName = ctx.github.eventName;
 
-  // Only issues and pull_request events have labels
-  if (eventName !== "issues" && eventName !== "pull_request") {
+  // For pull_request events (e.g., PR closed), skip label check
+  // The agent will find issues with the required labels to work on
+  if (eventName === "pull_request") {
     return { valid: true };
   }
 
-  // Get labels from event
+  // Only issue events require label validation
+  if (eventName !== "issues") {
+    return { valid: true };
+  }
+
+  // Get labels from issue event
   let labels: string[] = [];
   try {
-    if (eventName === "issues") {
-      const eventPayload = JSON.parse(await Bun.file(ctx.github.eventPath).text()) as {
-        issue?: { labels?: Array<{ name: string }> };
-      };
-      labels = eventPayload.issue?.labels?.map((l) => l.name) ?? [];
-    } else if (eventName === "pull_request") {
-      const eventPayload = JSON.parse(await Bun.file(ctx.github.eventPath).text()) as {
-        pull_request?: { labels?: Array<{ name: string }> };
-      };
-      labels = eventPayload.pull_request?.labels?.map((l) => l.name) ?? [];
-    }
+    const eventPayload = JSON.parse(await Bun.file(ctx.github.eventPath).text()) as {
+      issue?: { labels?: Array<{ name: string }> };
+    };
+    labels = eventPayload.issue?.labels?.map((l) => l.name) ?? [];
   } catch (error) {
     console.warn("Failed to read event labels:", error);
     return { valid: false, reason: "Failed to read event labels" };
@@ -334,6 +351,48 @@ async function checkRateLimit(
   } catch (error) {
     console.warn("Failed to check rate limit:", error);
     // Allow execution if we can't check rate limit
+    return { allowed: true };
+  }
+}
+
+/**
+ * Check max open PRs limit.
+ * If the agent has max_open_prs configured and creates PRs, check if limit is reached.
+ */
+async function checkMaxOpenPRs(
+  ctx: DispatcherContext,
+  agent: AgentDefinition,
+): Promise<{ allowed: boolean; reason?: string; currentCount?: number }> {
+  // Skip check if max_open_prs is not configured
+  if (!agent.max_open_prs) {
+    return { allowed: true };
+  }
+
+  // Only check if agent can create PRs
+  const canCreatePRs = agent.outputs && "create-pr" in agent.outputs;
+  if (!canCreatePRs) {
+    return { allowed: true };
+  }
+
+  const { owner, repo } = parseRepository(ctx.github.repository);
+
+  try {
+    // Count open PRs with the implementation-in-progress label
+    // This label is added by the implementer agent when it starts working
+    const openPRCount = await countOpenPRs(owner, repo, "implementation-in-progress");
+
+    if (openPRCount >= agent.max_open_prs) {
+      return {
+        allowed: false,
+        reason: `Max open PRs limit reached: ${openPRCount}/${agent.max_open_prs}`,
+        currentCount: openPRCount,
+      };
+    }
+
+    return { allowed: true, currentCount: openPRCount };
+  } catch (error) {
+    console.warn("Failed to check max open PRs:", error);
+    // Allow execution if we can't check
     return { allowed: true };
   }
 }

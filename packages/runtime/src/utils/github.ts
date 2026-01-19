@@ -191,6 +191,33 @@ export interface WorkflowRun {
 }
 
 /**
+ * Count open PRs created by a specific author (or the agent) with a specific label
+ */
+export async function countOpenPRs(
+  owner: string,
+  repo: string,
+  label?: string,
+): Promise<number> {
+  try {
+    // Search for open PRs in this repo
+    // If label is provided, filter by label
+    let query = `repo:${owner}/${repo} is:pr is:open`;
+    if (label) {
+      query += ` label:"${label}"`;
+    }
+
+    const response = await ghApi<{ total_count: number }>(
+      `search/issues?q=${encodeURIComponent(query)}`,
+    );
+
+    return response.total_count;
+  } catch (error) {
+    console.warn("Failed to count open PRs:", error);
+    return 0;
+  }
+}
+
+/**
  * Get recent workflow runs for a specific workflow
  */
 export async function getRecentWorkflowRuns(
