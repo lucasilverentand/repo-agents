@@ -193,11 +193,7 @@ export interface WorkflowRun {
 /**
  * Count open PRs created by a specific author (or the agent) with a specific label
  */
-export async function countOpenPRs(
-  owner: string,
-  repo: string,
-  label?: string,
-): Promise<number> {
+export async function countOpenPRs(owner: string, repo: string, label?: string): Promise<number> {
   try {
     // Search for open PRs in this repo
     // If label is provided, filter by label
