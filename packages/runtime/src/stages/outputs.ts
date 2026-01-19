@@ -546,17 +546,39 @@ async function executeOutput(
   const repository = ctx.repository;
 
   // Get issue/PR number from event context
-  const eventPath = ctx.eventPath;
+  // First check for dispatcher context (when triggered via dispatcher)
+  const dispatchContextPath = "/tmp/dispatch-context/context.json";
   let issueNumber: string | undefined;
   let prNumber: string | undefined;
 
-  if (eventPath && existsSync(eventPath)) {
+  if (existsSync(dispatchContextPath)) {
     try {
-      const eventData = JSON.parse(await readFile(eventPath, "utf-8"));
-      issueNumber = eventData.issue?.number?.toString();
-      prNumber = eventData.pull_request?.number?.toString();
-    } catch {
-      // Ignore event parsing errors
+      const dispatchContextContent = await readFile(dispatchContextPath, "utf-8");
+      const dispatchContext = JSON.parse(dispatchContextContent);
+
+      // Extract issue/PR number from original event
+      if (dispatchContext.issue?.number) {
+        issueNumber = String(dispatchContext.issue.number);
+      }
+      if (dispatchContext.pullRequest?.number) {
+        prNumber = String(dispatchContext.pullRequest.number);
+      }
+    } catch (error) {
+      console.warn("Failed to read dispatch context:", error);
+    }
+  }
+
+  // Fallback to standard event path if dispatcher context not available
+  if (!issueNumber && !prNumber) {
+    const eventPath = ctx.eventPath;
+    if (eventPath && existsSync(eventPath)) {
+      try {
+        const eventData = JSON.parse(await readFile(eventPath, "utf-8"));
+        issueNumber = eventData.issue?.number?.toString();
+        prNumber = eventData.pull_request?.number?.toString();
+      } catch {
+        // Ignore event parsing errors
+      }
     }
   }
 
