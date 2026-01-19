@@ -67,17 +67,8 @@ echo ""
 echo "3. Validation Tests"
 echo "-------------------------------------------"
 
-run_test "Validate issue-triage example" \
-    "bun packages/cli/src/index.ts validate examples/issue-triage.md > /dev/null 2>&1"
-
-run_test "Validate pr-review example" \
-    "bun packages/cli/src/index.ts validate examples/pr-review.md > /dev/null 2>&1"
-
-run_test "Validate daily-summary example" \
-    "bun packages/cli/src/index.ts validate examples/daily-summary.md > /dev/null 2>&1"
-
-run_test "Validate stale-issues example" \
-    "bun packages/cli/src/index.ts validate examples/stale-issues.md > /dev/null 2>&1"
+run_test "Validate issue-analyzer agent" \
+    "bun packages/cli/src/index.ts validate .github/agents/issue-lifecycle/issue-analyzer.md > /dev/null 2>&1"
 
 echo ""
 echo "4. Compilation Tests"
@@ -85,8 +76,8 @@ echo "-------------------------------------------"
 
 # Create temp directory for compilation tests
 TEMP_DIR=$(mktemp -d)
-mkdir -p "$TEMP_DIR/.github/agents"
-cp examples/issue-triage.md "$TEMP_DIR/.github/agents/"
+mkdir -p "$TEMP_DIR/.github/agents/issue-lifecycle"
+cp .github/agents/issue-lifecycle/issue-analyzer.md "$TEMP_DIR/.github/agents/issue-lifecycle/"
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 
@@ -97,7 +88,7 @@ run_test "Compile to workflows directory" \
     "cd $TEMP_DIR && bun '$SCRIPT_DIR/packages/cli/src/index.ts' compile > /dev/null 2>&1 && cd '$SCRIPT_DIR'"
 
 run_test "Check workflow file was created" \
-    "test -f $TEMP_DIR/.github/workflows/agent-issue-triage.yml"
+    "test -f $TEMP_DIR/.github/workflows/agent-issue-analyzer.yml"
 
 # Cleanup - but return to script dir first
 cd "$SCRIPT_DIR"

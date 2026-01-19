@@ -75,7 +75,7 @@ jobs:
         env:
           RELEASE_VERSION: ${{ needs.release-please.outputs.version }}
         run: |
-          tar -czf "repo-agents-${RELEASE_VERSION}.tar.gz" dist/
+          tar -czf "repo-agents-${RELEASE_VERSION}.tar.gz" packages/
 
       - name: Upload release artifact
         env:

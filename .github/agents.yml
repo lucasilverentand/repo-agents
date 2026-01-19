@@ -1,0 +1,23 @@
+# Repo Agents Configuration
+# This file allows you to configure default settings for all agents.
+# Most settings are optional and have sensible defaults.
+
+# Default AI provider and model (optional)
+# Defaults: provider: claude-code, model: sonnet (any version)
+# provider: claude-code
+# model:
+#   model: sonnet
+#   max_tokens: 4096
+#   temperature: 0.7
+
+# Repository settings (optional)
+# Defaults: agents_dir: .github/agents, workflows_dir: .github/workflows
+# repository:
+#   agents_dir: .github/agents
+#   workflows_dir: .github/workflows
+
+# Security settings (optional)
+# Defaults: require_outputs: false, require_permissions: false
+# security:
+#   require_outputs: true
+#   require_permissions: true

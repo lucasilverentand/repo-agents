@@ -5,6 +5,42 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [Unreleased]
+
+### ⚠ BREAKING CHANGES
+
+* **dispatcher**: The agent dispatcher workflow has been completely refactored. Users must regenerate workflows after updating to this version.
+
+### Features
+
+* **dispatcher**: move complex logic from YAML to TypeScript CLI commands
+  - Reduces generated dispatcher from ~500 lines to ~110 lines (78% reduction)
+  - All dispatcher logic now in testable TypeScript instead of embedded bash scripts
+  - Adds 4 new CLI commands: `dispatcher:global-preflight`, `dispatcher:prepare-context`, `dispatcher:route`, `dispatcher:dispatch`
+  - Enables dynamic agent discovery (no workflow regeneration needed when adding new agents)
+  - Improves debugging with structured logging and error messages
+  - Creates validation audit artifacts for tracking authorization and rate limiting decisions
+
+### Migration Guide
+
+**Required Actions:**
+1. Update repo-agents to the latest version: `bun update repo-agents`
+2. Regenerate all workflows: `repo-agents compile`
+3. Commit the updated dispatcher workflow: `git commit -am "chore: regenerate dispatcher with simplified architecture"`
+
+**What Changed:**
+- The generated `.github/workflows/agent-dispatcher.yml` is now dramatically simpler
+- Complex bash scripts (JWT generation, event parsing, routing logic) moved to CLI
+- Dispatcher now dynamically discovers agents from `.github/agents/` directory
+- Validation logic (authorization, rate limits, trigger labels) unified in TypeScript
+- All functionality preserved - only implementation changed
+
+**Rollback Plan:**
+If you encounter issues, you can pin to the previous version:
+```bash
+bunx repo-agent@1.2.0 compile
+```
+
 ## [1.2.0](https://github.com/lucasilverentand/repo-agents/compare/v1.1.1...v1.2.0) (2026-01-17)
 
 

@@ -55,7 +55,6 @@ All core types are defined in [src/types/index.ts](src/types/index.ts):
 
 ### Build and Test
 ```bash
-bun run build              # Compile TypeScript to dist/
 bun test                   # Run Bun tests
 bun run test:watch         # Run tests in watch mode
 bun run test:coverage      # Generate coverage report
@@ -72,8 +71,7 @@ bun run typecheck          # TypeScript type checking
 
 ### Local Development
 ```bash
-bun run dev                # TypeScript watch mode
-bun dist/index.js          # Run CLI locally after build
+bun run cli                # Run CLI directly from TypeScript source
 ```
 
 ### Documentation Site
@@ -282,8 +280,7 @@ repo-agents/
 ├── tests/fixtures/           # Test fixtures
 ├── docs/                     # Astro documentation site
 │   └── src/content/docs/     # Documentation content
-├── .github/agents/    # This repo's own AI agents
-└── dist/                     # Compiled output
+└── .github/agents/           # This repo's own AI agents
 ```
 
 ## Common Workflows

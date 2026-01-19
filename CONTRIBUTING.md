@@ -40,24 +40,23 @@ Thank you for your interest in contributing to repo-agents! This document provid
 
 ```
 repo-agents/
-├── src/
-│   ├── cli/              # CLI commands and utilities
-│   │   ├── commands/     # Individual command implementations
-│   │   └── utils/        # Shared utilities
+├── packages/
+│   ├── cli/              # CLI package
+│   │   └── src/
+│   │       ├── commands/ # CLI command implementations
+│   │       └── utils/    # CLI utilities
 │   ├── parser/           # Markdown and frontmatter parsing
 │   ├── generator/        # Workflow YAML generation
-│   ├── runtime/          # GitHub Actions runtime
+│   ├── cli-utils/        # Shared utilities
 │   └── types/            # TypeScript type definitions
 ├── tests/                # Test files
 │   └── fixtures/         # Test fixtures
-├── dist/                 # Built output (generated)
 └── package.json
 ```
 
 ### Available Scripts
 
-- `bun run build` - Compile TypeScript to JavaScript
-- `bun run dev` - Watch mode for development
+- `bun run cli` - Run CLI directly from TypeScript source
 - `bun test` - Run test suite
 - `bun run test:watch` - Run tests in watch mode
 - `bun run test:coverage` - Generate coverage report
