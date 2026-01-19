@@ -22,6 +22,7 @@ jobs:
       git-user: ${{ steps.global-preflight.outputs.git-user }}
       git-email: ${{ steps.global-preflight.outputs.git-email }}
     steps:
+      - uses: oven-sh/setup-bun@v2
       - name: Global pre-flight check
         id: global-preflight
         env:
@@ -40,6 +41,7 @@ jobs:
     outputs:
       run-id: ${{ steps.prepare-context.outputs.run-id }}
     steps:
+      - uses: oven-sh/setup-bun@v2
       - name: Prepare dispatch context
         id: prepare-context
         run: bunx repo-agent@0 run dispatcher:prepare-context
@@ -57,6 +59,8 @@ jobs:
     outputs:
       matching-agents: ${{ steps.route.outputs.matching-agents }}
     steps:
+      - uses: actions/checkout@v4
+      - uses: oven-sh/setup-bun@v2
       - name: Route event to agents
         id: route
         env:
