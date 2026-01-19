@@ -109,7 +109,7 @@ jobs:
       - name: Dispatch to ${{ matrix.agent.agentName }}
         if: steps.validate-dispatch.outputs.should-run == 'true'
         env:
-          GH_TOKEN: ${{ needs.pre-flight.outputs.app-token }}
+          GH_TOKEN: ${{ needs.pre-flight.outputs.app-token || github.token }}
         run: |-
           echo "Triggering workflow: ${{ matrix.agent.workflowFile }}"
           echo "Agent: ${{ matrix.agent.agentName }}"
