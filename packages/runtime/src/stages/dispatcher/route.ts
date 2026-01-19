@@ -76,15 +76,13 @@ async function buildRoutingTable(agentsDir: string): Promise<RoutingRule[]> {
   const routingTable: RoutingRule[] = [];
 
   try {
-    const files = await readdir(agentsDir);
-    const agentFiles = files.filter((f) => f.endsWith(".md"));
+    const agentFiles = await findAgentFiles(agentsDir);
 
-    for (const file of agentFiles) {
-      const agentPath = join(agentsDir, file);
+    for (const agentPath of agentFiles) {
       const { agent, errors } = await agentParser.parseFile(agentPath);
 
       if (errors.length > 0) {
-        console.warn(`Warning: Failed to parse ${file}:`, errors[0].message);
+        console.warn(`Warning: Failed to parse ${agentPath}:`, errors[0].message);
         continue;
       }
 
@@ -93,7 +91,7 @@ async function buildRoutingTable(agentsDir: string): Promise<RoutingRule[]> {
       }
 
       // Generate workflow filename from agent filename
-      const workflowFile = `agent-${basename(file, ".md")}.yml`;
+      const workflowFile = `agent-${basename(agentPath, ".md")}.yml`;
 
       // Extract triggers from agent definition
       const triggers = {
@@ -121,6 +119,33 @@ async function buildRoutingTable(agentsDir: string): Promise<RoutingRule[]> {
   }
 
   return routingTable;
+}
+
+/**
+ * Recursively finds all .md files in the agents directory.
+ */
+async function findAgentFiles(dir: string): Promise<string[]> {
+  const files: string[] = [];
+
+  try {
+    const entries = await readdir(dir, { withFileTypes: true });
+
+    for (const entry of entries) {
+      const fullPath = join(dir, entry.name);
+
+      if (entry.isDirectory()) {
+        // Recursively search subdirectories
+        const subFiles = await findAgentFiles(fullPath);
+        files.push(...subFiles);
+      } else if (entry.isFile() && entry.name.endsWith(".md")) {
+        files.push(fullPath);
+      }
+    }
+  } catch {
+    // Directory doesn't exist or can't be read
+  }
+
+  return files;
 }
 
 /**
