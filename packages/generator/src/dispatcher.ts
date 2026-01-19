@@ -1,5 +1,3 @@
-import { readFileSync } from "node:fs";
-import { join } from "node:path";
 import { agentNameToWorkflowName } from "@repo-agents/cli-utils";
 import type {
   AgentDefinition,
@@ -9,16 +7,6 @@ import type {
   WorkflowStep,
 } from "@repo-agents/types";
 import yaml from "js-yaml";
-
-// Read package.json version at module load time
-let packageVersion = "0.4.1"; // fallback
-try {
-  const packageJsonPath = join(__dirname, "../package.json");
-  const packageJson = JSON.parse(readFileSync(packageJsonPath, "utf-8"));
-  packageVersion = packageJson.version;
-} catch {
-  // Use fallback version if reading fails
-}
 
 interface DispatcherWorkflowJob {
   "runs-on": string;
@@ -126,13 +114,6 @@ export class DispatcherGenerator {
       .replace(/[^a-z0-9]+/g, "-")
       .replace(/^-|-$/g, "");
     return `.github/agents/${fileName}.md`;
-  }
-
-  /**
-   * Get the major version for package pinning.
-   */
-  private getMajorVersion(): string {
-    return packageVersion.split(".")[0];
   }
 
   /**
@@ -280,10 +261,20 @@ export class DispatcherGenerator {
   }
 
   private generatePreFlightSteps(): WorkflowStep[] {
-    const majorVersion = packageVersion.split(".")[0];
-    const cliCommand = `bunx repo-agent@${majorVersion}`;
+    // For this repository, use local code. For user repos, would use bunx @repo-agents/cli@X
+    const cliCommand = "bun packages/runtime/src/index.ts";
 
     return [
+      {
+        uses: "actions/checkout@v4",
+      },
+      {
+        uses: "oven-sh/setup-bun@v2",
+      },
+      {
+        name: "Install dependencies",
+        run: "bun install --frozen-lockfile",
+      },
       {
         name: "Global pre-flight check",
         id: "global-preflight",
@@ -301,8 +292,8 @@ export class DispatcherGenerator {
   }
 
   private generateContextSteps(): WorkflowStep[] {
-    const majorVersion = packageVersion.split(".")[0];
-    const cliCommand = `bunx repo-agent@${majorVersion}`;
+    // For this repository, use local code. For user repos, would use bunx @repo-agents/cli@X
+    const cliCommand = "bun packages/runtime/src/index.ts";
     const ghExpr = (expr: string) => `\${{ ${expr} }}`;
 
     return [
@@ -324,8 +315,8 @@ export class DispatcherGenerator {
   }
 
   private generateRoutingSteps(): WorkflowStep[] {
-    const majorVersion = packageVersion.split(".")[0];
-    const cliCommand = `bunx repo-agent@${majorVersion}`;
+    // For this repository, use local code. For user repos, would use bunx @repo-agents/cli@X
+    const cliCommand = "bun packages/runtime/src/index.ts";
 
     return [
       {
@@ -341,8 +332,8 @@ export class DispatcherGenerator {
   }
 
   private generateDispatchJob(): DispatcherWorkflowJob {
-    const majorVersion = this.getMajorVersion();
-    const cliCommand = `bunx repo-agent@${majorVersion}`;
+    // For this repository, use local code. For user repos, would use bunx @repo-agents/cli@X
+    const cliCommand = "bun packages/runtime/src/index.ts";
     const ghExpr = (expr: string) => `\${{ ${expr} }}`;
 
     return {
@@ -361,6 +352,10 @@ export class DispatcherGenerator {
         },
         {
           uses: "oven-sh/setup-bun@v2",
+        },
+        {
+          name: "Install dependencies",
+          run: "bun install --frozen-lockfile",
         },
         {
           name: "Download dispatch context",
