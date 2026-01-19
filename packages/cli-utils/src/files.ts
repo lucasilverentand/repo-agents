@@ -8,7 +8,11 @@ export async function findMarkdownFiles(directory: string): Promise<string[]> {
 
     for (const entry of entries) {
       const fullPath = join(directory, entry.name);
-      if (entry.isFile() && extname(entry.name) === ".md") {
+      if (entry.isDirectory()) {
+        // Recursively search subdirectories
+        const subFiles = await findMarkdownFiles(fullPath);
+        files.push(...subFiles);
+      } else if (entry.isFile() && extname(entry.name) === ".md") {
         files.push(fullPath);
       }
     }

@@ -101,28 +101,28 @@ When a pull request is opened or updated:
 `;
 
 const DEFAULT_CONFIG = `# Repo Agents Configuration
+# This file allows you to configure default settings for all agents.
+# Most settings are optional and have sensible defaults.
 
-# Default AI model for all agents
-model:
-  model: claude-3-5-sonnet-20241022
-  max_tokens: 4096
-  temperature: 0.7
+# Default AI provider and model (optional)
+# Defaults: provider: claude-code, model: sonnet (any version)
+# provider: claude-code
+# model:
+#   model: sonnet
+#   max_tokens: 4096
+#   temperature: 0.7
 
-# Repository settings
-repository:
-  # Directory containing agent markdown files
-  agents_dir: .github/agents
+# Repository settings (optional)
+# Defaults: agents_dir: .github/agents, workflows_dir: .github/workflows
+# repository:
+#   agents_dir: .github/agents
+#   workflows_dir: .github/workflows
 
-  # Directory for generated workflows
-  workflows_dir: .github/workflows
-
-# Security settings
-security:
-  # Require all agents to have explicit outputs
-  require_outputs: true
-
-  # Require all agents to have explicit permissions
-  require_permissions: true
+# Security settings (optional)
+# Defaults: require_outputs: false, require_permissions: false
+# security:
+#   require_outputs: true
+#   require_permissions: true
 `;
 
 export async function initCommand(options: InitOptions): Promise<void> {

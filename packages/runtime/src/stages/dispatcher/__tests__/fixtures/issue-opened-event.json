@@ -1,0 +1,17 @@
+{
+  "action": "opened",
+  "issue": {
+    "number": 42,
+    "title": "Test issue",
+    "body": "This is a test issue",
+    "state": "open",
+    "html_url": "https://github.com/test/repo/issues/42",
+    "user": {
+      "login": "testuser"
+    },
+    "labels": [{ "name": "bug" }, { "name": "needs-triage" }]
+  },
+  "repository": {
+    "full_name": "test/repo"
+  }
+}
