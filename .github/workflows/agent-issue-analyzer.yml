@@ -126,7 +126,7 @@ jobs:
         env:
           GH_TOKEN: ${{ steps.app-token.outputs.token || secrets.GITHUB_TOKEN }}
         continue-on-error: true
-        if: matrix.output-type == matrix.output-type[0]
+        if: strategy.job-index == 0
       - name: Execute ${{ matrix.output-type }} outputs
         run: bun packages/runtime/src/index.ts run outputs --agent .github/agents/issue-lifecycle/issue-analyzer.md --output-type ${{ matrix.output-type }}
         env:

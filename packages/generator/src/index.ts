@@ -445,7 +445,7 @@ fi`,
       if (useProgressComment) {
         outputsSteps.push({
           ...this.generateProgressStep(cliCommand, agentFilePath, "outputs", "running"),
-          if: "matrix.output-type == matrix.output-type[0]", // Only first matrix item
+          if: "strategy.job-index == 0", // Only first matrix item
         });
       }
 
