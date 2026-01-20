@@ -33,6 +33,11 @@ export async function validateCommand(
     }
   } else {
     logger.error("Please specify a file or use --all to validate all agents");
+    logger.newline();
+    logger.info("Usage:");
+    logger.log("  repo-agents validate --all                    # Validate all agents");
+    logger.log("  repo-agents validate .github/agents/triage.md # Validate specific file");
+    logger.log("  repo-agents validate --all --strict           # Treat warnings as errors");
     process.exit(1);
   }
 }
@@ -160,5 +165,18 @@ function printSummary(results: ValidationResult[], strict: boolean): void {
   if (strict && withWarnings > 0) {
     logger.newline();
     logger.warn("Strict mode enabled: warnings treated as errors");
+  }
+
+  if (failed > 0) {
+    logger.newline();
+    logger.info("Common validation errors:");
+    logger.log("  • Missing 'name' field in frontmatter");
+    logger.log("  • Missing 'on' (triggers) in frontmatter");
+    logger.log("  • Invalid YAML syntax in frontmatter");
+    logger.log("  • update-file requires allowed-paths configuration");
+    logger.log("  • create-pr/update-file require 'contents: write' permission");
+    logger.newline();
+    logger.info("See documentation:");
+    logger.log("  https://github.com/lucasilverentand/repo-agents#agent-configuration");
   }
 }

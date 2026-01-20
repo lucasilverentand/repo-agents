@@ -19,7 +19,23 @@ program
   .description(
     "CLI tool for creating AI-powered GitHub Actions workflows from markdown agent definitions",
   )
-  .version(packageJson.version);
+  .version(packageJson.version)
+  .option("--no-color", "Disable colored output")
+  .option("-q, --quiet", "Suppress informational output, only show errors")
+  .hook("preAction", (thisCommand) => {
+    // Handle global options before any command runs
+    const opts = thisCommand.optsWithGlobals();
+
+    // Disable colors if --no-color is passed
+    if (opts.color === false) {
+      process.env.NO_COLOR = "1";
+    }
+
+    // Set quiet mode in environment for logger to check
+    if (opts.quiet) {
+      process.env.REPO_AGENTS_QUIET = "1";
+    }
+  });
 
 program
   .command("init")
@@ -49,6 +65,7 @@ program
   .description("List all agents")
   .option("-f, --format <format>", "Output format (table, json, yaml)", "table")
   .option("-d, --details", "Show detailed information")
+  .option("--plain", "Plain output without colors (for piping to grep)")
   .action(listCommand);
 
 program
@@ -57,6 +74,7 @@ program
     "Set up Claude API token (checks subscription token first, then prompts for API key)",
   )
   .option("--force", "Overwrite existing token")
+  .option("--no-input", "Disable interactive prompts (for automation)")
   .action(authCommand);
 
 program
@@ -67,6 +85,7 @@ program
     "--org <organization>",
     "Organization name (auto-detected from current repo if not specified)",
   )
+  .option("--no-input", "Disable interactive prompts (for automation)")
   .action(setupAppCommand);
 
 program
@@ -77,6 +96,7 @@ program
   .option("--force", "Overwrite existing configuration")
   .option("--skip-auth", "Skip Claude authentication setup")
   .option("--skip-app", "Skip GitHub App setup")
+  .option("--no-input", "Disable interactive prompts (for automation)")
   .action(setupCommand);
 
 program

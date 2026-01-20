@@ -14,6 +14,7 @@ import yaml from "js-yaml";
 interface ListOptions {
   format?: "table" | "json" | "yaml";
   details?: boolean;
+  plain?: boolean;
 }
 
 interface AgentInfo {
@@ -31,6 +32,17 @@ export async function listCommand(options: ListOptions): Promise<void> {
   const agentsDir = join(cwd, ".github", "agents");
   const workflowsDir = join(cwd, ".github", "workflows");
 
+  // Disable colors if --plain is used
+  if (options.plain) {
+    logger.disableColor();
+  }
+
+  // For machine-readable formats, suppress all logger output
+  const isMachineReadable = options.format === "json" || options.format === "yaml";
+  if (isMachineReadable) {
+    logger.setQuiet(true);
+  }
+
   const agentsDirExists = await fileExists(agentsDir);
   if (!agentsDirExists) {
     logger.error("Agents directory not found");
@@ -41,6 +53,16 @@ export async function listCommand(options: ListOptions): Promise<void> {
   const files = await findMarkdownFiles(agentsDir);
 
   if (files.length === 0) {
+    // For machine-readable formats, output empty array/object instead of warning
+    if (isMachineReadable) {
+      if (options.format === "json") {
+        console.log("[]");
+      } else {
+        console.log("[]");
+      }
+      return;
+    }
+
     logger.warn("No agent files found");
     logger.info(`Create agent files in: ${agentsDir}`);
     return;
@@ -78,7 +100,7 @@ export async function listCommand(options: ListOptions): Promise<void> {
       printYaml(agentInfos);
       break;
     default:
-      printTable(agentInfos, options.details || false);
+      printTable(agentInfos, options.details || false, options.plain || false);
   }
 }
 
@@ -103,7 +125,7 @@ function getPermissions(agent: AgentDefinition): string[] {
     .sort();
 }
 
-function printTable(agents: AgentInfo[], details: boolean): void {
+function printTable(agents: AgentInfo[], details: boolean, plain: boolean): void {
   if (agents.length === 0) {
     logger.warn("No agents found");
     return;
@@ -114,29 +136,36 @@ function printTable(agents: AgentInfo[], details: boolean): void {
   const nameWidth = Math.max(...agents.map((a) => a.name.length), 4);
   const fileWidth = Math.max(...agents.map((a) => a.file.length), 4);
 
+  // Helper to apply styling only if not in plain mode
+  const applyStyle = (text: string, styleFn: (text: string) => string): string => {
+    return plain ? text : styleFn(text);
+  };
+
   const header =
-    chalk.bold("Name").padEnd(nameWidth + 10) +
+    applyStyle("Name", chalk.bold).padEnd(nameWidth + (plain ? 0 : 10)) +
     " " +
-    chalk.bold("File").padEnd(fileWidth + 10) +
+    applyStyle("File", chalk.bold).padEnd(fileWidth + (plain ? 0 : 10)) +
     " " +
-    chalk.bold("Triggers").padEnd(20) +
+    applyStyle("Triggers", chalk.bold).padEnd(20) +
     " " +
-    chalk.bold("Status");
+    applyStyle("Status", chalk.bold);
 
   logger.log(header);
   logger.log("-".repeat(80));
 
   for (const agent of agents) {
-    const name = chalk.cyan(agent.name.padEnd(nameWidth));
+    const name = applyStyle(agent.name.padEnd(nameWidth), chalk.cyan);
     const file = agent.file.padEnd(fileWidth);
     const triggers = agent.triggers.join(", ").padEnd(20);
-    const status = agent.compiled ? chalk.green("✓ compiled") : chalk.yellow("○ not compiled");
+    const status = agent.compiled
+      ? applyStyle("✓ compiled", chalk.green)
+      : applyStyle("○ not compiled", chalk.yellow);
 
     logger.log(`${name} ${file} ${triggers} ${status}`);
 
     if (details) {
       if (agent.permissions && agent.permissions.length > 0) {
-        logger.log(chalk.gray(`  Permissions: ${agent.permissions.join(", ")}`));
+        logger.log(applyStyle(`  Permissions: ${agent.permissions.join(", ")}`, chalk.gray));
       }
       if (agent.outputs && Object.keys(agent.outputs).length > 0) {
         const outputList = Object.entries(agent.outputs)
@@ -151,9 +180,9 @@ function printTable(agents: AgentInfo[], details: boolean): void {
             return key;
           })
           .join(", ");
-        logger.log(chalk.gray(`  Outputs: ${outputList}`));
+        logger.log(applyStyle(`  Outputs: ${outputList}`, chalk.gray));
       }
-      logger.log(chalk.gray(`  Last Modified: ${agent.lastModified.toLocaleString()}`));
+      logger.log(applyStyle(`  Last Modified: ${agent.lastModified.toLocaleString()}`, chalk.gray));
       logger.log("");
     }
   }

@@ -86,12 +86,21 @@ export async function compileCommand(options: CompileOptions): Promise<void> {
 
   if (hasErrors) {
     logger.newline();
-    logger.error("Some agents failed to parse or validate. Fix the errors and try again.");
+    logger.error("Some agents failed to parse or validate.");
+    logger.info("Fix the errors above and try again. Common issues:");
+    logger.log("  • Missing required fields (name, on)");
+    logger.log("  • Invalid YAML frontmatter syntax");
+    logger.log("  • update-file output requires allowed-paths");
+    logger.log("  • create-pr/update-file require contents: write permission");
+    logger.newline();
+    logger.info("Run 'repo-agents validate --all' for detailed validation");
     process.exit(1);
   }
 
   if (parsedAgents.length === 0) {
     logger.error("No valid agents found");
+    logger.info("Create agent files in .github/agents/ or run:");
+    logger.log("  repo-agents init --examples");
     process.exit(1);
   }
 
@@ -128,10 +137,14 @@ export async function compileCommand(options: CompileOptions): Promise<void> {
       schemaErrors.forEach((error) => {
         logger.log(chalk.red(`  ✗ ${error.path}: ${error.message}`));
       });
+      logger.newline();
+      logger.info("This is likely a bug in repo-agents. Please report it:");
+      logger.log("  https://github.com/lucasilverentand/repo-agents/issues");
       process.exit(1);
     }
   } catch (error) {
     workflowSpinner.warn(`Could not validate workflow schema (${(error as Error).message})`);
+    logger.info("Workflow will be generated but may have issues. Please test it.");
   }
 
   workflowSpinner.succeed("Generated unified workflow");

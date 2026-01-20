@@ -1,11 +1,12 @@
 import { execSync, spawnSync } from "node:child_process";
 import { logger } from "@repo-agents/cli-utils/logger";
-import { promptForInput } from "@repo-agents/cli-utils/prompts";
+import { promptForInput, shouldDisablePrompts } from "@repo-agents/cli-utils/prompts";
 import { getExistingSecrets, setGitHubSecret } from "@repo-agents/cli-utils/secrets";
 import ora from "ora";
 
 interface AuthOptions {
   force?: boolean;
+  input?: boolean;
 }
 
 /**
@@ -91,6 +92,20 @@ async function runClaudeSetupToken(): Promise<boolean> {
 }
 
 export async function authCommand(options: AuthOptions): Promise<void> {
+  // Handle --no-input flag
+  if (options.input === false) {
+    process.env.REPO_AGENTS_NO_INPUT = "1";
+  }
+
+  // Check if we're in a non-interactive environment
+  if (shouldDisablePrompts() && !options.force) {
+    logger.error("Not running in an interactive terminal.");
+    logger.error("Use --force with environment variables or run in an interactive shell.");
+    logger.info("Set ANTHROPIC_API_KEY or CLAUDE_CODE_OAUTH_TOKEN directly using:");
+    logger.log("  gh secret set ANTHROPIC_API_KEY");
+    process.exit(1);
+  }
+
   logger.info("Setting up AI authentication for GitHub Actions...");
   logger.newline();
 
@@ -101,7 +116,9 @@ export async function authCommand(options: AuthOptions): Promise<void> {
 
   // Step 1: Check if Claude CLI is available and ask about subscription
   if (isClaudeCLIInstalled()) {
-    const answer = await promptForInput("Do you have a Claude subscription? (y/N): ");
+    const answer = await promptForInput("Do you have a Claude subscription? (y/N): ", {
+      defaultValue: "n",
+    });
     useSubscription = answer.toLowerCase() === "y" || answer.toLowerCase() === "yes";
   }
 
@@ -113,7 +130,9 @@ export async function authCommand(options: AuthOptions): Promise<void> {
   // Check if the relevant secret already exists
   if (!options.force && hasExistingSecret) {
     logger.warn(`${secretName} is already set as a repository secret.`);
-    const answer = await promptForInput("Do you want to overwrite it? (y/N): ");
+    const answer = await promptForInput("Do you want to overwrite it? (y/N): ", {
+      defaultValue: "n",
+    });
     if (answer.toLowerCase() !== "y" && answer.toLowerCase() !== "yes") {
       logger.info("Setup cancelled.");
       return;
