@@ -241,9 +241,7 @@ export class WorkflowGenerator {
 
     // Agent job
     const agentNeeds = hasContext ? ["collect-context"] : undefined;
-    const agentIf = hasContext
-      ? "needs.collect-context.outputs.has-context == 'true'"
-      : undefined;
+    const agentIf = hasContext ? "needs.collect-context.outputs.has-context == 'true'" : undefined;
 
     const agentSteps: WorkflowStep[] = [
       {
@@ -283,9 +281,7 @@ export class WorkflowGenerator {
 
     // Add progress update at start of agent execution
     if (useProgressComment) {
-      agentSteps.push(
-        this.generateProgressStep(cliCommand, agentFilePath, "agent", "running"),
-      );
+      agentSteps.push(this.generateProgressStep(cliCommand, agentFilePath, "agent", "running"));
     }
 
     agentSteps.push(
@@ -316,9 +312,7 @@ export class WorkflowGenerator {
 
     // Add progress update at end of agent execution
     if (useProgressComment) {
-      agentSteps.push(
-        this.generateProgressStep(cliCommand, agentFilePath, "agent", "success"),
-      );
+      agentSteps.push(this.generateProgressStep(cliCommand, agentFilePath, "agent", "success"));
     }
 
     const agentJob: GitHubWorkflowJob = {

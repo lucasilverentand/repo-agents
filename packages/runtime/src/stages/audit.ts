@@ -128,11 +128,7 @@ function detectFailures(ctx: StageContext, auditData: AuditData): FailureInfo {
 
   // Check job results
   // Note: Pre-flight checks run in dispatcher, not in agent workflows
-  if (
-    jobStatuses?.agent &&
-    jobStatuses.agent !== "success" &&
-    jobStatuses.agent !== "skipped"
-  ) {
+  if (jobStatuses?.agent && jobStatuses.agent !== "success" && jobStatuses.agent !== "skipped") {
     reasons.push(`Agent execution failed (${jobStatuses.agent})`);
   }
 
