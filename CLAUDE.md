@@ -85,66 +85,80 @@ bun run docs:preview       # Preview built docs
 
 ### Generated Workflow Structure
 
-The system generates two types of workflows:
+The system generates a **single unified workflow** (`.github/workflows/agents.yml`) that handles all agents with 6 jobs:
 
-#### Dispatcher Workflow (centralized)
+#### Unified Workflow Architecture
 
-The dispatcher is a thin routing layer (3 jobs) that validates and routes events:
+**Benefits:**
+- Single workflow file instead of 1 dispatcher + N agent workflows
+- Eliminates ~10-15 seconds of workflow_dispatch overhead
+- Better visibility - all agent execution in one workflow run
+- Simplified architecture with matrix-based parallelism
 
-1. **pre-flight job**: Global validation
+**Job Structure:**
+
+1. **global-preflight job**: Claude authentication validation
    - Checks required secrets (ANTHROPIC_API_KEY or CLAUDE_CODE_OAUTH_TOKEN)
    - Outputs: `should-continue`
-   - Creates self-healing issue if auth is missing
+   - Runtime: ~5 seconds
 
-2. **route-event job**: Determines which agents to trigger
-   - Matches event against routing table
-   - Outputs: `matching-agents` (JSON array)
+2. **route-event job**: Discovers and matches agents to events
+   - Scans `.github/agents/` directory for all agent definitions
+   - Parses agent configurations and builds routing table
+   - Matches current event (issues, PRs, discussions, schedule, etc.) to agent triggers
+   - Handles closed issue retry logic for blocking dependencies
+   - Outputs: `matching-agents` (JSON array with full agent config)
+   - Runtime: ~10 seconds
 
-3. **dispatch-agents job**: Per-agent validation and dispatch (matrix strategy)
-   - Validates user authorization (admin, write, org member, or allow list)
+3. **agent-validation job** (matrix): Per-agent validation
+   - **Matrix strategy**: One job per matching agent (parallel execution)
+   - Validates user authorization (repo permission, org membership, allowed lists, teams)
    - Checks trigger labels (if configured)
    - Enforces rate limiting (default: 5 minutes between runs)
+   - Checks max open PRs limit (if configured)
    - Checks blocking issues (if configured)
    - Creates progress comment (if enabled)
-   - Dispatches agent workflow with progress comment info
+   - Encodes event payload for agent context
+   - Outputs: `should-run`, `skip-reason`, validation metadata
+   - Uploads validation audit artifact
+   - Runtime: ~20-30 seconds per agent (parallel)
 
-Note: Token generation and event context reading have been moved to agent workflows.
-
-#### Agent Workflows (per-agent)
-
-Each agent workflow is self-contained with its own setup:
-
-1. **setup job**: First job, always runs
+4. **agent-execution job** (matrix): Runs Claude for validated agents
+   - **Matrix strategy**: One job per matching agent (parallel execution)
+   - **Conditional execution**: Only runs if validation passed
+   - Checks out code and sets up environment
    - Generates GitHub App token (if GH_APP_ID and GH_APP_PRIVATE_KEY configured)
-   - Falls back to GITHUB_TOKEN if no app configured
-   - Validates Claude authentication
-   - Outputs: `app-token`, `git-user`, `git-email`
+   - **Inline context collection**: Runs context collection as conditional step
+     - Collects repository data (issues, PRs, discussions, commits) if configured
+     - Skips agent execution if min_items threshold not met
+   - Configures git identity (uses app identity if available)
+   - Runs Claude Code CLI with agent instructions
+   - Uploads agent outputs artifact (if outputs configured)
+   - Uploads audit metrics artifact
+   - Runtime: ~2-5 minutes per agent (depends on Claude execution)
 
-2. **collect-context job** (optional): Collects repository data
-   - Only generated when `context` is configured
-   - Queries GitHub API for issues, PRs, discussions, commits, etc.
-   - Filters by time range and other criteria
-   - Skips execution if `min_items` threshold not met
-   - Outputs: `has-context`
-
-3. **agent job**: Runs Claude with agent instructions
-   - Reads event context directly from `$GITHUB_EVENT_PATH`
-   - Configures git identity from setup job
-   - Creates skills documentation file (`.claude/CLAUDE.md`) for outputs
-   - Runs Claude with appropriate tool permissions
-   - Extracts and logs execution metrics (cost, turns, duration)
-   - Uploads outputs artifact
-
-4. **execute-outputs job** (optional): Executes agent outputs
-   - Only generated when `outputs` is configured
-   - Uses matrix strategy to process each output type
+5. **execute-outputs job** (matrix): Executes agent outputs
+   - **Matrix strategy**: One job per (agent × output-type)
+   - Downloads agent outputs artifact
    - Validates output files against schemas
-   - Executes GitHub operations via gh CLI
+   - Executes GitHub operations via gh CLI (add-comment, create-pr, etc.)
+   - Runtime: ~10-20 seconds per output (parallel)
 
-5. **audit-report job**: Always runs for tracking
-   - Collects all audit artifacts
+6. **audit-report job** (matrix): Generates audit reports
+   - **Matrix strategy**: One job per agent that executed
+   - **Always runs**: Even on failures
+   - Downloads all artifacts for the agent
+   - Collects job results from previous stages
    - Generates comprehensive audit report
-   - Creates GitHub issues for failures (configurable)
+   - Creates GitHub issue for failures (if audit configured)
+   - Updates progress comment with final status
+   - Runtime: ~15-20 seconds per agent (parallel)
+
+**Workflow File:**
+- Location: `.github/workflows/agents.yml`
+- Triggers: Union of all agent triggers (aggregated automatically)
+- Permissions: Maximum permissions needed across all agents
+- Matrix parallelism: Multiple agents execute simultaneously
 
 ### Output Handlers System
 
@@ -260,14 +274,25 @@ repo-agents/
 │   │   ├── index.test.ts     # Parser tests
 │   │   └── schemas.ts        # Zod schemas for frontmatter
 │   ├── generator/
-│   │   ├── index.ts          # WorkflowGenerator class
-│   │   ├── index.test.ts     # Generator tests
+│   │   ├── unified.ts        # UnifiedWorkflowGenerator class (NEW)
+│   │   ├── unified.test.ts   # Unified workflow tests
+│   │   ├── index.ts          # WorkflowGenerator class (deprecated)
+│   │   ├── dispatcher.ts     # DispatcherGenerator class (deprecated)
 │   │   ├── context-collector.ts # Context collection script generation
 │   │   ├── skills.ts         # Skills documentation generation
 │   │   └── outputs/          # Output handler implementations
 │   │       ├── base.ts       # OutputHandler interface
 │   │       ├── index.ts      # Handler registry
 │   │       └── *.ts          # Individual handlers
+│   ├── runtime/
+│   │   ├── src/stages/
+│   │   │   ├── unified/      # Unified workflow stages (NEW)
+│   │   │   │   ├── route.ts  # Agent discovery and event routing
+│   │   │   │   └── validate.ts # Per-agent validation
+│   │   │   ├── dispatcher/   # Dispatcher stages (deprecated)
+│   │   │   └── *.ts          # Agent execution stages
+│   │   └── src/utils/
+│   │       └── validation.ts # Reusable validation utilities (NEW)
 │   └── cli/
 │       ├── commands/         # CLI command implementations
 │       │   ├── init.ts       # repo-agents init
@@ -313,18 +338,37 @@ repo-agents/
 4. Document in docs
 
 ### Modifying Workflow Generation
-- Agent workflow generation in [packages/generator/src/index.ts](packages/generator/src/index.ts)
-  - `generate()`: Main entry point, builds workflow object with setup, agent, outputs, and audit jobs
-  - `generateProgressStep()`: Progress comment update step
-  - `shouldUseProgressComment()`: Determines if progress comments enabled
-- Dispatcher workflow generation in [packages/generator/src/dispatcher.ts](packages/generator/src/dispatcher.ts)
-  - `generate()`: Main entry point for dispatcher workflow
-  - `generatePreFlightSteps()`: Global auth validation
-  - `generateRoutingSteps()`: Event routing
-  - `generateDispatchJob()`: Per-agent validation and dispatch
-- Runtime stages in [packages/runtime/src/stages/](packages/runtime/src/stages/)
-  - `setup.ts`: Token generation and auth validation (new)
-  - `dispatcher/global-preflight.ts`: Claude auth check only
+- **Unified workflow generation** in [packages/generator/src/unified.ts](packages/generator/src/unified.ts)
+  - `generate()`: Main entry point, builds single workflow with 6 jobs
+  - `aggregateTriggers()`: Combines triggers from all agents
+  - `aggregatePermissions()`: Calculates maximum permissions needed
+  - `generateGlobalPreflightJob()`: Claude auth validation
+  - `generateRouteEventJob()`: Agent discovery and event matching
+  - `generateValidationJob()`: Per-agent validation (matrix)
+  - `generateExecutionJob()`: Agent execution (matrix)
+  - `generateOutputsJob()`: Output execution (matrix)
+  - `generateAuditJob()`: Audit reporting (matrix)
+  - `formatYaml()`: YAML formatting with proper spacing
+
+- **Runtime stages** in [packages/runtime/src/stages/](packages/runtime/src/stages/)
+  - `unified/route.ts`: Discovers all agents and matches events
+  - `unified/validate.ts`: Per-agent validation with all checks
+  - `agent.ts`: Runs Claude with inline context collection
+  - `context.ts`: Collects repository data (issues, PRs, etc.)
+  - `outputs.ts`: Executes agent outputs via gh CLI
+  - `audit.ts`: Generates audit reports and failure issues
+
+- **Validation utilities** in [packages/runtime/src/utils/validation.ts](packages/runtime/src/utils/validation.ts)
+  - `checkUserAuthorization()`: Validates user permissions
+  - `checkTriggerLabels()`: Validates required labels
+  - `checkRateLimit()`: Enforces rate limiting
+  - `checkMaxOpenPRs()`: Checks PR limits
+  - `checkBlockingIssues()`: Checks for blocking dependencies
+
+- **Deprecated files** (kept for reference):
+  - `packages/generator/src/dispatcher.ts`: Old dispatcher generator
+  - `packages/generator/src/index.ts`: Old per-agent workflow generator
+  - `packages/runtime/src/stages/dispatcher/`: Old dispatcher stages
 
 ## Dependencies
 
