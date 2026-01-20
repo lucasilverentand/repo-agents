@@ -5,6 +5,51 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.3.0](https://github.com/lucasilverentand/repo-agents/compare/v1.2.0...v1.3.0) (2026-01-20)
+
+
+### Features
+
+* add blocking issues and project custom fields with auto-retry ([36a66d8](https://github.com/lucasilverentand/repo-agents/commit/36a66d8e454802fdf649a3e7c10cfc4de32c7616))
+* add CLI validation script and improve IDE setup ([435a3f8](https://github.com/lucasilverentand/repo-agents/commit/435a3f84d104788a48cf4976fd87d6be7377ee5e))
+* add JSON Schema generation for IDE autocomplete support ([eb2c02e](https://github.com/lucasilverentand/repo-agents/commit/eb2c02e045d46a659335b65a8ab4fa069817447e))
+* add strict validation to JSON Schema for outputs and triggers ([55d59e8](https://github.com/lucasilverentand/repo-agents/commit/55d59e8be1373638b89397f3210670f1f9fe3c1f))
+* add VS Code tasks for agent validation ([2f09e98](https://github.com/lucasilverentand/repo-agents/commit/2f09e983abf13138d184f22ed950fa0027c0e5a5))
+* **agents:** require approved + agent-assigned labels for implementer ([b60f830](https://github.com/lucasilverentand/repo-agents/commit/b60f830ee8a8844d3fbe1c87dbc8f2bb9876547c))
+* **agents:** update formatter to trigger triage directly ([e68765b](https://github.com/lucasilverentand/repo-agents/commit/e68765b2fa22bb8cf4b731c6c41e35623de0a592))
+* **parser:** add max_open_prs field to agent schema ([46c88dd](https://github.com/lucasilverentand/repo-agents/commit/46c88dd8a2c84beacee7fe03a26505af1974efaa))
+* **runtime:** add progress comment tracking for issue/PR workflows ([7805cef](https://github.com/lucasilverentand/repo-agents/commit/7805cefe3ea18c84a5788f3595292b1c6d7c42d9))
+* **runtime:** implement max_open_prs pre-flight check ([5d007f2](https://github.com/lucasilverentand/repo-agents/commit/5d007f21a071b7b47d7887994ead2849df2d9c52))
+* **workflows:** add individual agent workflow files ([b1e555f](https://github.com/lucasilverentand/repo-agents/commit/b1e555f979ddf77f0416a1eca3b0e23ae40c7f2c))
+* **workflows:** add labeled trigger and write permissions ([99e63e6](https://github.com/lucasilverentand/repo-agents/commit/99e63e6a835b46efc986e178cee702bdba5f28a4))
+
+
+### Bug Fixes
+
+* add strict validation to Zod schemas to catch typos ([ddb4768](https://github.com/lucasilverentand/repo-agents/commit/ddb476819aeb7f9de79a3c8cfa824d8da501e049))
+* **agent:** allow Write tool without path restriction ([616c1a0](https://github.com/lucasilverentand/repo-agents/commit/616c1a0f610b41b88585e3b5e47db7693ad6b6fb))
+* **agent:** read dispatcher context for original event info ([8777955](https://github.com/lucasilverentand/repo-agents/commit/87779559449d9fb023200d4508e49c4e4bd37739))
+* always pass target issue number to agent workflows ([a6f000d](https://github.com/lucasilverentand/repo-agents/commit/a6f000defd442e873c41e545ddec5ad0f4a1cfd3))
+* base64 encode event payload to avoid newline issues ([7492bdb](https://github.com/lucasilverentand/repo-agents/commit/7492bdb32d425a5384767fac6e50de8a8f46fe50))
+* **dispatcher:** add Bun setup to all jobs ([50ccf9e](https://github.com/lucasilverentand/repo-agents/commit/50ccf9e25af2efbf4479d12cbb1224f86aea5a44))
+* **dispatcher:** add GH_TOKEN fallback for workflow dispatch ([1bb98d7](https://github.com/lucasilverentand/repo-agents/commit/1bb98d73a8a043d7bbf685e9a38f416f94fb80a7))
+* **dispatcher:** add setup steps to all dispatcher jobs ([8b03c99](https://github.com/lucasilverentand/repo-agents/commit/8b03c995147033e8aeb2e12c856901eee9f85e67))
+* **dispatcher:** allow repository owners to trigger agents ([30fa37d](https://github.com/lucasilverentand/repo-agents/commit/30fa37db724c7e10cea73179f72325ad19c79696))
+* **dispatcher:** extract event action from payload ([bb0fe66](https://github.com/lucasilverentand/repo-agents/commit/bb0fe665fe5025626b690bc01dc4b61b27238ff2))
+* **dispatcher:** fallback to github.token when app-token is empty ([739517e](https://github.com/lucasilverentand/repo-agents/commit/739517e811c116f5757b6866a0a493ddb2ae6c93))
+* **dispatcher:** support recursive agent discovery ([e0a992d](https://github.com/lucasilverentand/repo-agents/commit/e0a992da4dfaf81b9f20762e8f1bf306a1af8bb2))
+* **dispatcher:** use local code instead of npm package ([302f7d6](https://github.com/lucasilverentand/repo-agents/commit/302f7d6035c6417a910f649961935ebecb9bdd31))
+* **dispatcher:** use local code instead of npm package ([55d0bb9](https://github.com/lucasilverentand/repo-agents/commit/55d0bb9724642e5b8e0d3893256f9556737879e1))
+* **dispatcher:** use runtime package for run command ([469f87e](https://github.com/lucasilverentand/repo-agents/commit/469f87e22ad3e133a699f1edf9cc036e6807e401))
+* **generator:** download dispatch context in execute-outputs job ([1be8910](https://github.com/lucasilverentand/repo-agents/commit/1be891082bc7c7cd565fb87feb258d0020f772a6))
+* **generator:** use workflow_dispatch instead of workflow_call ([5d3fb82](https://github.com/lucasilverentand/repo-agents/commit/5d3fb8272c08b333e01c8f2f7928c7d73a435975))
+* **outputs:** read dispatcher context for issue/PR numbers ([d0d806a](https://github.com/lucasilverentand/repo-agents/commit/d0d806ad6979fd2bed51232b30546b56236c59ae))
+* pass issue number to outputs stage via workflow input ([b3b6b24](https://github.com/lucasilverentand/repo-agents/commit/b3b6b245750c036abf32224f279ab5adde282431))
+* pass original event payload to agent workflows ([e13de94](https://github.com/lucasilverentand/repo-agents/commit/e13de94c1f04d603ba2a1b4ef1a815d13cc98c1c))
+* regenerate workflows to remove stale prepare-context job ([1b60053](https://github.com/lucasilverentand/repo-agents/commit/1b60053c4c358ebee803f477e9154a39664db6b6))
+* **skills:** use output handler generators instead of MCP tool instructions ([c6c69b3](https://github.com/lucasilverentand/repo-agents/commit/c6c69b3e932bdae9f252c9353cd5db32e4916c48))
+* update generator to use local code and fix artifact downloads ([3660445](https://github.com/lucasilverentand/repo-agents/commit/3660445c09b474a47702af94ca7d9662ae1f51af))
+
 ## [Unreleased]
 
 ### ⚠ BREAKING CHANGES
