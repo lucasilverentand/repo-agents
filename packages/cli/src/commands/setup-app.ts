@@ -204,7 +204,7 @@ function displaySetupGuide(owner: string, isOrg: boolean): void {
 
   logger.info("Step 2: Configure the app with these settings:");
   logger.newline();
-  logger.log(`  GitHub App name: (e.g., "${owner} Claude" or "Claude Agent")`);
+  logger.log(`  GitHub App name: (e.g., "${owner} Agent" or "Repo Agent")`);
   logger.log(`  Homepage URL: ${repoUrl}`);
   logger.newline();
   logger.log("  Webhook:");
@@ -241,7 +241,7 @@ function displaySetupGuide(owner: string, isOrg: boolean): void {
 }
 
 export async function setupAppCommand(options: SetupAppOptions): Promise<void> {
-  logger.info("Setting up GitHub App authentication for Claude agents...");
+  logger.info("Setting up GitHub App authentication for agents...");
   logger.newline();
 
   // Check if gh CLI is authenticated
@@ -418,8 +418,8 @@ export async function setupAppCommand(options: SetupAppOptions): Promise<void> {
     logger.log("  • This repository can now use your GitHub App");
   }
   logger.log("  • Generated workflows will automatically use your GitHub App");
-  logger.log('  • Commits and comments will appear as your app (e.g., "Claude[bot]")');
-  logger.log("  • PRs created by Claude agents will trigger CI workflows");
+  logger.log('  • Commits and comments will appear as your app (e.g., "MyApp[bot]")');
+  logger.log("  • PRs created by agents will trigger CI workflows");
   logger.newline();
 
   logger.info("Important reminders:");

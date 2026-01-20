@@ -35,7 +35,7 @@ interface PermissionIssue {
 }
 
 /**
- * Pre-flight stage: validates all preconditions before running the Claude agent.
+ * Pre-flight stage: validates all preconditions before running the agent.
  *
  * Checks:
  * 1. Load and validate agent definition

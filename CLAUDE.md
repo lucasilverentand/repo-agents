@@ -122,7 +122,7 @@ Each agent workflow handles execution after pre-flight passes in the dispatcher:
    - Skips execution if `min_items` threshold not met
    - Outputs: `has-context`, `context-data`
 
-2. **claude-agent job**: Runs Claude with agent instructions
+2. **agent job**: Runs Claude with agent instructions
    - Checks out repository
    - Sets up Bun runtime
    - Installs Claude Code CLI via bunx

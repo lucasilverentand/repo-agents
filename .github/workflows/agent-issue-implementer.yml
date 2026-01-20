@@ -6,7 +6,7 @@ name: Issue Implementer
         type: string
         required: true
 jobs:
-  claude-agent:
+  agent:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -20,6 +20,11 @@ jobs:
           path: /tmp/dispatch-context/
           run-id: ${{ inputs.context-run-id }}
           github-token: ${{ secrets.GITHUB_TOKEN }}
+      - name: 'Update progress: agent running'
+        run: bun packages/runtime/src/index.ts run progress --agent .github/agents/issue-lifecycle/issue-implementer.md --progress-stage agent --progress-status running
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        continue-on-error: true
       - id: run
         run: bun packages/runtime/src/index.ts run agent --agent .github/agents/issue-lifecycle/issue-implementer.md
         env:
@@ -34,10 +39,15 @@ jobs:
         with:
           name: audit-metrics-${{ github.run_id }}
           path: /tmp/audit/
+      - name: 'Update progress: agent success'
+        run: bun packages/runtime/src/index.ts run progress --agent .github/agents/issue-lifecycle/issue-implementer.md --progress-stage agent --progress-status success
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        continue-on-error: true
 
   execute-outputs:
     runs-on: ubuntu-latest
-    needs: claude-agent
+    needs: agent
     strategy:
       matrix:
         output-type:
@@ -62,6 +72,12 @@ jobs:
         with:
           name: claude-outputs-${{ github.run_id }}
           path: /tmp/outputs/
+      - name: 'Update progress: outputs running'
+        run: bun packages/runtime/src/index.ts run progress --agent .github/agents/issue-lifecycle/issue-implementer.md --progress-stage outputs --progress-status running
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        continue-on-error: true
+        if: matrix.output-type == matrix.output-type[0]
       - name: Execute ${{ matrix.output-type }} outputs
         run: bun packages/runtime/src/index.ts run outputs --agent .github/agents/issue-lifecycle/issue-implementer.md --output-type ${{ matrix.output-type }}
         env:
@@ -70,12 +86,22 @@ jobs:
   audit-report:
     runs-on: ubuntu-latest
     needs:
-      - claude-agent
+      - agent
       - execute-outputs
     if: always()
     steps:
       - uses: actions/checkout@v4
       - uses: oven-sh/setup-bun@v2
+      - name: Install dependencies
+        run: bun install --frozen-lockfile
+      - name: Download dispatch context
+        uses: actions/download-artifact@v4
+        with:
+          name: dispatch-context-${{ inputs.context-run-id }}
+          path: /tmp/dispatch-context/
+          run-id: ${{ inputs.context-run-id }}
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+        continue-on-error: true
       - uses: actions/download-artifact@v4
         with:
           pattern: '*-${{ github.run_id }}'
@@ -84,10 +110,42 @@ jobs:
         continue-on-error: true
       - run: |-
           bun packages/runtime/src/index.ts run audit --agent .github/agents/issue-lifecycle/issue-implementer.md \
-                      --claude-agent-result ${{ needs.claude-agent.result }} \
+                      --agent-result ${{ needs.agent.result }} \
                       --execute-outputs-result ${{ needs.execute-outputs.result }}
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      - name: Read final comment
+        id: final-comment
+        if: needs.agent.result == 'success'
+        run: |-
+          if [ -f /tmp/audit-data/add-comment.json ]; then
+            COMMENT=$(jq -r '.body // empty' /tmp/audit-data/add-comment.json 2>/dev/null || true)
+            if [ -n "$COMMENT" ]; then
+              echo "has-comment=true" >> $GITHUB_OUTPUT
+              # Escape for shell
+              ESCAPED=$(echo "$COMMENT" | sed 's/"/\"/g' | tr '\n' ' ')
+              echo "comment=$ESCAPED" >> $GITHUB_OUTPUT
+            fi
+          fi
+        continue-on-error: true
+      - name: 'Update progress: complete with comment'
+        run: bun packages/runtime/src/index.ts run progress --agent .github/agents/issue-lifecycle/issue-implementer.md --progress-stage complete --progress-status success --progress-final-comment "${{ steps.final-comment.outputs.comment }}"
+        if: needs.agent.result == 'success' && steps.final-comment.outputs.has-comment == 'true'
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        continue-on-error: true
+      - name: 'Update progress: complete'
+        run: bun packages/runtime/src/index.ts run progress --agent .github/agents/issue-lifecycle/issue-implementer.md --progress-stage complete --progress-status success
+        if: needs.agent.result == 'success' && steps.final-comment.outputs.has-comment != 'true'
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        continue-on-error: true
+      - name: 'Update progress: failed'
+        run: bun packages/runtime/src/index.ts run progress --agent .github/agents/issue-lifecycle/issue-implementer.md --progress-stage failed --progress-status failed --progress-error "Workflow failed"
+        if: needs.agent.result != 'success'
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        continue-on-error: true
 permissions:
   contents: write
   issues: write

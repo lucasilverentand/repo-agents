@@ -239,13 +239,13 @@ export class WorkflowGenerator {
       };
     }
 
-    // Claude-agent job
-    const claudeAgentNeeds = hasContext ? ["collect-context"] : undefined;
-    const claudeAgentIf = hasContext
+    // Agent job
+    const agentNeeds = hasContext ? ["collect-context"] : undefined;
+    const agentIf = hasContext
       ? "needs.collect-context.outputs.has-context == 'true'"
       : undefined;
 
-    const claudeAgentSteps: WorkflowStep[] = [
+    const agentSteps: WorkflowStep[] = [
       {
         uses: "actions/checkout@v4",
       },
@@ -270,7 +270,7 @@ export class WorkflowGenerator {
 
     // Download collected context if context was configured
     if (hasContext) {
-      claudeAgentSteps.push({
+      agentSteps.push({
         uses: "actions/download-artifact@v4",
         if: "needs.collect-context.result == 'success'",
         with: {
@@ -283,12 +283,12 @@ export class WorkflowGenerator {
 
     // Add progress update at start of agent execution
     if (useProgressComment) {
-      claudeAgentSteps.push(
+      agentSteps.push(
         this.generateProgressStep(cliCommand, agentFilePath, "agent", "running"),
       );
     }
 
-    claudeAgentSteps.push(
+    agentSteps.push(
       {
         id: "run",
         run: `${cliCommand} run agent --agent ${agentFilePath}`,
@@ -316,22 +316,22 @@ export class WorkflowGenerator {
 
     // Add progress update at end of agent execution
     if (useProgressComment) {
-      claudeAgentSteps.push(
+      agentSteps.push(
         this.generateProgressStep(cliCommand, agentFilePath, "agent", "success"),
       );
     }
 
-    const claudeAgentJob: GitHubWorkflowJob = {
+    const agentJob: GitHubWorkflowJob = {
       "runs-on": "ubuntu-latest",
-      steps: claudeAgentSteps,
+      steps: agentSteps,
     };
-    if (claudeAgentNeeds) {
-      claudeAgentJob.needs = claudeAgentNeeds;
+    if (agentNeeds) {
+      agentJob.needs = agentNeeds;
     }
-    if (claudeAgentIf) {
-      claudeAgentJob.if = claudeAgentIf;
+    if (agentIf) {
+      agentJob.if = agentIf;
     }
-    workflow.jobs["claude-agent"] = claudeAgentJob;
+    workflow.jobs.agent = agentJob;
 
     // Execute-outputs job (only if outputs are configured)
     if (hasOutputs) {
@@ -384,7 +384,7 @@ export class WorkflowGenerator {
 
       workflow.jobs["execute-outputs"] = {
         "runs-on": "ubuntu-latest",
-        needs: "claude-agent",
+        needs: "agent",
         strategy: {
           matrix: {
             "output-type": outputTypes,
@@ -398,11 +398,11 @@ export class WorkflowGenerator {
     // Audit-report job (always present)
     const auditNeeds = hasContext
       ? hasOutputs
-        ? ["collect-context", "claude-agent", "execute-outputs"]
-        : ["collect-context", "claude-agent"]
+        ? ["collect-context", "agent", "execute-outputs"]
+        : ["collect-context", "agent"]
       : hasOutputs
-        ? ["claude-agent", "execute-outputs"]
-        : ["claude-agent"];
+        ? ["agent", "execute-outputs"]
+        : ["agent"];
 
     const auditRunParts: string[] = [`${cliCommand} run audit --agent ${agentFilePath}`];
 
@@ -410,7 +410,7 @@ export class WorkflowGenerator {
       auditRunParts.push(`--collect-context-result ${ghExpr("needs.collect-context.result")}`);
     }
 
-    auditRunParts.push(`--claude-agent-result ${ghExpr("needs.claude-agent.result")}`);
+    auditRunParts.push(`--agent-result ${ghExpr("needs.agent.result")}`);
 
     if (hasOutputs) {
       auditRunParts.push(`--execute-outputs-result ${ghExpr("needs.execute-outputs.result")}`);
@@ -461,7 +461,7 @@ export class WorkflowGenerator {
       auditSteps.push({
         name: "Read final comment",
         id: "final-comment",
-        if: "needs.claude-agent.result == 'success'",
+        if: "needs.agent.result == 'success'",
         run: `if [ -f /tmp/audit-data/add-comment.json ]; then
   COMMENT=$(jq -r '.body // empty' /tmp/audit-data/add-comment.json 2>/dev/null || true)
   if [ -n "$COMMENT" ]; then
@@ -477,7 +477,7 @@ fi`,
       auditSteps.push({
         name: "Update progress: complete with comment",
         run: `${cliCommand} run progress --agent ${agentFilePath} --progress-stage complete --progress-status success --progress-final-comment "${ghExpr("steps.final-comment.outputs.comment")}"`,
-        if: `needs.claude-agent.result == 'success' && steps.final-comment.outputs.has-comment == 'true'`,
+        if: `needs.agent.result == 'success' && steps.final-comment.outputs.has-comment == 'true'`,
         env: {
           GH_TOKEN: ghExpr("secrets.GITHUB_TOKEN"),
         },
@@ -487,7 +487,7 @@ fi`,
       auditSteps.push({
         name: "Update progress: complete",
         run: `${cliCommand} run progress --agent ${agentFilePath} --progress-stage complete --progress-status success`,
-        if: `needs.claude-agent.result == 'success' && steps.final-comment.outputs.has-comment != 'true'`,
+        if: `needs.agent.result == 'success' && steps.final-comment.outputs.has-comment != 'true'`,
         env: {
           GH_TOKEN: ghExpr("secrets.GITHUB_TOKEN"),
         },
@@ -497,7 +497,7 @@ fi`,
       auditSteps.push({
         name: "Update progress: failed",
         run: `${cliCommand} run progress --agent ${agentFilePath} --progress-stage failed --progress-status failed --progress-error "Workflow failed"`,
-        if: "needs.claude-agent.result != 'success'",
+        if: "needs.agent.result != 'success'",
         env: {
           GH_TOKEN: ghExpr("secrets.GITHUB_TOKEN"),
         },

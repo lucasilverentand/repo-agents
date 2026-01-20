@@ -129,11 +129,11 @@ function detectFailures(ctx: StageContext, auditData: AuditData): FailureInfo {
   // Check job results
   // Note: Pre-flight checks run in dispatcher, not in agent workflows
   if (
-    jobStatuses?.claudeAgent &&
-    jobStatuses.claudeAgent !== "success" &&
-    jobStatuses.claudeAgent !== "skipped"
+    jobStatuses?.agent &&
+    jobStatuses.agent !== "success" &&
+    jobStatuses.agent !== "skipped"
   ) {
-    reasons.push(`Claude agent execution failed (${jobStatuses.claudeAgent})`);
+    reasons.push(`Agent execution failed (${jobStatuses.agent})`);
   }
 
   if (
@@ -204,7 +204,7 @@ function generateAuditReport(
     return `[FAIL] ${result}`;
   };
 
-  lines.push(`| claude-agent | ${formatJobResult(ctx.jobStatuses?.claudeAgent)} |`);
+  lines.push(`| agent | ${formatJobResult(ctx.jobStatuses?.agent)} |`);
 
   if (ctx.jobStatuses?.collectContext) {
     lines.push(`| collect-context | ${formatJobResult(ctx.jobStatuses.collectContext)} |`);

@@ -83,7 +83,7 @@ The agent runs in a GitHub Actions Ubuntu runner with:
 
 ## Failure Handling
 
-If the claude-agent stage fails:
+If the agent stage fails:
 
 1. The execute-outputs stage is skipped
 2. The audit-report stage runs

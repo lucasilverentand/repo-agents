@@ -54,7 +54,7 @@ interface RunOptions {
   workflowFile?: string;
   // Job status options for audit stage
   // Note: Pre-flight results are not tracked here since pre-flight runs in the dispatcher
-  claudeAgentResult?: JobResult;
+  agentResult?: JobResult;
   executeOutputsResult?: JobResult;
   collectContextResult?: JobResult;
   rateLimited?: boolean;
@@ -73,7 +73,7 @@ program
   .option("--dispatch-run-id <id>", "Dispatcher run ID (for dispatcher mode)")
   .option("--agents-dir <path>", "Path to agents directory (for dispatcher:route)")
   .option("--workflow-file <file>", "Workflow filename (for dispatcher:dispatch)")
-  .option("--claude-agent-result <result>", "Result of claude-agent job (for audit stage)")
+  .option("--agent-result <result>", "Result of agent job (for audit stage)")
   .option("--execute-outputs-result <result>", "Result of execute-outputs job (for audit stage)")
   .option("--collect-context-result <result>", "Result of collect-context job (for audit stage)")
   .option("--rate-limited", "Whether the run was rate-limited (for audit stage)")
@@ -160,7 +160,7 @@ program
       outputType: options.outputType,
       dispatchRunId: options.dispatchRunId,
       jobStatuses: {
-        claudeAgent: options.claudeAgentResult,
+        agent: options.agentResult,
         executeOutputs: options.executeOutputsResult,
         collectContext: options.collectContextResult,
         rateLimited: options.rateLimited,

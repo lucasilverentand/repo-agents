@@ -27,7 +27,7 @@ You are a test agent. Please analyze the issue and provide a helpful response.
     eventPath: "",
     agentPath,
     jobStatuses: {
-      claudeAgent: "success" as const,
+      agent: "success" as const,
     },
     ...overrides,
   });
@@ -83,7 +83,7 @@ You are a test agent. Please analyze the issue and provide a helpful response.
       const result = await runAudit({
         ...createContext(),
         jobStatuses: {
-          claudeAgent: "skipped" as const,
+          agent: "skipped" as const,
           rateLimited: true,
         },
       });
@@ -96,15 +96,15 @@ You are a test agent. Please analyze the issue and provide a helpful response.
 
   describe("failure detection", () => {
     // Note: Pre-flight checks now run in the dispatcher, not in agent workflows.
-    // The agent workflow audit stage only tracks claude-agent and execute-outputs jobs.
+    // The agent workflow audit stage only tracks the agent and execute-outputs jobs.
 
-    it("should detect claude-agent failures", async () => {
+    it("should detect agent failures", async () => {
       const { runAudit } = await import("./audit");
 
       const result = await runAudit({
         ...createContext(),
         jobStatuses: {
-          claudeAgent: "failure" as const,
+          agent: "failure" as const,
         },
       });
 
@@ -118,7 +118,7 @@ You are a test agent. Please analyze the issue and provide a helpful response.
       const result = await runAudit({
         ...createContext(),
         jobStatuses: {
-          claudeAgent: "success" as const,
+          agent: "success" as const,
           executeOutputs: "failure" as const,
         },
       });
@@ -133,7 +133,7 @@ You are a test agent. Please analyze the issue and provide a helpful response.
       const result = await runAudit({
         ...createContext(),
         jobStatuses: {
-          claudeAgent: "skipped" as const,
+          agent: "skipped" as const,
           executeOutputs: "skipped" as const,
         },
       });

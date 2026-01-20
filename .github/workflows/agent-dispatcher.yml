@@ -1,9 +1,12 @@
-name: Claude Agent Dispatcher
+name: Agent Dispatcher
 'on':
   issues:
     types:
       - labeled
       - opened
+  pull_request:
+    types:
+      - closed
   workflow_dispatch:
     inputs:
       agent:

@@ -301,7 +301,7 @@ async function handleConfigurationError(
 
     const issueBody = `## Configuration Error
 
-The Claude agent dispatcher detected missing configuration and has been disabled.
+The agent dispatcher detected missing configuration and has been disabled.
 
 ### Issues Found
 
@@ -325,7 +325,7 @@ ${errorMessage}
    \`\`\`
 
 ---
-*This issue was automatically created by the Claude agent dispatcher.*`;
+*This issue was automatically created by the agent dispatcher.*`;
 
     if (existingIssue) {
       // Update existing issue

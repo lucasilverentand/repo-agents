@@ -46,7 +46,7 @@ program
 
 program
   .command("list")
-  .description("List all Claude agents")
+  .description("List all agents")
   .option("-f, --format <format>", "Output format (table, json, yaml)", "table")
   .option("-d, --details", "Show detailed information")
   .action(listCommand);
@@ -61,7 +61,7 @@ program
 
 program
   .command("setup-app")
-  .description("Configure a GitHub App for branded Claude agent identity and CI triggering")
+  .description("Configure a GitHub App for branded agent identity and CI triggering")
   .option("--force", "Overwrite existing GitHub App secrets")
   .option(
     "--org <organization>",
@@ -81,7 +81,7 @@ program
 
 program
   .command("add")
-  .description("Add Claude agents from the library")
+  .description("Add agents from the library")
   .option("-a, --all", "Add all agents from the library")
   .option("--force", "Overwrite existing agents")
   .action(addCommand);

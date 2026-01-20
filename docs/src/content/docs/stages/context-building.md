@@ -63,7 +63,7 @@ Collected data is formatted as markdown sections and passed to Claude as part of
 When `min_items` threshold isn't met:
 
 1. The collect-context job outputs `has-context=false`
-2. The claude-agent job is skipped
+2. The agent job is skipped
 3. The audit-report job records "skipped due to insufficient context"
 
 This prevents wasting API calls when there's nothing for the agent to process.

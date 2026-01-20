@@ -227,7 +227,7 @@ export class DispatcherGenerator {
     const permissions = this.aggregatePermissions(agents);
 
     const workflow: DispatcherWorkflow = {
-      name: "Claude Agent Dispatcher",
+      name: "Agent Dispatcher",
       on: triggers,
       permissions,
       jobs: {
