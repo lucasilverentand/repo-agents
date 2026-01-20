@@ -98,6 +98,24 @@ export class WorkflowGenerator {
   }
 
   /**
+   * Generate GitHub App token creation step using official action.
+   * Returns a step that creates a token and exposes it as step.app-token.outputs.token
+   */
+  private generateAppTokenStep(): WorkflowStep {
+    const ghExpr = (expr: string) => `\${{ ${expr} }}`;
+    return {
+      uses: "actions/create-github-app-token@v1",
+      id: "app-token",
+      with: {
+        "app-id": ghExpr("secrets.GH_APP_ID"),
+        "private-key": ghExpr("secrets.GH_APP_PRIVATE_KEY"),
+      },
+      if: "vars.GH_APP_ID != '' && secrets.GH_APP_PRIVATE_KEY != ''",
+      "continue-on-error": true,
+    };
+  }
+
+  /**
    * Generate a progress update step.
    */
   private generateProgressStep(
@@ -111,7 +129,7 @@ export class WorkflowGenerator {
       name: `Update progress: ${stage} ${status}`,
       run: `${cliCommand} run progress --agent ${agentFilePath} --progress-stage ${stage} --progress-status ${status} --progress-comment-id "${ghExpr("inputs.progress-comment-id")}" --progress-issue-number "${ghExpr("inputs.progress-issue-number")}"`,
       env: {
-        GH_TOKEN: ghExpr("needs.setup.outputs.app-token || secrets.GITHUB_TOKEN"),
+        GH_TOKEN: ghExpr("steps.app-token.outputs.token || secrets.GITHUB_TOKEN"),
       },
       "continue-on-error": true,
     };
@@ -122,14 +140,14 @@ export class WorkflowGenerator {
    * This produces clean workflows that delegate logic to `repo-agent run <stage>`.
    *
    * Architecture:
-   * - setup job: Generates GitHub App token (if configured), validates Claude auth
+   * - setup job: Validates Claude auth only
    * - collect-context job (optional): Collects repo data
    * - agent job: Runs Claude Code CLI
    * - execute-outputs job (optional): Executes outputs
    * - audit-report job: Always runs, tracks metrics
    *
    * Event context is read directly from $GITHUB_EVENT_PATH by each job.
-   * Token is generated once in setup and passed to other jobs.
+   * GitHub App tokens are generated per-job using actions/create-github-app-token.
    */
   generate(agent: AgentDefinition, agentFilePath: string): string {
     // For this repository, use local code. For user repos, would use bunx @repo-agents/cli@X
@@ -217,14 +235,11 @@ export class WorkflowGenerator {
       );
     }
 
-    // Setup job - generates GitHub App token and validates auth
+    // Setup job - validates Claude auth only
     workflow.jobs.setup = {
       "runs-on": "ubuntu-latest",
       outputs: {
         "should-continue": ghExpr("steps.setup.outputs.should-continue"),
-        "app-token": ghExpr("steps.setup.outputs.app-token"),
-        "git-user": ghExpr("steps.setup.outputs.git-user"),
-        "git-email": ghExpr("steps.setup.outputs.git-email"),
       },
       steps: [
         {
@@ -238,14 +253,11 @@ export class WorkflowGenerator {
           run: "bun install --frozen-lockfile",
         },
         {
-          name: "Setup agent",
+          name: "Validate Claude authentication",
           id: "setup",
           env: {
             ANTHROPIC_API_KEY: ghExpr("secrets.ANTHROPIC_API_KEY"),
             CLAUDE_CODE_OAUTH_TOKEN: ghExpr("secrets.CLAUDE_CODE_OAUTH_TOKEN"),
-            GH_APP_ID: ghExpr("secrets.GH_APP_ID"),
-            GH_APP_PRIVATE_KEY: ghExpr("secrets.GH_APP_PRIVATE_KEY"),
-            GITHUB_TOKEN: ghExpr("secrets.GITHUB_TOKEN"),
           },
           run: `${cliCommand} run setup --agent ${agentFilePath}`,
         },
@@ -265,6 +277,7 @@ export class WorkflowGenerator {
           name: "Install dependencies",
           run: "bun install --frozen-lockfile",
         },
+        this.generateAppTokenStep(),
       ];
 
       // Add progress update at start
@@ -279,7 +292,7 @@ export class WorkflowGenerator {
           id: "run",
           run: `${cliCommand} run context --agent ${agentFilePath}`,
           env: {
-            GH_TOKEN: ghExpr("needs.setup.outputs.app-token || secrets.GITHUB_TOKEN"),
+            GH_TOKEN: ghExpr("steps.app-token.outputs.token || secrets.GITHUB_TOKEN"),
           },
         },
         {
@@ -326,6 +339,7 @@ export class WorkflowGenerator {
         name: "Install dependencies",
         run: "bun install --frozen-lockfile",
       },
+      this.generateAppTokenStep(),
     ];
 
     // Download collected context if context was configured
@@ -349,8 +363,20 @@ export class WorkflowGenerator {
     agentSteps.push(
       {
         name: "Configure git identity",
-        run: `git config --global user.name "${ghExpr("needs.setup.outputs.git-user")}"
-git config --global user.email "${ghExpr("needs.setup.outputs.git-email")}"`,
+        run: `# Use app identity if token was created, otherwise use github-actions[bot]
+if [ -n "${ghExpr("steps.app-token.outputs.token")}" ]; then
+  # Extract app slug from token (requires gh CLI)
+  APP_SLUG=$(gh api /app --jq '.slug' 2>/dev/null || echo "github-app")
+  APP_ID=$(gh api /app --jq '.id' 2>/dev/null || echo "0")
+  git config --global user.name "\${APP_SLUG}[bot]"
+  git config --global user.email "\${APP_ID}+\${APP_SLUG}[bot]@users.noreply.github.com"
+else
+  git config --global user.name "github-actions[bot]"
+  git config --global user.email "github-actions[bot]@users.noreply.github.com"
+fi`,
+        env: {
+          GH_TOKEN: ghExpr("steps.app-token.outputs.token || secrets.GITHUB_TOKEN"),
+        },
       },
       {
         id: "run",
@@ -358,7 +384,7 @@ git config --global user.email "${ghExpr("needs.setup.outputs.git-email")}"`,
         env: {
           ANTHROPIC_API_KEY: ghExpr("secrets.ANTHROPIC_API_KEY"),
           CLAUDE_CODE_OAUTH_TOKEN: ghExpr("secrets.CLAUDE_CODE_OAUTH_TOKEN"),
-          GH_TOKEN: ghExpr("needs.setup.outputs.app-token || secrets.GITHUB_TOKEN"),
+          GH_TOKEN: ghExpr("steps.app-token.outputs.token || secrets.GITHUB_TOKEN"),
           EVENT_PAYLOAD: ghExpr("inputs.event-payload"),
         },
       },
@@ -404,6 +430,7 @@ git config --global user.email "${ghExpr("needs.setup.outputs.git-email")}"`,
           name: "Install dependencies",
           run: "bun install --frozen-lockfile",
         },
+        this.generateAppTokenStep(),
         {
           name: "Download output files",
           uses: "actions/download-artifact@v4",
@@ -426,7 +453,7 @@ git config --global user.email "${ghExpr("needs.setup.outputs.git-email")}"`,
         name: `Execute ${ghExpr("matrix.output-type")} outputs`,
         run: `${cliCommand} run outputs --agent ${agentFilePath} --output-type ${ghExpr("matrix.output-type")}`,
         env: {
-          GH_TOKEN: ghExpr("needs.setup.outputs.app-token || secrets.GITHUB_TOKEN"),
+          GH_TOKEN: ghExpr("steps.app-token.outputs.token || secrets.GITHUB_TOKEN"),
           TARGET_ISSUE_NUMBER: ghExpr("inputs.target-issue-number"),
         },
       });
@@ -476,6 +503,7 @@ git config --global user.email "${ghExpr("needs.setup.outputs.git-email")}"`,
         name: "Install dependencies",
         run: "bun install --frozen-lockfile",
       },
+      this.generateAppTokenStep(),
       {
         uses: "actions/download-artifact@v4",
         with: {
@@ -488,7 +516,7 @@ git config --global user.email "${ghExpr("needs.setup.outputs.git-email")}"`,
       {
         run: auditRunParts.join(" \\\n            "),
         env: {
-          GH_TOKEN: ghExpr("needs.setup.outputs.app-token || secrets.GITHUB_TOKEN"),
+          GH_TOKEN: ghExpr("steps.app-token.outputs.token || secrets.GITHUB_TOKEN"),
         },
       },
     ];
@@ -517,7 +545,7 @@ fi`,
         run: `${cliCommand} run progress --agent ${agentFilePath} --progress-stage complete --progress-status success --progress-comment-id "${ghExpr("inputs.progress-comment-id")}" --progress-issue-number "${ghExpr("inputs.progress-issue-number")}" --progress-final-comment "${ghExpr("steps.final-comment.outputs.comment")}"`,
         if: `needs.agent.result == 'success' && steps.final-comment.outputs.has-comment == 'true'`,
         env: {
-          GH_TOKEN: ghExpr("needs.setup.outputs.app-token || secrets.GITHUB_TOKEN"),
+          GH_TOKEN: ghExpr("steps.app-token.outputs.token || secrets.GITHUB_TOKEN"),
         },
         "continue-on-error": true,
       });
@@ -527,7 +555,7 @@ fi`,
         run: `${cliCommand} run progress --agent ${agentFilePath} --progress-stage complete --progress-status success --progress-comment-id "${ghExpr("inputs.progress-comment-id")}" --progress-issue-number "${ghExpr("inputs.progress-issue-number")}"`,
         if: `needs.agent.result == 'success' && steps.final-comment.outputs.has-comment != 'true'`,
         env: {
-          GH_TOKEN: ghExpr("needs.setup.outputs.app-token || secrets.GITHUB_TOKEN"),
+          GH_TOKEN: ghExpr("steps.app-token.outputs.token || secrets.GITHUB_TOKEN"),
         },
         "continue-on-error": true,
       });
@@ -537,7 +565,7 @@ fi`,
         run: `${cliCommand} run progress --agent ${agentFilePath} --progress-stage failed --progress-status failed --progress-comment-id "${ghExpr("inputs.progress-comment-id")}" --progress-issue-number "${ghExpr("inputs.progress-issue-number")}" --progress-error "Workflow failed"`,
         if: "needs.agent.result != 'success'",
         env: {
-          GH_TOKEN: ghExpr("needs.setup.outputs.app-token || secrets.GITHUB_TOKEN"),
+          GH_TOKEN: ghExpr("steps.app-token.outputs.token || secrets.GITHUB_TOKEN"),
         },
         "continue-on-error": true,
       });

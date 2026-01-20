@@ -23,22 +23,16 @@ jobs:
     runs-on: ubuntu-latest
     outputs:
       should-continue: ${{ steps.setup.outputs.should-continue }}
-      app-token: ${{ steps.setup.outputs.app-token }}
-      git-user: ${{ steps.setup.outputs.git-user }}
-      git-email: ${{ steps.setup.outputs.git-email }}
     steps:
       - uses: actions/checkout@v4
       - uses: oven-sh/setup-bun@v2
       - name: Install dependencies
         run: bun install --frozen-lockfile
-      - name: Setup agent
+      - name: Validate Claude authentication
         id: setup
         env:
           ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
           CLAUDE_CODE_OAUTH_TOKEN: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
-          GH_APP_ID: ${{ secrets.GH_APP_ID }}
-          GH_APP_PRIVATE_KEY: ${{ secrets.GH_APP_PRIVATE_KEY }}
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: bun packages/runtime/src/index.ts run setup --agent .github/agents/issue-lifecycle/issue-analyzer.md
 
   agent:
@@ -51,21 +45,39 @@ jobs:
       - uses: oven-sh/setup-bun@v2
       - name: Install dependencies
         run: bun install --frozen-lockfile
+      - uses: actions/create-github-app-token@v1
+        id: app-token
+        with:
+          app-id: ${{ secrets.GH_APP_ID }}
+          private-key: ${{ secrets.GH_APP_PRIVATE_KEY }}
+        if: vars.GH_APP_ID != '' && secrets.GH_APP_PRIVATE_KEY != ''
+        continue-on-error: true
       - name: 'Update progress: agent running'
         run: bun packages/runtime/src/index.ts run progress --agent .github/agents/issue-lifecycle/issue-analyzer.md --progress-stage agent --progress-status running --progress-comment-id "${{ inputs.progress-comment-id }}" --progress-issue-number "${{ inputs.progress-issue-number }}"
         env:
-          GH_TOKEN: ${{ needs.setup.outputs.app-token || secrets.GITHUB_TOKEN }}
+          GH_TOKEN: ${{ steps.app-token.outputs.token || secrets.GITHUB_TOKEN }}
         continue-on-error: true
       - name: Configure git identity
         run: |-
-          git config --global user.name "${{ needs.setup.outputs.git-user }}"
-          git config --global user.email "${{ needs.setup.outputs.git-email }}"
+          # Use app identity if token was created, otherwise use github-actions[bot]
+          if [ -n "${{ steps.app-token.outputs.token }}" ]; then
+            # Extract app slug from token (requires gh CLI)
+            APP_SLUG=$(gh api /app --jq '.slug' 2>/dev/null || echo "github-app")
+            APP_ID=$(gh api /app --jq '.id' 2>/dev/null || echo "0")
+            git config --global user.name "${APP_SLUG}[bot]"
+            git config --global user.email "${APP_ID}+${APP_SLUG}[bot]@users.noreply.github.com"
+          else
+            git config --global user.name "github-actions[bot]"
+            git config --global user.email "github-actions[bot]@users.noreply.github.com"
+          fi
+        env:
+          GH_TOKEN: ${{ steps.app-token.outputs.token || secrets.GITHUB_TOKEN }}
       - id: run
         run: bun packages/runtime/src/index.ts run agent --agent .github/agents/issue-lifecycle/issue-analyzer.md
         env:
           ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
           CLAUDE_CODE_OAUTH_TOKEN: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
-          GH_TOKEN: ${{ needs.setup.outputs.app-token || secrets.GITHUB_TOKEN }}
+          GH_TOKEN: ${{ steps.app-token.outputs.token || secrets.GITHUB_TOKEN }}
           EVENT_PAYLOAD: ${{ inputs.event-payload }}
       - uses: actions/upload-artifact@v4
         with:
@@ -78,7 +90,7 @@ jobs:
       - name: 'Update progress: agent success'
         run: bun packages/runtime/src/index.ts run progress --agent .github/agents/issue-lifecycle/issue-analyzer.md --progress-stage agent --progress-status success --progress-comment-id "${{ inputs.progress-comment-id }}" --progress-issue-number "${{ inputs.progress-issue-number }}"
         env:
-          GH_TOKEN: ${{ needs.setup.outputs.app-token || secrets.GITHUB_TOKEN }}
+          GH_TOKEN: ${{ steps.app-token.outputs.token || secrets.GITHUB_TOKEN }}
         continue-on-error: true
 
   execute-outputs:
@@ -97,6 +109,13 @@ jobs:
       - uses: oven-sh/setup-bun@v2
       - name: Install dependencies
         run: bun install --frozen-lockfile
+      - uses: actions/create-github-app-token@v1
+        id: app-token
+        with:
+          app-id: ${{ secrets.GH_APP_ID }}
+          private-key: ${{ secrets.GH_APP_PRIVATE_KEY }}
+        if: vars.GH_APP_ID != '' && secrets.GH_APP_PRIVATE_KEY != ''
+        continue-on-error: true
       - name: Download output files
         uses: actions/download-artifact@v4
         with:
@@ -105,13 +124,13 @@ jobs:
       - name: 'Update progress: outputs running'
         run: bun packages/runtime/src/index.ts run progress --agent .github/agents/issue-lifecycle/issue-analyzer.md --progress-stage outputs --progress-status running --progress-comment-id "${{ inputs.progress-comment-id }}" --progress-issue-number "${{ inputs.progress-issue-number }}"
         env:
-          GH_TOKEN: ${{ needs.setup.outputs.app-token || secrets.GITHUB_TOKEN }}
+          GH_TOKEN: ${{ steps.app-token.outputs.token || secrets.GITHUB_TOKEN }}
         continue-on-error: true
         if: matrix.output-type == matrix.output-type[0]
       - name: Execute ${{ matrix.output-type }} outputs
         run: bun packages/runtime/src/index.ts run outputs --agent .github/agents/issue-lifecycle/issue-analyzer.md --output-type ${{ matrix.output-type }}
         env:
-          GH_TOKEN: ${{ needs.setup.outputs.app-token || secrets.GITHUB_TOKEN }}
+          GH_TOKEN: ${{ steps.app-token.outputs.token || secrets.GITHUB_TOKEN }}
           TARGET_ISSUE_NUMBER: ${{ inputs.target-issue-number }}
 
   audit-report:
@@ -126,6 +145,13 @@ jobs:
       - uses: oven-sh/setup-bun@v2
       - name: Install dependencies
         run: bun install --frozen-lockfile
+      - uses: actions/create-github-app-token@v1
+        id: app-token
+        with:
+          app-id: ${{ secrets.GH_APP_ID }}
+          private-key: ${{ secrets.GH_APP_PRIVATE_KEY }}
+        if: vars.GH_APP_ID != '' && secrets.GH_APP_PRIVATE_KEY != ''
+        continue-on-error: true
       - uses: actions/download-artifact@v4
         with:
           pattern: '*-${{ github.run_id }}'
@@ -137,7 +163,7 @@ jobs:
                       --agent-result ${{ needs.agent.result }} \
                       --execute-outputs-result ${{ needs.execute-outputs.result }}
         env:
-          GH_TOKEN: ${{ needs.setup.outputs.app-token || secrets.GITHUB_TOKEN }}
+          GH_TOKEN: ${{ steps.app-token.outputs.token || secrets.GITHUB_TOKEN }}
       - name: Read final comment
         id: final-comment
         if: needs.agent.result == 'success'
@@ -156,19 +182,19 @@ jobs:
         run: bun packages/runtime/src/index.ts run progress --agent .github/agents/issue-lifecycle/issue-analyzer.md --progress-stage complete --progress-status success --progress-comment-id "${{ inputs.progress-comment-id }}" --progress-issue-number "${{ inputs.progress-issue-number }}" --progress-final-comment "${{ steps.final-comment.outputs.comment }}"
         if: needs.agent.result == 'success' && steps.final-comment.outputs.has-comment == 'true'
         env:
-          GH_TOKEN: ${{ needs.setup.outputs.app-token || secrets.GITHUB_TOKEN }}
+          GH_TOKEN: ${{ steps.app-token.outputs.token || secrets.GITHUB_TOKEN }}
         continue-on-error: true
       - name: 'Update progress: complete'
         run: bun packages/runtime/src/index.ts run progress --agent .github/agents/issue-lifecycle/issue-analyzer.md --progress-stage complete --progress-status success --progress-comment-id "${{ inputs.progress-comment-id }}" --progress-issue-number "${{ inputs.progress-issue-number }}"
         if: needs.agent.result == 'success' && steps.final-comment.outputs.has-comment != 'true'
         env:
-          GH_TOKEN: ${{ needs.setup.outputs.app-token || secrets.GITHUB_TOKEN }}
+          GH_TOKEN: ${{ steps.app-token.outputs.token || secrets.GITHUB_TOKEN }}
         continue-on-error: true
       - name: 'Update progress: failed'
         run: bun packages/runtime/src/index.ts run progress --agent .github/agents/issue-lifecycle/issue-analyzer.md --progress-stage failed --progress-status failed --progress-comment-id "${{ inputs.progress-comment-id }}" --progress-issue-number "${{ inputs.progress-issue-number }}" --progress-error "Workflow failed"
         if: needs.agent.result != 'success'
         env:
-          GH_TOKEN: ${{ needs.setup.outputs.app-token || secrets.GITHUB_TOKEN }}
+          GH_TOKEN: ${{ steps.app-token.outputs.token || secrets.GITHUB_TOKEN }}
         continue-on-error: true
 permissions:
   issues: write
