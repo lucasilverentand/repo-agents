@@ -112,10 +112,13 @@ async function buildContextFile(ctx: StageContext, agentInstructions: string): P
   let eventHandled = false;
 
   // Priority 1: Check for EVENT_PAYLOAD environment variable (from dispatcher)
+  // Note: EVENT_PAYLOAD is base64-encoded to avoid newline issues with GitHub Actions
   const eventPayloadEnv = process.env.EVENT_PAYLOAD;
   if (eventPayloadEnv) {
     try {
-      const event = JSON.parse(eventPayloadEnv);
+      // Decode base64 payload
+      const decodedPayload = Buffer.from(eventPayloadEnv, "base64").toString("utf-8");
+      const event = JSON.parse(decodedPayload);
 
       // Extract event metadata
       sections.push(`GitHub Event: ${ctx.eventName}`);

@@ -612,11 +612,14 @@ async function getIssueOrPRNumber(ctx: DispatcherContext): Promise<number | unde
 }
 
 /**
- * Get the full event payload as a JSON string for agent context.
+ * Get the full event payload as a base64-encoded string for agent context.
+ * Base64 encoding is required because GitHub Actions outputs can't contain newlines.
  */
 async function getEventPayload(ctx: DispatcherContext): Promise<string | undefined> {
   try {
-    return await Bun.file(ctx.github.eventPath).text();
+    const payload = await Bun.file(ctx.github.eventPath).text();
+    // Base64 encode to avoid newline issues with GitHub Actions outputs
+    return Buffer.from(payload).toString("base64");
   } catch {
     return undefined;
   }
