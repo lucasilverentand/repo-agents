@@ -5,6 +5,21 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.4.0](https://github.com/lucasilverentand/repo-agents/compare/v1.3.0...v1.4.0) (2026-01-20)
+
+
+### Features
+
+* enhance documentation with automated issue lifecycle and update .gitignore ([f17ee00](https://github.com/lucasilverentand/repo-agents/commit/f17ee0044f821600a91856afcac4b5ee7c48453f))
+
+
+### Bug Fixes
+
+* ensure validate command exits with code 1 on validation failure ([e3eb373](https://github.com/lucasilverentand/repo-agents/commit/e3eb3735efdb7f22fff66738aa4577cecc5e5565))
+* remove invalid conditional from GitHub App token step ([c2f74ea](https://github.com/lucasilverentand/repo-agents/commit/c2f74ea3a02a2bcfc8eeaf17bdc5e216310bfa23))
+* use official GitHub App token action in workflows ([301d8d2](https://github.com/lucasilverentand/repo-agents/commit/301d8d21391faf95b600f7d6b1a2a8f922ab7590)), closes [#198](https://github.com/lucasilverentand/repo-agents/issues/198)
+* use strategy.job-index for matrix first-item check ([baa5c78](https://github.com/lucasilverentand/repo-agents/commit/baa5c78fb47895c1dc8c7e10324af2c847fe197c))
+
 ## [1.3.0](https://github.com/lucasilverentand/repo-agents/compare/v1.2.0...v1.3.0) (2026-01-20)
 
 
