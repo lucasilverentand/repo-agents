@@ -50,7 +50,6 @@ jobs:
         with:
           app-id: ${{ secrets.GH_APP_ID }}
           private-key: ${{ secrets.GH_APP_PRIVATE_KEY }}
-        if: vars.GH_APP_ID != '' && secrets.GH_APP_PRIVATE_KEY != ''
         continue-on-error: true
       - name: 'Update progress: agent running'
         run: bun packages/runtime/src/index.ts run progress --agent .github/agents/issue-lifecycle/issue-implementer.md --progress-stage agent --progress-status running --progress-comment-id "${{ inputs.progress-comment-id }}" --progress-issue-number "${{ inputs.progress-issue-number }}"
@@ -115,7 +114,6 @@ jobs:
         with:
           app-id: ${{ secrets.GH_APP_ID }}
           private-key: ${{ secrets.GH_APP_PRIVATE_KEY }}
-        if: vars.GH_APP_ID != '' && secrets.GH_APP_PRIVATE_KEY != ''
         continue-on-error: true
       - name: Download output files
         uses: actions/download-artifact@v4
@@ -151,7 +149,6 @@ jobs:
         with:
           app-id: ${{ secrets.GH_APP_ID }}
           private-key: ${{ secrets.GH_APP_PRIVATE_KEY }}
-        if: vars.GH_APP_ID != '' && secrets.GH_APP_PRIVATE_KEY != ''
         continue-on-error: true
       - uses: actions/download-artifact@v4
         with:

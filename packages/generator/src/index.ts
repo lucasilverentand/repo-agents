@@ -110,7 +110,6 @@ export class WorkflowGenerator {
         "app-id": ghExpr("secrets.GH_APP_ID"),
         "private-key": ghExpr("secrets.GH_APP_PRIVATE_KEY"),
       },
-      if: "vars.GH_APP_ID != '' && secrets.GH_APP_PRIVATE_KEY != ''",
       "continue-on-error": true,
     };
   }
