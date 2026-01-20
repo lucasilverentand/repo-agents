@@ -1,0 +1,323 @@
+---
+title: Automated Issue Lifecycle
+description: A complete workflow for managing issues from creation to implementation using AI agents
+sidebar:
+  order: 1
+---
+
+import { Aside, Card } from '@astrojs/starlight/components';
+import Mermaid from '../../../components/Mermaid.tsx';
+
+<Aside type="tip" title="Inspiration for Your Repository">
+This workflow demonstrates how you can use multiple coordinated agents to automate your entire issue management pipeline—from triage to implementation. Adapt it to match your team's processes.
+</Aside>
+
+## Overview
+
+This example shows a comprehensive issue lifecycle powered by AI agents working alongside human oversight. Issues flow through quality checks, triage, approval, and automated implementation—with humans retaining control at key decision points.
+
+## The Complete Flow
+
+<Mermaid client:load chart={`flowchart TD
+    %% Entry Points
+    Human([👤 Human Creates Issue]):::humanNode
+    AuditFail[🤖 Agent Audit Failure]:::aiNode
+
+    %% Issue Creation
+    Human --> NewIssue{{📋 New Issue Created}}:::eventNode
+    AuditFail --> AIIssue{{🔧 AI Creates Issue}}:::eventNode
+    AIIssue --> NewIssue
+
+    %% Issue Analyzer Agent
+    NewIssue -->|Triggers| Analyzer[🤖 Issue Analyzer Agent<br/>Checks completeness]:::agentNode
+
+    Analyzer -->|Missing Info| NeedsInfo[🏷️ Label: needs-info]:::labelNode
+    Analyzer -->|Complete| ReadyTriage[🏷️ Label: ready-for-triage]:::labelNode
+    Analyzer -->|Simple & Clear| GoodFirst[🏷️ Label: good-first-issue]:::labelNode
+
+    %% Human Intervention for Missing Info
+    NeedsInfo --> HumanUpdate1([👤 Human Updates Issue]):::humanNode
+    HumanUpdate1 --> NeedsFormat{Needs<br/>Formatting?}:::decisionNode
+
+    %% Optional Formatting Path
+    NeedsFormat -->|Yes| FormatLabel[🏷️ Label: needs-formatting]:::labelNode
+    FormatLabel -->|Triggers| Formatter[🤖 Issue Formatter Agent<br/>Restructures content]:::agentNode
+    Formatter --> FormatterReady[🏷️ Label: ready-for-triage<br/>Remove: needs-formatting]:::labelNode
+    FormatterReady --> Triage
+
+    NeedsFormat -->|No| ReadyTriage
+
+    %% Issue Triage Agent
+    ReadyTriage -->|Triggers| Triage[🤖 Issue Triage Agent<br/>Categorizes issue]:::agentNode
+
+    Triage --> TriageLabels[🏷️ Labels Added:<br/>- Type: bug/feature/enhancement/etc<br/>- Priority: critical/high/medium/low<br/>- Area: parser/generator/cli/etc<br/>- triaged]:::labelNode
+    TriageLabels --> Triaged{{📊 Issue Triaged}}:::eventNode
+
+    %% Human Review and Decision
+    Triaged --> HumanReview([👤 Human Reviews & Decides]):::humanNode
+
+    HumanReview -->|Approve| Approved[🏷️ Label: approved]:::labelNode
+    HumanReview -->|Reject| Closed1[❌ Issue Closed]:::endNode
+    HumanReview -->|Wait in Backlog| Backlog[📚 Backlog]:::statusNode
+
+    %% Approved issues can be assigned to AI or human
+    Approved --> AssignDecision{Assign to?}:::decisionNode
+    AssignDecision -->|AI Agent| AgentAssigned[🏷️ Label: agent-assigned]:::labelNode
+    AssignDecision -->|Human| HumanImpl([👤 Human Implements]):::humanNode
+
+    %% Issue Implementer Agent
+    AgentAssigned -->|Triggers| PRLimitCheck{Open PRs<br/>< max?}:::decisionNode
+    PRLimitCheck -->|Yes| BlockingCheck{Has open<br/>blocking issues?}:::decisionNode
+    PRLimitCheck -->|No| Queued[⏳ Queued<br/>Retries later]:::statusNode
+    Queued -.->|When PR closed/merged| PRLimitCheck
+
+    BlockingCheck -->|Yes| Blocked[⛔ Blocked<br/>Wait for blockers]:::statusNode
+    BlockingCheck -->|No| Implementer[🤖 Issue Implementer Agent<br/>Implements solution]:::agentNode
+    Blocked -.->|When blocker closed| BlockingCheck
+
+    Implementer --> InProgress[🏷️ Label: implementation-in-progress]:::labelNode
+    InProgress --> PRCreated{{🔄 Pull Request Created}}:::eventNode
+
+    %% PR Review
+    PRCreated --> PRReview([👤 Human Reviews PR]):::humanNode
+
+    PRReview -->|Needs Changes| PRChanges([🤖 Agent Updates PR]):::agentNode
+    PRChanges --> PRReview
+
+    PRReview -->|Approve & Merge| Merged[✅ PR Merged]:::successNode
+    PRReview -->|Reject| PRClosed[❌ PR Closed]:::endNode
+
+    Merged --> IssueClosed[✅ Issue Closed<br/>Automatically]:::successNode
+    PRClosed --> Backlog
+
+    %% Human Implementation Path
+    HumanImpl --> HumanPR{{🔄 Human Creates PR}}:::eventNode
+    HumanPR --> HumanPRReview([👤 PR Review]):::humanNode
+    HumanPRReview -->|Merge| HumanMerged[✅ PR Merged]:::successNode
+    HumanMerged --> HumanIssueClosed[✅ Issue Closed]:::successNode
+
+    %% Backlog can be revisited
+    Backlog -.->|Later Review| HumanReview
+
+    %% Styling
+    classDef humanNode fill:#4A90E2,stroke:#2E5C8A,stroke-width:3px,color:#fff
+    classDef aiNode fill:#9B59B6,stroke:#6C3483,stroke-width:3px,color:#fff
+    classDef agentNode fill:#E67E22,stroke:#A04000,stroke-width:2px,color:#fff
+    classDef eventNode fill:#F39C12,stroke:#B8860B,stroke-width:2px,color:#000
+    classDef labelNode fill:#95A5A6,stroke:#5D6D7E,stroke-width:2px,color:#000
+    classDef decisionNode fill:#1ABC9C,stroke:#117A65,stroke-width:2px,color:#fff
+    classDef successNode fill:#27AE60,stroke:#1E8449,stroke-width:3px,color:#fff
+    classDef endNode fill:#E74C3C,stroke:#A93226,stroke-width:3px,color:#fff
+    classDef statusNode fill:#BDC3C7,stroke:#7F8C8D,stroke-width:2px,color:#000
+`} />
+
+## Legend
+
+| Symbol | Type | Description |
+|--------|------|-------------|
+| 👤 | Human Action | Direct human intervention or decision |
+| 🤖 | AI Agent | Automated agent performing actions |
+| 📋 | Event | System event or trigger |
+| 🏷️ | Label | GitHub label applied |
+| 🔄 | Pull Request | PR created/updated |
+| ✅ | Success | Completed successfully |
+| ❌ | Closed | Issue/PR closed |
+| 📚 | Status | Current state |
+
+## The Four Agent Pipeline
+
+### 1. Issue Analyzer (Quality Gate)
+
+The first line of defense—ensures every issue has enough information before entering the triage process.
+
+<Card title="Configuration Example" icon="document">
+```yaml
+name: Issue Analyzer
+on:
+  issues:
+    opened: true
+permissions:
+  issues: write
+outputs:
+  - add-label
+  - add-comment
+```
+</Card>
+
+**Actions:**
+- Adds `needs-info` if incomplete
+- Adds `ready-for-triage` if complete
+- May add `good-first-issue` for simple issues
+- **Rate Limit:** 1 minute
+
+### 2. Issue Formatter (Optional Cleanup)
+
+Rescues poorly formatted issues by restructuring them into proper templates.
+
+<Card title="Configuration Example" icon="document">
+```yaml
+name: Issue Formatter
+on:
+  issues:
+    labeled:
+      - needs-formatting
+permissions:
+  issues: write
+outputs:
+  - add-label
+  - remove-label
+  - add-comment
+```
+</Card>
+
+**Actions:**
+- Reorganizes content into proper templates
+- Adds `ready-for-triage` label (triggers triage agent)
+- Removes `needs-formatting` label
+- **Rate Limit:** 2 minutes
+
+### 3. Issue Triage (Categorization)
+
+Automatically categorizes issues by type, priority, and area.
+
+<Card title="Configuration Example" icon="document">
+```yaml
+name: Issue Triage
+on:
+  issues:
+    labeled:
+      - ready-for-triage
+permissions:
+  issues: write
+outputs:
+  - add-label
+  - remove-label
+```
+</Card>
+
+**Actions:**
+- Adds type label (bug/feature/enhancement)
+- Adds priority label (critical/high/medium/low)
+- Adds area label(s) (parser/generator/cli)
+- Adds `triaged` label
+- Removes `ready-for-triage` label
+- **Rate Limit:** 1 minute
+
+### 4. Issue Implementer (Automated Development)
+
+The powerhouse—actually implements approved issues with full codebase context.
+
+<Card title="Configuration Example" icon="document">
+```yaml
+name: Issue Implementer
+on:
+  issues:
+    labeled:
+      - approved
+      - agent-assigned
+    closed: true  # Auto-added when blocking checks enabled
+permissions:
+  contents: write
+  issues: write
+  pull_requests: write
+outputs:
+  - create-pr
+  - update-file
+  - add-label
+pre_flight:
+  # Prevent PR flooding
+  max_open_prs: 3
+  pr_label: implementation-in-progress
+  # Wait for dependencies
+  blocking_checks: true
+context:
+  issue_dependencies: true  # Get blocking/blocked-by relationships
+```
+</Card>
+
+**Pre-flight Checks:**
+- Requires both `approved` AND `agent-assigned` labels
+- Counts open PRs; skips if at limit (queues for later)
+- Checks for open blocking issues; skips if blocked
+
+**Actions:**
+- Explores codebase
+- Implements solution
+- Writes tests
+- Creates pull request
+- Adds `implementation-in-progress` label
+
+**Smart Retry:**
+- Automatically retries when PRs are closed/merged
+- Automatically retries when blocking issues close
+- **Rate Limit:** 10 minutes
+
+## Key Features
+
+<div class="grid-cards">
+
+### Quality Gates
+Each agent validates before passing to next stage—preventing garbage from flowing through the pipeline.
+
+### Human Oversight
+Humans must approve AND explicitly assign to AI before implementation. Full control over what gets built.
+
+### Flexible Assignment
+Approved issues can be handled by AI (`agent-assigned`) or humans. Choose the right tool for each task.
+
+### PR Flood Protection
+The `max_open_prs` limit prevents overwhelming reviewers; queued issues retry automatically when capacity opens.
+
+### Dependency Management
+Uses GitHub's native blocking/blocked-by relationships. Agent automatically waits for dependencies and retries when they close.
+
+### Self-Healing
+Failed agents can create issues to track their own problems—no failures slip through the cracks.
+
+</div>
+
+## Human Decision Points
+
+You maintain control at critical stages:
+
+1. **Creation:** Create issues manually
+2. **Missing Info:** Update issues when `needs-info` label is applied
+3. **Formatting:** Manually add `needs-formatting` if agent misses it
+4. **Approval:** Review triaged issues and add `approved` label
+5. **Assignment:** Add `agent-assigned` to delegate to AI, or implement manually
+6. **PR Review:** Review AI-generated PRs and request changes
+7. **Backlog Management:** Revisit backlog items for future work
+
+## Adapting to Your Workflow
+
+This is a starting point. Consider these variations:
+
+<Aside type="note">
+**Simpler Setup:** Start with just Analyzer → Triage for automatic categorization without implementation.
+
+**Enterprise Scale:** Add approval workflows, security scanning, and deployment agents.
+
+**Open Source:** Skip approval step for community contributions; rely on PR review as the quality gate.
+
+**Bug-Only:** Use the implementer agent exclusively for bug fixes while keeping features human-driven.
+</Aside>
+
+## Self-Healing Architecture
+
+When an agent workflow fails, the audit system can automatically create an issue:
+
+```yaml
+audit:
+  create_issue_on_failure: true
+  failure_labels:
+    - agent-failure
+    - needs-investigation
+```
+
+This issue enters the same lifecycle pipeline, ensuring problems are tracked and prioritized alongside regular work.
+
+---
+
+<Aside type="tip">
+Ready to implement this workflow? Check out the [agent definitions in the repo-agents repository](https://github.com/lucasilverentand/repo-agents/tree/main/.github/agents) for the complete agent markdown files.
+</Aside>

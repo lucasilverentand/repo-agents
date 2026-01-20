@@ -51,3 +51,10 @@ yarn-error.log*
 
 # Claude Code local settings
 .claude/
+
+# Documentation (root level only - except CLAUDE.md)
+/*.md
+!CLAUDE.md
+!CHANGELOG.md
+!CONTRIBUTING.md
+!README.md
