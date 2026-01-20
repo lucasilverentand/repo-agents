@@ -27,7 +27,10 @@ export async function validateCommand(
   if (options.all) {
     await validateAll(agentsDir, options.strict || false);
   } else if (file) {
-    await validateSingle(file, options.strict || false);
+    const result = await validateSingle(file, options.strict || false);
+    if (!result.success) {
+      process.exit(1);
+    }
   } else {
     logger.error("Please specify a file or use --all to validate all agents");
     process.exit(1);
