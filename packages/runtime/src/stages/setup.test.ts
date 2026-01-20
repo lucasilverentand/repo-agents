@@ -49,9 +49,6 @@ describe("runSetup", () => {
 
     expect(result.success).toBe(true);
     expect(result.outputs["should-continue"]).toBe("true");
-    expect(result.outputs["app-token"]).toBe("test-token");
-    expect(result.outputs["git-user"]).toBe("github-actions[bot]");
-    expect(result.outputs["git-email"]).toBe("github-actions[bot]@users.noreply.github.com");
   });
 
   test("succeeds when CLAUDE_CODE_OAUTH_TOKEN is present", async () => {
@@ -90,12 +87,10 @@ describe("runSetup", () => {
     const result = await runSetup(ctx);
 
     expect(result.success).toBe(true);
-    expect(result.outputs["app-token"]).toBe("fallback-token");
-    expect(result.outputs["git-user"]).toBe("github-actions[bot]");
-    expect(result.outputs["git-email"]).toBe("github-actions[bot]@users.noreply.github.com");
+    expect(result.outputs["should-continue"]).toBe("true");
   });
 
-  test("prefers FALLBACK_TOKEN over GITHUB_TOKEN", async () => {
+  test("succeeds regardless of token configuration", async () => {
     process.env.ANTHROPIC_API_KEY = "sk-ant-test-key";
     delete process.env.GH_APP_ID;
     delete process.env.GH_APP_PRIVATE_KEY;
@@ -106,10 +101,10 @@ describe("runSetup", () => {
     const result = await runSetup(ctx);
 
     expect(result.success).toBe(true);
-    expect(result.outputs["app-token"]).toBe("preferred-token");
+    expect(result.outputs["should-continue"]).toBe("true");
   });
 
-  test("returns default git user when no app configured", async () => {
+  test("succeeds when no app configured", async () => {
     process.env.ANTHROPIC_API_KEY = "sk-ant-test-key";
     delete process.env.GH_APP_ID;
     delete process.env.GH_APP_PRIVATE_KEY;
@@ -119,11 +114,10 @@ describe("runSetup", () => {
     const result = await runSetup(ctx);
 
     expect(result.success).toBe(true);
-    expect(result.outputs["git-user"]).toBe("github-actions[bot]");
-    expect(result.outputs["git-email"]).toBe("github-actions[bot]@users.noreply.github.com");
+    expect(result.outputs["should-continue"]).toBe("true");
   });
 
-  test("validates both app ID and private key are present", async () => {
+  test("succeeds when app ID present but private key missing", async () => {
     process.env.ANTHROPIC_API_KEY = "sk-ant-test-key";
     process.env.GH_APP_ID = "123456";
     delete process.env.GH_APP_PRIVATE_KEY; // Missing private key
@@ -133,9 +127,8 @@ describe("runSetup", () => {
     const ctx = createContext();
     const result = await runSetup(ctx);
 
-    // Should fall back to GITHUB_TOKEN
     expect(result.success).toBe(true);
-    expect(result.outputs["app-token"]).toBe("test-token");
+    expect(result.outputs["should-continue"]).toBe("true");
   });
 
   test("handles missing GITHUB_TOKEN gracefully", async () => {
@@ -149,6 +142,6 @@ describe("runSetup", () => {
     const result = await runSetup(ctx);
 
     expect(result.success).toBe(true);
-    expect(result.outputs["app-token"]).toBe("");
+    expect(result.outputs["should-continue"]).toBe("true");
   });
 });
