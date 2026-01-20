@@ -5,6 +5,7 @@
   "type": "module",
   "scripts": {
     "dev": "astro dev",
+    "prebuild": "bun ../scripts/generate-schema.ts",
     "build": "astro build",
     "preview": "astro preview"
   },

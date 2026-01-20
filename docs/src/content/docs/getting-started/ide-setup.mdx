@@ -1,0 +1,248 @@
+---
+title: IDE Setup
+slug: getting-started/ide-setup
+description: Configure your IDE for agent development with autocomplete and validation
+sidebar:
+  label: IDE Setup
+  order: 2
+---
+
+import { Steps, Tabs, TabItem } from '@astrojs/starlight/components';
+
+Setting up your IDE with the agent frontmatter schema enables autocomplete, inline validation, and documentation while writing agent files.
+
+## Why IDE Setup Matters
+
+When you configure your IDE with the agent schema, you get:
+
+- **Autocomplete** - Suggestions for all valid frontmatter fields as you type
+- **Validation** - Inline error checking for invalid configurations
+- **Documentation** - Hover tooltips showing field descriptions and examples
+- **Type Safety** - Catch configuration errors before running `repo-agents compile`
+
+## Schema Location
+
+The agent frontmatter schema is automatically generated and hosted at:
+
+```
+https://lucasilverentand.github.io/repo-agents/schemas/agent-frontmatter.schema.json
+```
+
+This schema is rebuilt with every documentation deployment, ensuring it stays in sync with the latest version of repo-agents.
+
+## VS Code Setup
+
+<Steps>
+
+1. **Install YAML Extension**
+
+   If you haven't already, install the [YAML extension by Red Hat](https://marketplace.visualstudio.com/items?itemName=redhat.vscode-yaml):
+
+   ```bash
+   code --install-extension redhat.vscode-yaml
+   ```
+
+2. **Configure Schema Association**
+
+   Add the following to your workspace or user `settings.json`:
+
+   ```json title=".vscode/settings.json"
+   {
+     "yaml.schemas": {
+       "https://lucasilverentand.github.io/repo-agents/schemas/agent-frontmatter.schema.json": [
+         ".github/agents/**/*.md"
+       ]
+     }
+   }
+   ```
+
+   This tells VS Code to use the schema for all markdown files in `.github/agents/`.
+
+3. **Create Your First Agent**
+
+   Now when you create or edit files in `.github/agents/`, you'll get:
+   - Autocomplete when you press `Ctrl+Space` (or `Cmd+Space` on macOS)
+   - Red squiggly lines for invalid configurations
+   - Hover tooltips with field descriptions
+
+</Steps>
+
+## JetBrains IDEs Setup
+
+<Steps>
+
+1. **Open Settings**
+
+   Go to `File → Settings → Languages & Frameworks → Schemas and DTDs → JSON Schema Mappings` (or `Preferences` on macOS).
+
+2. **Add Schema Mapping**
+
+   - Click the `+` button to add a new schema mapping
+   - **Name**: `Repo Agents`
+   - **Schema URL**: `https://lucasilverentand.github.io/repo-agents/schemas/agent-frontmatter.schema.json`
+   - **Schema version**: `JSON Schema version 7`
+
+3. **Add File Pattern**
+
+   Under "File path pattern", add:
+   ```
+   .github/agents/**/*.md
+   ```
+
+4. **Apply and Write Agents**
+
+   Your JetBrains IDE will now provide autocomplete and validation for agent files.
+
+</Steps>
+
+## Neovim Setup
+
+<Steps>
+
+1. **Install YAML Language Server**
+
+   Using [Mason.nvim](https://github.com/williamboman/mason.nvim):
+
+   ```vim
+   :MasonInstall yaml-language-server
+   ```
+
+2. **Configure LSP**
+
+   Add to your `lspconfig` setup:
+
+   ```lua title="~/.config/nvim/lua/lsp.lua"
+   require('lspconfig').yamlls.setup({
+     settings = {
+       yaml = {
+         schemas = {
+           ["https://lucasilverentand.github.io/repo-agents/schemas/agent-frontmatter.schema.json"] = ".github/agents/**/*.md",
+         },
+       },
+     },
+   })
+   ```
+
+3. **Reload Configuration**
+
+   Restart Neovim or reload your config, and you'll have autocomplete and validation for agent files.
+
+</Steps>
+
+## Testing Your Setup
+
+Create a test agent file to verify everything works:
+
+<Steps>
+
+1. **Create Test File**
+
+   ```bash
+   mkdir -p .github/agents
+   touch .github/agents/test-agent.md
+   ```
+
+2. **Start Typing**
+
+   Open the file and type `---` to start the frontmatter, then press Enter. Type `name:` and you should see autocomplete suggestions.
+
+3. **Trigger Autocomplete**
+
+   Type `on:` and press `Ctrl+Space` (or `Cmd+Space`). You should see suggestions for:
+   - `issues`
+   - `pull_request`
+   - `discussion`
+   - `schedule`
+   - `workflow_dispatch`
+   - `repository_dispatch`
+
+4. **Test Validation**
+
+   Try adding an invalid field like `invalid_field: true` - you should see a validation error in your IDE.
+
+</Steps>
+
+## Example with Autocomplete
+
+Here's what you'll experience when typing:
+
+```yaml
+---
+name: |  # ← Type "Issue Triage" here
+on:
+  issues: |  # ← Press Ctrl+Space for autocomplete
+    types: |  # ← Autocomplete suggests: [opened, closed, etc.]
+outputs:
+  add-label: |  # ← Hover shows documentation
+  add-comment: true
+permissions:
+  issues: |  # ← Autocomplete suggests: read, write
+---
+```
+
+## Troubleshooting
+
+### Schema Not Working
+
+If autocomplete isn't appearing:
+
+1. **Check Extension Installation** - Ensure the YAML extension is installed and enabled
+2. **Reload IDE** - Sometimes a restart is needed after configuration changes
+3. **Verify Settings** - Double-check the schema URL and file pattern in your settings
+4. **Check File Location** - The file must be in `.github/agents/` to match the pattern
+
+### Validation Errors
+
+If you see false positive validation errors:
+
+1. **Update Schema** - The schema is regenerated with each docs deployment
+2. **Clear Cache** - Some IDEs cache schemas; try clearing the cache
+3. **Check Version** - Ensure you're using a recent version of repo-agents
+
+### No Autocomplete for Markdown Body
+
+The schema only applies to the YAML frontmatter section (between `---` markers). The markdown body is free-form instructions for Claude and doesn't have schema validation.
+
+## Advanced: Local Schema Development
+
+If you're contributing to repo-agents and want to test schema changes locally:
+
+<Steps>
+
+1. **Generate Schema Locally**
+
+   ```bash
+   bun scripts/generate-schema.ts
+   ```
+
+2. **Use Local Schema**
+
+   Update your IDE settings to point to the local file:
+
+   ```json
+   {
+     "yaml.schemas": {
+       "file:///path/to/repo-agents/docs/public/schemas/agent-frontmatter.schema.json": [
+         ".github/agents/**/*.md"
+       ]
+     }
+   }
+   ```
+
+3. **Regenerate on Changes**
+
+   After modifying Zod schemas in `packages/parser/src/schemas.ts`, regenerate:
+
+   ```bash
+   bun scripts/generate-schema.ts
+   ```
+
+</Steps>
+
+## Next Steps
+
+Now that your IDE is configured:
+
+- [Write Your First Agent](/repo-agents/getting-started/quick-start) - Create a simple agent from scratch
+- [Anatomy of an Agent](/repo-agents/anatomy/what-is-an-agent) - Understand agent structure
+- [Trigger Types](/repo-agents/triggers/issues) - Explore available triggers
