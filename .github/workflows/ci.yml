@@ -73,6 +73,33 @@ jobs:
       - name: Verify CLI runs
         run: bun packages/cli/src/index.ts --version
 
+  validate-agents:
+    name: Validate Agents
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v6
+
+      - name: Setup Bun
+        uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: latest
+
+      - name: Cache Bun dependencies
+        uses: actions/cache@v5
+        with:
+          path: ~/.bun/install/cache
+          key: ${{ runner.os }}-bun-${{ hashFiles('bun.lock') }}
+          restore-keys: |
+            ${{ runner.os }}-bun-
+
+      - name: Install dependencies
+        run: bun install --frozen-lockfile
+
+      - name: Validate agent definitions
+        run: bun run validate:agents
+
   test-unit:
     name: Unit Tests
     runs-on: ubuntu-latest
@@ -140,11 +167,8 @@ jobs:
       - name: Install dependencies
         run: bun install --frozen-lockfile
 
-      - name: Make test script executable
-        run: chmod +x ./test-all.sh
-
       - name: Run integration tests
-        run: ./test-all.sh
+        run: bun run test:integration
 
   security:
     name: Security Scan
