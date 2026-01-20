@@ -11,10 +11,6 @@ outputs:
   add-label: true
   remove-label: true
 rate_limit_minutes: 1
-claude:
-  model: claude-sonnet-4-20250514
-  max_tokens: 4096
-  temperature: 0.4
 ---
 
 # Issue Triage Agent

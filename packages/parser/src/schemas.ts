@@ -30,9 +30,11 @@ const triggerConfigSchema = z
       .optional(),
     schedule: z
       .array(
-        z.object({
-          cron: z.string(),
-        }).strict(),
+        z
+          .object({
+            cron: z.string(),
+          })
+          .strict(),
       )
       .optional(),
     workflow_dispatch: z

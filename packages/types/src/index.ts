@@ -10,7 +10,6 @@ export interface AgentDefinition {
   on: TriggerConfig;
   permissions?: PermissionsConfig;
   provider?: AgentProvider;
-  claude?: ClaudeConfig;
   outputs?: Record<string, OutputConfig | boolean>;
   tools?: Tool[];
   allowed_actors?: string[];
@@ -67,12 +66,6 @@ export interface PermissionsConfig {
   issues?: "read" | "write";
   pull_requests?: "read" | "write";
   discussions?: "read" | "write";
-}
-
-export interface ClaudeConfig {
-  model?: string;
-  max_tokens?: number;
-  temperature?: number;
 }
 
 export type Output =

@@ -87,7 +87,6 @@ export class AgentParser {
       on: frontmatter.on,
       permissions: frontmatter.permissions,
       provider: frontmatter.provider,
-      claude: frontmatter.claude,
       outputs: frontmatter.outputs,
       tools: frontmatter.tools,
       allowed_actors: frontmatter["allowed-actors"],

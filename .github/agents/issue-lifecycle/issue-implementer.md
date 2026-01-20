@@ -26,10 +26,6 @@ allowed-paths:
   - "*.yaml"
   - "*.yml"
 rate_limit_minutes: 10
-claude:
-  model: claude-sonnet-4-20250514
-  max_tokens: 16384
-  temperature: 0.4
 ---
 
 # Issue Implementer Agent
