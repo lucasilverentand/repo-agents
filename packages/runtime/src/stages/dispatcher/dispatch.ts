@@ -21,6 +21,7 @@ interface ValidationStatus {
   labels_check: boolean;
   rate_limit_check: boolean;
   max_open_prs_check: boolean;
+  blocking_issues_check: boolean;
 }
 
 /**
@@ -57,6 +58,7 @@ export async function runDispatch(ctx: DispatcherContext): Promise<StageResult> 
     labels_check: false,
     rate_limit_check: false,
     max_open_prs_check: false,
+    blocking_issues_check: false,
   };
   const permissionIssues: PermissionIssue[] = [];
 
@@ -154,6 +156,31 @@ export async function runDispatch(ctx: DispatcherContext): Promise<StageResult> 
     }
     validationStatus.max_open_prs_check = true;
     console.log("✓ Max open PRs check passed");
+
+    // Step 6: Check for blocking issues (if configured)
+    const blockingIssuesResult = await checkBlockingIssues(ctx, agent);
+    if (!blockingIssuesResult.allowed) {
+      permissionIssues.push({
+        timestamp: new Date().toISOString(),
+        issue_type: "validation_error",
+        severity: "warning",
+        message: "Issue has open blocking dependencies",
+        context: {
+          blockers: blockingIssuesResult.blockers,
+          blockingCount: blockingIssuesResult.blockingCount,
+        },
+      });
+      await writeAuditData(validationStatus, permissionIssues, agent.name);
+      outputs["skip-reason"] =
+        blockingIssuesResult.reason ?? "Issue has open blocking dependencies";
+      outputs["blocked-by-issues"] = "true";
+      return {
+        success: true, // Not an error, just skipped
+        outputs,
+      };
+    }
+    validationStatus.blocking_issues_check = true;
+    console.log("✓ Blocking issues check passed");
 
     // All checks passed
     await writeAuditData(validationStatus, permissionIssues, agent.name);
@@ -392,6 +419,91 @@ async function checkMaxOpenPRs(
     return { allowed: true, currentCount: openPRCount };
   } catch (error) {
     console.warn("Failed to check max open PRs:", error);
+    // Allow execution if we can't check
+    return { allowed: true };
+  }
+}
+
+/**
+ * Check for blocking issues.
+ * If the agent has pre_flight.check_blocking_issues configured,
+ * check if the issue has any open blocking dependencies.
+ */
+async function checkBlockingIssues(
+  ctx: DispatcherContext,
+  agent: AgentDefinition,
+): Promise<{
+  allowed: boolean;
+  reason?: string;
+  blockers?: Array<{ number: number; title: string; state: string }>;
+  blockingCount?: number;
+}> {
+  // Skip check if not configured
+  if (!agent.pre_flight?.check_blocking_issues) {
+    return { allowed: true };
+  }
+
+  // Get issue number from event payload
+  let issueNumber: number | undefined;
+  try {
+    const eventPayload = JSON.parse(await Bun.file(ctx.github.eventPath).text()) as {
+      issue?: { number: number };
+    };
+    issueNumber = eventPayload.issue?.number;
+  } catch (error) {
+    console.warn("Failed to read event payload:", error);
+    return { allowed: true };
+  }
+
+  // Skip check if not an issue event
+  if (!issueNumber) {
+    return { allowed: true };
+  }
+
+  const { owner, repo } = parseRepository(ctx.github.repository);
+
+  try {
+    // Query GitHub API for blocking dependencies
+    const response = await fetch(
+      `https://api.github.com/repos/${owner}/${repo}/issues/${issueNumber}/dependencies/blocked_by`,
+      {
+        headers: {
+          Accept: "application/vnd.github+json",
+          Authorization: `Bearer ${process.env.GITHUB_TOKEN}`,
+          "X-GitHub-Api-Version": "2022-11-28",
+        },
+      },
+    );
+
+    if (!response.ok) {
+      console.warn(`Failed to fetch blocking issues: ${response.statusText}`);
+      // Allow execution if we can't check
+      return { allowed: true };
+    }
+
+    const blockers = (await response.json()) as Array<{
+      number: number;
+      title: string;
+      state: string;
+      html_url: string;
+    }>;
+
+    // Filter for open blockers only
+    const openBlockers = blockers.filter((b) => b.state === "open");
+
+    if (openBlockers.length > 0) {
+      const blockerList = openBlockers.map((b) => `#${b.number}: ${b.title}`).join(", ");
+      return {
+        allowed: false,
+        reason: `Issue is blocked by ${openBlockers.length} open issue(s): ${blockerList}`,
+        blockers: openBlockers,
+        blockingCount: openBlockers.length,
+      };
+    }
+
+    return { allowed: true, blockingCount: 0 };
+  } catch (error) {
+    console.warn("Failed to check blocking issues:", error);
     // Allow execution if we can't check
     return { allowed: true };
   }

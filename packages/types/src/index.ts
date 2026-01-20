@@ -1,5 +1,10 @@
 export type AgentProvider = "claude-code" | "opencode";
 
+export interface PreFlightConfig {
+  check_blocking_issues?: boolean; // Check if issue has open blockers (default: false)
+  max_estimate?: number; // Skip if estimate exceeds this value (optional)
+}
+
 export interface AgentDefinition {
   name: string;
   on: TriggerConfig;
@@ -15,6 +20,7 @@ export interface AgentDefinition {
   trigger_labels?: string[]; // Labels that must ALL be present to trigger the agent
   max_open_prs?: number; // Maximum number of open PRs before skipping execution
   rate_limit_minutes?: number; // Minimum minutes between agent runs (default: 5)
+  pre_flight?: PreFlightConfig; // Pre-flight checks configuration
   context?: ContextConfig; // Data collection configuration
   audit?: AuditConfig; // Audit and failure reporting configuration
   markdown: string;
@@ -277,6 +283,25 @@ export interface ContextConfig {
   forks?: boolean;
   since?: string; // Time filter: "last-run", "1h", "24h", "7d", etc. (default: "last-run")
   min_items?: number; // Minimum total items to trigger agent (default: 1)
+  project_id?: string; // GitHub Project ID for custom fields (format: PVT_...)
+  include_dependencies?: boolean; // Include issue blocking/blocked-by relationships
+  include_custom_fields?: string[]; // Custom field names to include from Projects
+}
+
+// Issue Dependency Types
+export interface IssueDependency {
+  number: number;
+  title: string;
+  state: "open" | "closed";
+  html_url: string;
+  labels: string[];
+}
+
+// Project Custom Field Types
+export interface ProjectCustomField {
+  name: string;
+  value: string | number | boolean | null;
+  fieldType: "single_select" | "number" | "text" | "date" | "iteration";
 }
 
 export interface CollectedContext {
@@ -288,6 +313,11 @@ export interface CollectedContext {
   workflow_runs?: GitHubWorkflowRun[];
   stars?: number;
   forks?: number;
+  dependencies?: {
+    blocked_by: IssueDependency[];
+    blocking: IssueDependency[];
+  };
+  custom_fields?: ProjectCustomField[];
   total_items: number;
   collected_at: string;
 }

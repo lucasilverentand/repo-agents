@@ -7,6 +7,10 @@ on:
     types: [closed]
 trigger_labels: [approved, agent-assigned]
 max_open_prs: 3
+pre_flight:
+  check_blocking_issues: true
+context:
+  include_dependencies: true
 permissions:
   contents: write
   issues: write

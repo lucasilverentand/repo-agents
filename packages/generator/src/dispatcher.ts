@@ -38,8 +38,14 @@ export class DispatcherGenerator {
     const schedules: Array<{ cron: string }> = [];
     const seenCrons = new Set<string>();
     const repoDispatchTypes = new Set<string>();
+    let hasBlockingChecks = false;
 
     for (const agent of agents) {
+      // Track if any agent has blocking checks enabled
+      if (agent.pre_flight?.check_blocking_issues) {
+        hasBlockingChecks = true;
+      }
+
       // Issues
       if (agent.on.issues?.types) {
         agent.on.issues.types.forEach((t) => issueTypes.add(t));
@@ -69,6 +75,11 @@ export class DispatcherGenerator {
       if (agent.on.repository_dispatch?.types) {
         agent.on.repository_dispatch.types.forEach((t) => repoDispatchTypes.add(t));
       }
+    }
+
+    // If any agent has blocking checks, listen for closed issues to auto-retry
+    if (hasBlockingChecks) {
+      issueTypes.add("closed");
     }
 
     if (issueTypes.size > 0) {

@@ -42,6 +42,12 @@ export class ContextCollector {
       config.workflow_runs ? this.generateWorkflowRunsScript(config.workflow_runs) : null,
       config.stars ? this.generateStarsScript() : null,
       config.forks ? this.generateForksScript() : null,
+      config.include_dependencies
+        ? this.generateDependenciesScript("${{ github.event.issue.number }}")
+        : null,
+      config.include_custom_fields && config.project_id
+        ? this.generateCustomFieldsScript(config.project_id, config.include_custom_fields)
+        : null,
     ];
 
     for (const script of contextScripts) {
@@ -414,6 +420,104 @@ echo "Current forks: $CURRENT_FORKS"
 # Note: Would need to track previous value to show growth
 COLLECTED_DATA="$COLLECTED_DATA## 🍴 Forks: $CURRENT_FORKS\\n\\n"
 TOTAL_ITEMS=$((TOTAL_ITEMS + 1))`;
+  }
+
+  private generateDependenciesScript(issueNumber: string): string {
+    return `# Collect Issue Dependencies
+echo "## 🔗 Issue Dependencies" >> /tmp/dependencies_section.md
+echo "" >> /tmp/dependencies_section.md
+
+# Get blocked_by relationships
+BLOCKED_BY_JSON=$(gh api "repos/\${{ github.repository }}/issues/${issueNumber}/dependencies/blocked_by" 2>/dev/null || echo "[]")
+BLOCKED_BY_COUNT=$(echo "$BLOCKED_BY_JSON" | jq 'length')
+
+# Get blocking relationships
+BLOCKING_JSON=$(gh api "repos/\${{ github.repository }}/issues/${issueNumber}/dependencies/blocking" 2>/dev/null || echo "[]")
+BLOCKING_COUNT=$(echo "$BLOCKING_JSON" | jq 'length')
+
+echo "### Blocked By" >> /tmp/dependencies_section.md
+if [ "$BLOCKED_BY_COUNT" -gt 0 ]; then
+  echo "This issue is blocked by the following issues:" >> /tmp/dependencies_section.md
+  echo "" >> /tmp/dependencies_section.md
+  echo "$BLOCKED_BY_JSON" | jq -r '.[] |
+    "- [#" + (.number|tostring) + "](" + .html_url + "): " + .title + " (**" + .state + "**)" +
+    (if [.labels[].name] | length > 0 then "\\n  Labels: " + ([.labels[].name] | join(", ")) else "" end)
+  ' >> /tmp/dependencies_section.md
+else
+  echo "No blocking dependencies." >> /tmp/dependencies_section.md
+fi
+
+echo "" >> /tmp/dependencies_section.md
+echo "### Blocking" >> /tmp/dependencies_section.md
+if [ "$BLOCKING_COUNT" -gt 0 ]; then
+  echo "This issue blocks the following issues:" >> /tmp/dependencies_section.md
+  echo "" >> /tmp/dependencies_section.md
+  echo "$BLOCKING_JSON" | jq -r '.[] |
+    "- [#" + (.number|tostring) + "](" + .html_url + "): " + .title + " (**" + .state + "**)" +
+    (if [.labels[].name] | length > 0 then "\\n  Labels: " + ([.labels[].name] | join(", ")) else "" end)
+  ' >> /tmp/dependencies_section.md
+else
+  echo "This issue does not block any other issues." >> /tmp/dependencies_section.md
+fi
+
+COLLECTED_DATA="$COLLECTED_DATA$(cat /tmp/dependencies_section.md)\\n\\n"
+echo "Found $BLOCKED_BY_COUNT blocking dependencies and $BLOCKING_COUNT issues blocked by this one"`;
+  }
+
+  private generateCustomFieldsScript(projectId: string, fields: string[]): string {
+    const fieldQueries = fields
+      .map(
+        (field) => `
+    ${field}: fieldValueByName(name: "${field}") {
+      ... on ProjectV2ItemFieldSingleSelectValue { name }
+      ... on ProjectV2ItemFieldNumberValue { number }
+      ... on ProjectV2ItemFieldTextValue { text }
+      ... on ProjectV2ItemFieldDateValue { date }
+      ... on ProjectV2ItemFieldIterationValue { title }
+    }`,
+      )
+      .join("\n");
+
+    return `# Collect Project Custom Fields
+echo "## 📊 Project Metadata" >> /tmp/custom_fields_section.md
+echo "" >> /tmp/custom_fields_section.md
+
+# Query GitHub Projects GraphQL API for custom fields
+FIELDS_JSON=$(gh api graphql -f query='
+  query {
+    node(id: "${projectId}") {
+      ... on ProjectV2 {
+        items(first: 100) {
+          nodes {
+            content {
+              ... on Issue {
+                number
+              }
+            }${fieldQueries}
+          }
+        }
+      }
+    }
+  }
+' --jq '.data.node.items.nodes[] | select(.content.number == \${{ github.event.issue.number }})' 2>/dev/null || echo "{}")
+
+if [ "$FIELDS_JSON" != "{}" ] && [ -n "$FIELDS_JSON" ]; then
+  echo "Found project custom fields"
+${fields
+  .map((field) => {
+    return `
+  # Extract ${field} field
+  ${field.toUpperCase()}_VALUE=$(echo "$FIELDS_JSON" | jq -r '.${field}.name // .${field}.number // .${field}.text // .${field}.date // .${field}.title // "not set"')
+  echo "- **${field}**: $${field.toUpperCase()}_VALUE" >> /tmp/custom_fields_section.md`;
+  })
+  .join("\n")}
+
+  COLLECTED_DATA="$COLLECTED_DATA$(cat /tmp/custom_fields_section.md)\\n\\n"
+else
+  echo "No project custom fields found for this issue"
+  echo "This issue is not associated with project ${projectId}" >> /tmp/custom_fields_section.md
+  COLLECTED_DATA="$COLLECTED_DATA$(cat /tmp/custom_fields_section.md)\\n\\n"
+fi`;
   }
 }
 

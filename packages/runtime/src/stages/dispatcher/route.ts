@@ -42,6 +42,20 @@ export async function runRoute(ctx: DispatcherContext): Promise<StageResult> {
       // Specific agent requested via workflow_dispatch input
       matchingAgents = routingTable.filter((rule) => rule.agentName === workflowDispatchAgent);
       console.log(`Workflow dispatch for specific agent: ${workflowDispatchAgent}`);
+    } else if (ctx.github.eventName === "issues" && ctx.github.eventAction === "closed") {
+      // Special handling: check if closed issue was blocking others that need retry
+      const retryAgents = await handleClosedIssueRetries(ctx, routingTable);
+      // Also match normal routing for agents listening to 'closed' events
+      const normalMatches = routingTable.filter((rule) => matchesEvent(rule, ctx.github));
+      // Combine both (deduplicate by agentName)
+      const combinedMap = new Map<string, RoutingRule>();
+      for (const agent of [...retryAgents, ...normalMatches]) {
+        combinedMap.set(agent.agentName, agent);
+      }
+      matchingAgents = Array.from(combinedMap.values());
+      console.log(
+        `Closed issue detected: ${retryAgents.length} retry agents, ${normalMatches.length} normal matches`,
+      );
     } else {
       // Match against all agents
       matchingAgents = routingTable.filter((rule) => matchesEvent(rule, ctx.github));
@@ -146,6 +160,109 @@ async function findAgentFiles(dir: string): Promise<string[]> {
   }
 
   return files;
+}
+
+/**
+ * Handle auto-retry logic when an issue closes.
+ * Checks if the closed issue was blocking other issues that need to be retried.
+ */
+async function handleClosedIssueRetries(
+  ctx: DispatcherContext,
+  routingTable: RoutingRule[],
+): Promise<RoutingRule[]> {
+  const matchingAgents: RoutingRule[] = [];
+
+  try {
+    // Get the closed issue number from event
+    const eventPayload = JSON.parse(await Bun.file(ctx.github.eventPath).text()) as {
+      issue?: { number: number };
+      repository?: { owner: { login: string }; name: string };
+    };
+
+    const closedIssueNumber = eventPayload.issue?.number;
+    if (!closedIssueNumber) {
+      return [];
+    }
+
+    const owner = eventPayload.repository?.owner?.login;
+    const repo = eventPayload.repository?.name;
+    if (!owner || !repo) {
+      return [];
+    }
+
+    console.log(`Issue #${closedIssueNumber} closed - checking for blocked issues...`);
+
+    // Query GitHub API to find issues that were blocked by this one
+    const response = await fetch(
+      `https://api.github.com/repos/${owner}/${repo}/issues/${closedIssueNumber}/dependencies/blocking`,
+      {
+        headers: {
+          Accept: "application/vnd.github+json",
+          Authorization: `Bearer ${process.env.GITHUB_TOKEN}`,
+          "X-GitHub-Api-Version": "2022-11-28",
+        },
+      },
+    );
+
+    if (!response.ok) {
+      console.warn(`Failed to fetch blocking issues: ${response.statusText}`);
+      return [];
+    }
+
+    const blockedIssues = (await response.json()) as Array<{
+      number: number;
+      title: string;
+      state: string;
+      labels: Array<{ name: string }>;
+    }>;
+
+    // Filter for open issues only
+    const openBlockedIssues = blockedIssues.filter((issue) => issue.state === "open");
+
+    if (openBlockedIssues.length === 0) {
+      console.log("No open issues were blocked by this issue");
+      return [];
+    }
+
+    console.log(
+      `Found ${openBlockedIssues.length} open issues that were blocked by #${closedIssueNumber}`,
+    );
+
+    // For each blocked issue, check if any agents with blocking checks would match
+    for (const blockedIssue of openBlockedIssues) {
+      const labels = blockedIssue.labels.map((l) => l.name);
+      console.log(
+        `  - Issue #${blockedIssue.number}: ${blockedIssue.title} (labels: ${labels.join(", ")})`,
+      );
+
+      // Find agents that have pre_flight.check_blocking_issues enabled
+      // and whose trigger labels match this issue
+      for (const rule of routingTable) {
+        // Load agent to check pre_flight config
+        const { agent } = await agentParser.parseFile(rule.agentPath);
+        if (!agent || !agent.pre_flight?.check_blocking_issues) {
+          continue;
+        }
+
+        // Check if this issue has the required trigger labels for this agent
+        const requiredLabels = agent.trigger_labels || [];
+        const hasAllLabels = requiredLabels.every((required) => labels.includes(required));
+
+        if (hasAllLabels && !matchingAgents.some((a) => a.agentName === rule.agentName)) {
+          console.log(`    -> Matching agent: ${rule.agentName}`);
+          matchingAgents.push(rule);
+        }
+      }
+    }
+
+    if (matchingAgents.length > 0) {
+      console.log(`Will retry ${matchingAgents.length} agents for unblocked issues`);
+    }
+  } catch (error) {
+    console.warn("Failed to handle closed issue retries:", error);
+  }
+
+  return matchingAgents;
 }
 
 /**

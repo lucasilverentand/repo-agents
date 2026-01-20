@@ -54,9 +54,13 @@ flowchart TD
 
     %% Issue Implementer Agent
     AgentAssigned -->|Triggers| PRLimitCheck{Open PRs<br/>< max?}:::decisionNode
-    PRLimitCheck -->|Yes| Implementer[🤖 Issue Implementer Agent<br/>Implements solution]:::agentNode
+    PRLimitCheck -->|Yes| BlockingCheck{Has open<br/>blocking issues?}:::decisionNode
     PRLimitCheck -->|No| Queued[⏳ Queued<br/>Retries later]:::statusNode
     Queued -.->|When PR closed/merged| PRLimitCheck
+
+    BlockingCheck -->|Yes| Blocked[⛔ Blocked<br/>Wait for blockers]:::statusNode
+    BlockingCheck -->|No| Implementer[🤖 Issue Implementer Agent<br/>Implements solution]:::agentNode
+    Blocked -.->|When blocker closed| BlockingCheck
 
     Implementer --> InProgress[🏷️ Label: implementation-in-progress]:::labelNode
     InProgress --> PRCreated{{🔄 Pull Request Created}}:::eventNode
@@ -144,14 +148,20 @@ flowchart TD
 - **Pre-flight Checks**:
   - Requires both `approved` and `agent-assigned` labels on the issue
   - Counts open PRs with `implementation-in-progress` label; skips if >= `max_open_prs` (default: 3)
+  - Checks for open blocking issues; skips if any blockers are still open
 - **Actions**:
   - Explores codebase
   - Implements solution
   - Writes tests
   - Creates pull request
   - Adds `implementation-in-progress` label to the issue
+- **Context Collection**:
+  - Includes issue dependencies (blocking/blocked-by relationships)
+  - Shows which issues block or are blocked by the current issue
 - **Rate Limit**: 10 minutes
 - **PR Limit**: Silently skips when limit reached; retries automatically when PRs are closed/merged
+- **Blocking Check**: Skips implementation if issue has open blocking dependencies
+- **Auto-Retry**: Automatically retries when blocking issues close (dispatcher listens for `issues.closed` events and re-triggers agents for unblocked issues)
 
 ## How AI Creates Issues
 

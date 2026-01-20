@@ -281,6 +281,16 @@ const contextConfigSchema = z
     forks: z.boolean().optional(),
     since: z.string().optional(),
     min_items: z.number().min(0).optional(),
+    project_id: z.string().optional(),
+    include_dependencies: z.boolean().optional(),
+    include_custom_fields: z.array(z.string()).optional(),
+  })
+  .optional();
+
+const preFlightConfigSchema = z
+  .object({
+    check_blocking_issues: z.boolean().optional(),
+    max_estimate: z.number().min(1).optional(),
   })
   .optional();
 
@@ -310,6 +320,7 @@ export const agentFrontmatterSchema = z.object({
   trigger_labels: z.array(z.string()).optional(),
   max_open_prs: z.number().min(1).optional(),
   rate_limit_minutes: z.number().min(0).optional(),
+  pre_flight: preFlightConfigSchema,
   context: contextConfigSchema,
   audit: auditConfigSchema,
 });
