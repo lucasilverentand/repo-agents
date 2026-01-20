@@ -5,6 +5,15 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.5.0](https://github.com/lucasilverentand/repo-agents/compare/v1.4.0...v1.5.0) (2026-01-20)
+
+
+### Features
+
+* add unified workflow generator and runtime ([726c4d4](https://github.com/lucasilverentand/repo-agents/commit/726c4d4d45531f8f5d631af67609b9fc1d821252))
+* **cli:** align CLI with clig.dev guidelines for better UX ([843388f](https://github.com/lucasilverentand/repo-agents/commit/843388f8c38878c6a497dd828534e8d4ab4f4a7b))
+* migrate compile command to unified workflow ([fc1b969](https://github.com/lucasilverentand/repo-agents/commit/fc1b969e017d926d298d84a169458af5c69c2489))
+
 ## [1.4.0](https://github.com/lucasilverentand/repo-agents/compare/v1.3.0...v1.4.0) (2026-01-20)
 
 
