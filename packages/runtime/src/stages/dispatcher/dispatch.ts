@@ -1,14 +1,18 @@
+import { readFile, writeFile } from "node:fs/promises";
 import { agentParser } from "@repo-agents/parser";
-import type { AgentDefinition } from "@repo-agents/types";
+import type { AgentDefinition, DispatchContext } from "@repo-agents/types";
 import type { StageResult } from "../../types";
 import { writeArtifact } from "../../utils/artifacts";
 import {
   countOpenPRs,
+  createInitialProgressState,
+  createProgressComment,
   getRecentWorkflowRuns,
   getRepositoryPermission,
   isOrgMember,
   isTeamMember,
   parseRepository,
+  shouldUseProgressComment,
 } from "../../utils/index";
 import type { DispatcherContext } from "./types";
 
@@ -184,6 +188,15 @@ export async function runDispatch(ctx: DispatcherContext): Promise<StageResult> 
 
     // All checks passed
     await writeAuditData(validationStatus, permissionIssues, agent.name);
+
+    // Create progress comment if enabled for this agent
+    const progressCommentResult = await createProgressCommentIfEnabled(ctx, agent);
+    if (progressCommentResult.created) {
+      outputs["progress-comment-id"] = String(progressCommentResult.commentId);
+      outputs["progress-issue-number"] = String(progressCommentResult.issueNumber);
+      console.log(`✓ Created progress comment #${progressCommentResult.commentId}`);
+    }
+
     outputs["should-run"] = "true";
     console.log(`✓ All pre-flight checks passed for ${agent.name}`);
 
@@ -525,4 +538,88 @@ async function writeAuditData(
   };
 
   await writeArtifact("validation-audit", "audit.json", JSON.stringify(auditData, null, 2));
+}
+
+/**
+ * Create progress comment if enabled for this agent.
+ */
+async function createProgressCommentIfEnabled(
+  ctx: DispatcherContext,
+  agent: AgentDefinition,
+): Promise<{ created: boolean; commentId?: number; issueNumber?: number }> {
+  // Check if progress comments should be enabled
+  if (!shouldUseProgressComment(agent.on, agent.progress_comment)) {
+    return { created: false };
+  }
+
+  // Get issue/PR number from event
+  const issueNumber = await getIssueOrPRNumber(ctx);
+  if (!issueNumber) {
+    console.log("Progress comment: No issue/PR number found, skipping");
+    return { created: false };
+  }
+
+  const { owner, repo } = parseRepository(ctx.github.repository);
+  const hasContext = !!agent.context;
+
+  // Create initial progress state
+  const workflowRunUrl = `${ctx.github.serverUrl}/${ctx.github.repository}/actions/runs/${ctx.github.runId}`;
+  const state = createInitialProgressState(
+    agent.name,
+    ctx.github.runId,
+    workflowRunUrl,
+    hasContext,
+  );
+
+  try {
+    const comment = await createProgressComment(owner, repo, issueNumber, state);
+
+    // Update dispatch context with progress comment info
+    await updateDispatchContextWithProgress(issueNumber, comment.id);
+
+    return {
+      created: true,
+      commentId: comment.id,
+      issueNumber,
+    };
+  } catch (error) {
+    console.warn("Failed to create progress comment:", error);
+    return { created: false };
+  }
+}
+
+/**
+ * Get issue or PR number from event payload.
+ */
+async function getIssueOrPRNumber(ctx: DispatcherContext): Promise<number | undefined> {
+  try {
+    const eventPayload = JSON.parse(await Bun.file(ctx.github.eventPath).text()) as {
+      issue?: { number: number };
+      pull_request?: { number: number };
+    };
+    return eventPayload.issue?.number ?? eventPayload.pull_request?.number;
+  } catch {
+    return undefined;
+  }
+}
+
+/**
+ * Update dispatch context file with progress comment info.
+ */
+async function updateDispatchContextWithProgress(
+  issueNumber: number,
+  commentId: number,
+): Promise<void> {
+  const contextPath = "/tmp/dispatch-context/context.json";
+  try {
+    const content = await readFile(contextPath, "utf-8");
+    const context = JSON.parse(content) as DispatchContext;
+    context.progressComment = {
+      commentId,
+      issueNumber,
+    };
+    await writeFile(contextPath, JSON.stringify(context, null, 2));
+  } catch (error) {
+    console.warn("Failed to update dispatch context with progress comment:", error);
+  }
 }

@@ -323,6 +323,7 @@ export const agentFrontmatterSchema = z.object({
   pre_flight: preFlightConfigSchema,
   context: contextConfigSchema,
   audit: auditConfigSchema,
+  progress_comment: z.boolean().optional(), // Show progress comment on issue/PR (default: true for issue/PR triggers)
 });
 
 export type AgentFrontmatter = z.infer<typeof agentFrontmatterSchema>;

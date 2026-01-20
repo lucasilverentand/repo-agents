@@ -86,6 +86,37 @@ export class WorkflowGenerator {
   }
 
   /**
+   * Check if progress comments should be enabled for this agent.
+   */
+  private shouldUseProgressComment(agent: AgentDefinition): boolean {
+    // Explicit setting takes precedence
+    if (agent.progress_comment !== undefined) {
+      return agent.progress_comment;
+    }
+    // Default enabled for issue/PR triggers
+    return !!(agent.on.issues || agent.on.pull_request);
+  }
+
+  /**
+   * Generate a progress update step.
+   */
+  private generateProgressStep(
+    cliCommand: string,
+    agentFilePath: string,
+    stage: string,
+    status: string,
+  ): WorkflowStep {
+    return {
+      name: `Update progress: ${stage} ${status}`,
+      run: `${cliCommand} run progress --agent ${agentFilePath} --progress-stage ${stage} --progress-status ${status}`,
+      env: {
+        GH_TOKEN: "${{ secrets.GITHUB_TOKEN }}",
+      },
+      "continue-on-error": true,
+    };
+  }
+
+  /**
    * Generate a workflow that uses the runtime CLI instead of embedded bash scripts.
    * This produces clean workflows that delegate logic to `repo-agent run <stage>`.
    */
@@ -95,6 +126,7 @@ export class WorkflowGenerator {
     const hasContext = !!agent.context;
     const hasOutputs = agent.outputs && Object.keys(agent.outputs).length > 0;
     const outputTypes = hasOutputs ? Object.keys(agent.outputs!) : [];
+    const useProgressComment = this.shouldUseProgressComment(agent);
 
     // Helper to create GitHub expression strings
     const ghExpr = (expr: string) => `\${{ ${expr} }}`;
@@ -144,33 +176,66 @@ export class WorkflowGenerator {
 
     // Collect-context job (only if context is configured)
     if (hasContext) {
+      const contextSteps: WorkflowStep[] = [
+        {
+          uses: "actions/checkout@v4",
+        },
+        {
+          uses: "oven-sh/setup-bun@v2",
+        },
+        {
+          name: "Install dependencies",
+          run: "bun install --frozen-lockfile",
+        },
+        {
+          name: "Download dispatch context",
+          uses: "actions/download-artifact@v4",
+          with: {
+            name: `dispatch-context-${ghExpr("inputs.context-run-id")}`,
+            path: "/tmp/dispatch-context/",
+            "run-id": ghExpr("inputs.context-run-id"),
+            "github-token": ghExpr("secrets.GITHUB_TOKEN"),
+          },
+        },
+      ];
+
+      // Add progress update at start
+      if (useProgressComment) {
+        contextSteps.push(
+          this.generateProgressStep(cliCommand, agentFilePath, "context", "running"),
+        );
+      }
+
+      contextSteps.push(
+        {
+          id: "run",
+          run: `${cliCommand} run context --agent ${agentFilePath}`,
+          env: {
+            GH_TOKEN: ghExpr("secrets.GITHUB_TOKEN"),
+          },
+        },
+        {
+          uses: "actions/upload-artifact@v4",
+          with: {
+            name: `collected-context-${ghExpr("github.run_id")}`,
+            path: "/tmp/context/",
+          },
+        },
+      );
+
+      // Add progress update at end
+      if (useProgressComment) {
+        contextSteps.push(
+          this.generateProgressStep(cliCommand, agentFilePath, "context", "success"),
+        );
+      }
+
       workflow.jobs["collect-context"] = {
         "runs-on": "ubuntu-latest",
         outputs: {
           "has-context": ghExpr("steps.run.outputs.has-context"),
         },
-        steps: [
-          {
-            uses: "actions/checkout@v4",
-          },
-          {
-            uses: "oven-sh/setup-bun@v2",
-          },
-          {
-            id: "run",
-            run: `${cliCommand} run context --agent ${agentFilePath}`,
-            env: {
-              GH_TOKEN: ghExpr("secrets.GITHUB_TOKEN"),
-            },
-          },
-          {
-            uses: "actions/upload-artifact@v4",
-            with: {
-              name: `collected-context-${ghExpr("github.run_id")}`,
-              path: "/tmp/context/",
-            },
-          },
-        ],
+        steps: contextSteps,
       };
     }
 
@@ -216,6 +281,13 @@ export class WorkflowGenerator {
       });
     }
 
+    // Add progress update at start of agent execution
+    if (useProgressComment) {
+      claudeAgentSteps.push(
+        this.generateProgressStep(cliCommand, agentFilePath, "agent", "running"),
+      );
+    }
+
     claudeAgentSteps.push(
       {
         id: "run",
@@ -242,6 +314,13 @@ export class WorkflowGenerator {
       },
     );
 
+    // Add progress update at end of agent execution
+    if (useProgressComment) {
+      claudeAgentSteps.push(
+        this.generateProgressStep(cliCommand, agentFilePath, "agent", "success"),
+      );
+    }
+
     const claudeAgentJob: GitHubWorkflowJob = {
       "runs-on": "ubuntu-latest",
       steps: claudeAgentSteps,
@@ -256,6 +335,53 @@ export class WorkflowGenerator {
 
     // Execute-outputs job (only if outputs are configured)
     if (hasOutputs) {
+      const outputsSteps: WorkflowStep[] = [
+        {
+          uses: "actions/checkout@v4",
+        },
+        {
+          uses: "oven-sh/setup-bun@v2",
+        },
+        {
+          name: "Install dependencies",
+          run: "bun install --frozen-lockfile",
+        },
+        {
+          name: "Download dispatch context",
+          uses: "actions/download-artifact@v4",
+          with: {
+            name: `dispatch-context-${ghExpr("inputs.context-run-id")}`,
+            path: "/tmp/dispatch-context/",
+            "run-id": ghExpr("inputs.context-run-id"),
+            "github-token": ghExpr("secrets.GITHUB_TOKEN"),
+          },
+        },
+        {
+          name: "Download output files",
+          uses: "actions/download-artifact@v4",
+          with: {
+            name: `claude-outputs-${ghExpr("github.run_id")}`,
+            path: "/tmp/outputs/",
+          },
+        },
+      ];
+
+      // Add progress update at start (only for first matrix item to avoid duplicates)
+      if (useProgressComment) {
+        outputsSteps.push({
+          ...this.generateProgressStep(cliCommand, agentFilePath, "outputs", "running"),
+          if: "matrix.output-type == matrix.output-type[0]", // Only first matrix item
+        });
+      }
+
+      outputsSteps.push({
+        name: `Execute ${ghExpr("matrix.output-type")} outputs`,
+        run: `${cliCommand} run outputs --agent ${agentFilePath} --output-type ${ghExpr("matrix.output-type")}`,
+        env: {
+          GH_TOKEN: ghExpr("secrets.GITHUB_TOKEN"),
+        },
+      });
+
       workflow.jobs["execute-outputs"] = {
         "runs-on": "ubuntu-latest",
         needs: "claude-agent",
@@ -265,43 +391,7 @@ export class WorkflowGenerator {
           },
           "fail-fast": false,
         },
-        steps: [
-          {
-            uses: "actions/checkout@v4",
-          },
-          {
-            uses: "oven-sh/setup-bun@v2",
-          },
-          {
-            name: "Install dependencies",
-            run: "bun install --frozen-lockfile",
-          },
-          {
-            name: "Download dispatch context",
-            uses: "actions/download-artifact@v4",
-            with: {
-              name: `dispatch-context-${ghExpr("inputs.context-run-id")}`,
-              path: "/tmp/dispatch-context/",
-              "run-id": ghExpr("inputs.context-run-id"),
-              "github-token": ghExpr("secrets.GITHUB_TOKEN"),
-            },
-          },
-          {
-            name: "Download output files",
-            uses: "actions/download-artifact@v4",
-            with: {
-              name: `claude-outputs-${ghExpr("github.run_id")}`,
-              path: "/tmp/outputs/",
-            },
-          },
-          {
-            name: `Execute ${ghExpr("matrix.output-type")} outputs`,
-            run: `${cliCommand} run outputs --agent ${agentFilePath} --output-type ${ghExpr("matrix.output-type")}`,
-            env: {
-              GH_TOKEN: ghExpr("secrets.GITHUB_TOKEN"),
-            },
-          },
-        ],
+        steps: outputsSteps,
       };
     }
 
@@ -326,33 +416,100 @@ export class WorkflowGenerator {
       auditRunParts.push(`--execute-outputs-result ${ghExpr("needs.execute-outputs.result")}`);
     }
 
+    const auditSteps: WorkflowStep[] = [
+      {
+        uses: "actions/checkout@v4",
+      },
+      {
+        uses: "oven-sh/setup-bun@v2",
+      },
+      {
+        name: "Install dependencies",
+        run: "bun install --frozen-lockfile",
+      },
+      {
+        name: "Download dispatch context",
+        uses: "actions/download-artifact@v4",
+        with: {
+          name: `dispatch-context-${ghExpr("inputs.context-run-id")}`,
+          path: "/tmp/dispatch-context/",
+          "run-id": ghExpr("inputs.context-run-id"),
+          "github-token": ghExpr("secrets.GITHUB_TOKEN"),
+        },
+        "continue-on-error": true,
+      },
+      {
+        uses: "actions/download-artifact@v4",
+        with: {
+          pattern: `*-${ghExpr("github.run_id")}`,
+          path: "/tmp/audit-data/",
+          "merge-multiple": true,
+        },
+        "continue-on-error": true,
+      },
+      {
+        run: auditRunParts.join(" \\\n            "),
+        env: {
+          GH_TOKEN: ghExpr("secrets.GITHUB_TOKEN"),
+        },
+      },
+    ];
+
+    // Add final progress update
+    if (useProgressComment) {
+      // Check for add-comment output and use it as final comment
+      auditSteps.push({
+        name: "Read final comment",
+        id: "final-comment",
+        if: "needs.claude-agent.result == 'success'",
+        run: `if [ -f /tmp/audit-data/add-comment.json ]; then
+  COMMENT=$(jq -r '.body // empty' /tmp/audit-data/add-comment.json 2>/dev/null || true)
+  if [ -n "$COMMENT" ]; then
+    echo "has-comment=true" >> $GITHUB_OUTPUT
+    # Escape for shell
+    ESCAPED=$(echo "$COMMENT" | sed 's/"/\\"/g' | tr '\\n' ' ')
+    echo "comment=$ESCAPED" >> $GITHUB_OUTPUT
+  fi
+fi`,
+        "continue-on-error": true,
+      });
+
+      auditSteps.push({
+        name: "Update progress: complete with comment",
+        run: `${cliCommand} run progress --agent ${agentFilePath} --progress-stage complete --progress-status success --progress-final-comment "${ghExpr("steps.final-comment.outputs.comment")}"`,
+        if: `needs.claude-agent.result == 'success' && steps.final-comment.outputs.has-comment == 'true'`,
+        env: {
+          GH_TOKEN: ghExpr("secrets.GITHUB_TOKEN"),
+        },
+        "continue-on-error": true,
+      });
+
+      auditSteps.push({
+        name: "Update progress: complete",
+        run: `${cliCommand} run progress --agent ${agentFilePath} --progress-stage complete --progress-status success`,
+        if: `needs.claude-agent.result == 'success' && steps.final-comment.outputs.has-comment != 'true'`,
+        env: {
+          GH_TOKEN: ghExpr("secrets.GITHUB_TOKEN"),
+        },
+        "continue-on-error": true,
+      });
+
+      auditSteps.push({
+        name: "Update progress: failed",
+        run: `${cliCommand} run progress --agent ${agentFilePath} --progress-stage failed --progress-status failed --progress-error "Workflow failed"`,
+        if: "needs.claude-agent.result != 'success'",
+        env: {
+          GH_TOKEN: ghExpr("secrets.GITHUB_TOKEN"),
+        },
+        "continue-on-error": true,
+      });
+    }
+
     workflow.jobs["audit-report"] = {
       "runs-on": "ubuntu-latest",
       needs: auditNeeds,
       if: "always()",
-      steps: [
-        {
-          uses: "actions/checkout@v4",
-        },
-        {
-          uses: "oven-sh/setup-bun@v2",
-        },
-        {
-          uses: "actions/download-artifact@v4",
-          with: {
-            pattern: `*-${ghExpr("github.run_id")}`,
-            path: "/tmp/audit-data/",
-            "merge-multiple": true,
-          },
-          "continue-on-error": true,
-        },
-        {
-          run: auditRunParts.join(" \\\n            "),
-          env: {
-            GH_TOKEN: ghExpr("secrets.GITHUB_TOKEN"),
-          },
-        },
-      ],
+      steps: auditSteps,
     };
 
     const yamlContent = yaml.dump(workflow, {

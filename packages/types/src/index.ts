@@ -23,6 +23,7 @@ export interface AgentDefinition {
   pre_flight?: PreFlightConfig; // Pre-flight checks configuration
   context?: ContextConfig; // Data collection configuration
   audit?: AuditConfig; // Audit and failure reporting configuration
+  progress_comment?: boolean; // Show progress comment on issue/PR (default: true for issue/PR triggers)
   markdown: string;
 }
 
@@ -519,4 +520,23 @@ export interface DispatchContext {
     eventType: string;
     clientPayload: Record<string, unknown>;
   };
+  progressComment?: {
+    commentId: number;
+    issueNumber: number;
+  };
+}
+
+// Progress Comment Types
+export type ProgressStage = "validation" | "context" | "agent" | "outputs" | "complete" | "failed";
+
+export type ProgressStatus = "pending" | "running" | "success" | "failed" | "skipped";
+
+export interface ProgressCommentState {
+  agentName: string;
+  workflowRunId: string;
+  workflowRunUrl: string;
+  stages: Record<ProgressStage, ProgressStatus>;
+  currentStage: ProgressStage;
+  error?: string;
+  finalComment?: string; // Claude's add-comment output replaces progress
 }

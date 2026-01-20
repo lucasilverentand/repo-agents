@@ -9,8 +9,15 @@ import {
   runPrepareContext,
   runRoute,
 } from "./stages/dispatcher/index";
-import { runAgent, runAudit, runContext, runOutputs, runPreFlight } from "./stages/index";
-import type { JobResult, StageContext } from "./types";
+import {
+  runAgent,
+  runAudit,
+  runContext,
+  runOutputs,
+  runPreFlight,
+  runProgress,
+} from "./stages/index";
+import type { JobResult, StageContext, StageResult } from "./types";
 
 const packageJson = JSON.parse(readFileSync(join(__dirname, "../package.json"), "utf-8"));
 
@@ -27,6 +34,7 @@ const stages = {
   agent: runAgent,
   outputs: runOutputs,
   audit: runAudit,
+  progress: runProgress,
 } as const;
 
 const dispatcherStages = {
@@ -50,6 +58,11 @@ interface RunOptions {
   executeOutputsResult?: JobResult;
   collectContextResult?: JobResult;
   rateLimited?: boolean;
+  // Progress stage options
+  progressStage?: "validation" | "context" | "agent" | "outputs" | "complete" | "failed";
+  progressStatus?: "running" | "success" | "failed" | "skipped";
+  progressError?: string;
+  progressFinalComment?: string;
 }
 
 program
@@ -64,6 +77,13 @@ program
   .option("--execute-outputs-result <result>", "Result of execute-outputs job (for audit stage)")
   .option("--collect-context-result <result>", "Result of collect-context job (for audit stage)")
   .option("--rate-limited", "Whether the run was rate-limited (for audit stage)")
+  .option("--progress-stage <stage>", "Stage to update (for progress stage)")
+  .option("--progress-status <status>", "Status to set (for progress stage)")
+  .option("--progress-error <error>", "Error message (for progress stage)")
+  .option(
+    "--progress-final-comment <comment>",
+    "Final comment to replace progress (for progress stage)",
+  )
   .action(async (stage: string, options: RunOptions) => {
     // Check if this is a dispatcher stage
     if (stage in dispatcherStages) {
@@ -147,8 +167,25 @@ program
       },
     };
 
-    const stageFn = stages[stage as StageName];
-    const result = await stageFn(ctx);
+    // Handle progress stage specially (requires additional options)
+    let result: StageResult;
+    if (stage === "progress") {
+      if (!options.progressStage || !options.progressStatus) {
+        console.error(
+          "Error: --progress-stage and --progress-status are required for progress stage",
+        );
+        process.exit(1);
+      }
+      result = await runProgress(ctx, {
+        stage: options.progressStage,
+        status: options.progressStatus,
+        error: options.progressError,
+        finalComment: options.progressFinalComment,
+      });
+    } else {
+      const stageFn = stages[stage as Exclude<StageName, "progress">];
+      result = await stageFn(ctx);
+    }
 
     // Write outputs to GITHUB_OUTPUT if available
     const outputFile = process.env.GITHUB_OUTPUT;
