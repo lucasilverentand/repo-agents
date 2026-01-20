@@ -1,0 +1,261 @@
+name: AI Agents
+"on":
+  issues:
+    types:
+      - labeled
+      - opened
+  pull_request:
+    types:
+      - closed
+  workflow_dispatch:
+    inputs:
+      agent:
+        description: Specific agent to run (leave empty to auto-route)
+        required: false
+        type: string
+permissions:
+  actions: write
+  contents: write
+  issues: write
+  pull-requests: write
+jobs:
+  global-preflight:
+    runs-on: ubuntu-latest
+    outputs:
+      should-continue: ${{ steps.validate.outputs.should-continue }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: oven-sh/setup-bun@v2
+      - name: Install dependencies
+        run: bun install --frozen-lockfile
+      - name: Validate Claude authentication
+        id: validate
+        run: bun run repo-agent run setup:preflight
+        env:
+          CLAUDE_CODE_OAUTH_TOKEN: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
+
+  route-event:
+    runs-on: ubuntu-latest
+    needs: global-preflight
+    if: needs.global-preflight.outputs.should-continue == 'true'
+    outputs:
+      matching-agents: ${{ steps.route.outputs.matching-agents }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: oven-sh/setup-bun@v2
+      - name: Install dependencies
+        run: bun install --frozen-lockfile
+      - name: Route event to agents
+        id: route
+        run: bun run repo-agent run unified:route
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          WORKFLOW_DISPATCH_AGENT: ${{ inputs.agent }}
+
+  agent-validation:
+    runs-on: ubuntu-latest
+    needs:
+      - global-preflight
+      - route-event
+    if: fromJson(needs.route-event.outputs.matching-agents)[0] != null
+    strategy:
+      fail-fast: false
+      matrix:
+        agent: ${{ fromJson(needs.route-event.outputs.matching-agents) }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: oven-sh/setup-bun@v2
+      - name: Install dependencies
+        run: bun install --frozen-lockfile
+      - name: Validate agent
+        id: validate
+        run: bun run repo-agent run unified:validate --agent "${{ matrix.agent.path }}"
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      - name: Upload validation audit
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: validation-audit-${{ matrix.agent.name }}-${{ github.run_id }}
+          path: /tmp/validation-audit/
+          retention-days: "7"
+
+  agent-execution:
+    runs-on: ubuntu-latest
+    needs:
+      - global-preflight
+      - route-event
+      - agent-validation
+    if: needs.agent-validation.result == 'success'
+    strategy:
+      fail-fast: false
+      matrix:
+        agent: ${{ fromJson(needs.route-event.outputs.matching-agents) }}
+    steps:
+      - name: Download validation results
+        uses: actions/download-artifact@v4
+        with:
+          name: validation-audit-${{ matrix.agent.name }}-${{ github.run_id }}
+          path: /tmp/validation-results/
+        continue-on-error: true
+      - name: Check validation result
+        id: check-validation
+        run: |-
+          # Read validation result from artifact
+          if [ -f /tmp/validation-results/validation-audit/result.json ]; then
+            SHOULD_RUN=$(cat /tmp/validation-results/validation-audit/result.json | jq -r '.should_run // "false"')
+            EVENT_PAYLOAD=$(cat /tmp/validation-results/validation-audit/result.json | jq -r '.event_payload // ""')
+            TARGET_ISSUE=$(cat /tmp/validation-results/validation-audit/result.json | jq -r '.target_issue_number // ""')
+            echo "should-run=$SHOULD_RUN" >> $GITHUB_OUTPUT
+            echo "event-payload=$EVENT_PAYLOAD" >> $GITHUB_OUTPUT
+            echo "target-issue-number=$TARGET_ISSUE" >> $GITHUB_OUTPUT
+          else
+            echo "No validation result found, skipping agent execution"
+            echo "should-run=false" >> $GITHUB_OUTPUT
+          fi
+      - if: steps.check-validation.outputs.should-run == 'true'
+        uses: actions/checkout@v4
+      - if: steps.check-validation.outputs.should-run == 'true'
+        uses: oven-sh/setup-bun@v2
+      - if: steps.check-validation.outputs.should-run == 'true'
+        name: Install dependencies
+        run: bun install --frozen-lockfile
+      - if: steps.check-validation.outputs.should-run == 'true'
+        uses: actions/create-github-app-token@v1
+        id: app-token
+        with:
+          app-id: ${{ secrets.GH_APP_ID }}
+          private-key: ${{ secrets.GH_APP_PRIVATE_KEY }}
+        continue-on-error: true
+      - if: steps.check-validation.outputs.should-run == 'true' && matrix.agent.config.has_context
+        name: Collect context
+        run: bun run repo-agent run context --agent "${{ matrix.agent.path }}"
+        env:
+          GH_TOKEN: ${{ steps.app-token.outputs.token || secrets.GITHUB_TOKEN }}
+      - if: steps.check-validation.outputs.should-run == 'true'
+        name: Configure git identity
+        run: |-
+          git config --global user.name "${{ steps.app-token.outputs.app-slug || 'github-actions[bot]' }}"
+          git config --global user.email "${{ steps.app-token.outputs.app-slug || 'github-actions[bot]' }}@users.noreply.github.com"
+      - if: steps.check-validation.outputs.should-run == 'true'
+        name: Run agent
+        run: bun run repo-agent run agent --agent "${{ matrix.agent.path }}"
+        env:
+          GH_TOKEN: ${{ steps.app-token.outputs.token || secrets.GITHUB_TOKEN }}
+          EVENT_PAYLOAD: ${{ steps.check-validation.outputs.event-payload }}
+          CLAUDE_CODE_OAUTH_TOKEN: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
+      - if: steps.check-validation.outputs.should-run == 'true' && matrix.agent.config.has_outputs
+        name: Upload agent outputs
+        uses: actions/upload-artifact@v4
+        with:
+          name: agent-outputs-${{ matrix.agent.name }}-${{ github.run_id }}
+          path: /tmp/outputs/
+          retention-days: "7"
+      - if: always()
+        name: Upload audit metrics
+        uses: actions/upload-artifact@v4
+        with:
+          name: audit-metrics-${{ matrix.agent.name }}-${{ github.run_id }}
+          path: /tmp/audit/
+          retention-days: "7"
+
+  execute-outputs:
+    runs-on: ubuntu-latest
+    needs:
+      - route-event
+      - agent-validation
+      - agent-execution
+    if: needs.agent-execution.result == 'success'
+    strategy:
+      fail-fast: false
+      matrix:
+        agent: ${{ fromJson(needs.route-event.outputs.matching-agents) }}
+    steps:
+      - name: Check if agent has outputs
+        id: check-outputs
+        run: |-
+          if [ "${{ matrix.agent.config.has_outputs }}" = "true" ]; then
+            echo "has-outputs=true" >> $GITHUB_OUTPUT
+          else
+            echo "Agent has no outputs configured, skipping"
+            echo "has-outputs=false" >> $GITHUB_OUTPUT
+          fi
+      - if: steps.check-outputs.outputs.has-outputs == 'true'
+        uses: actions/checkout@v4
+      - if: steps.check-outputs.outputs.has-outputs == 'true'
+        uses: oven-sh/setup-bun@v2
+      - if: steps.check-outputs.outputs.has-outputs == 'true'
+        name: Install dependencies
+        run: bun install --frozen-lockfile
+      - if: steps.check-outputs.outputs.has-outputs == 'true'
+        uses: actions/create-github-app-token@v1
+        id: app-token
+        with:
+          app-id: ${{ secrets.GH_APP_ID }}
+          private-key: ${{ secrets.GH_APP_PRIVATE_KEY }}
+        continue-on-error: true
+      - if: steps.check-outputs.outputs.has-outputs == 'true'
+        name: Download validation results
+        uses: actions/download-artifact@v4
+        with:
+          name: validation-audit-${{ matrix.agent.name }}-${{ github.run_id }}
+          path: /tmp/validation-results/
+        continue-on-error: true
+      - if: steps.check-outputs.outputs.has-outputs == 'true'
+        name: Read target issue number
+        id: read-target
+        run: |-
+          # Read target issue number from validation artifact
+          if [ -f /tmp/validation-results/validation-audit/result.json ]; then
+            TARGET_ISSUE=$(cat /tmp/validation-results/validation-audit/result.json | jq -r '.target_issue_number // ""')
+            echo "target-issue-number=$TARGET_ISSUE" >> $GITHUB_OUTPUT
+          fi
+      - if: steps.check-outputs.outputs.has-outputs == 'true'
+        name: Download agent outputs
+        uses: actions/download-artifact@v4
+        with:
+          name: agent-outputs-${{ matrix.agent.name }}-${{ github.run_id }}
+          path: /tmp/outputs/
+        continue-on-error: true
+      - if: steps.check-outputs.outputs.has-outputs == 'true'
+        name: Execute outputs
+        run: bun run repo-agent run outputs --agent "${{ matrix.agent.path }}"
+        env:
+          GH_TOKEN: ${{ steps.app-token.outputs.token || secrets.GITHUB_TOKEN }}
+          TARGET_ISSUE_NUMBER: ${{ steps.read-target.outputs.target-issue-number }}
+
+  audit-report:
+    runs-on: ubuntu-latest
+    needs:
+      - route-event
+      - agent-validation
+      - agent-execution
+      - execute-outputs
+    if: always()
+    strategy:
+      fail-fast: false
+      matrix:
+        agent: ${{ fromJson(needs.route-event.outputs.matching-agents) }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: oven-sh/setup-bun@v2
+      - name: Install dependencies
+        run: bun install --frozen-lockfile
+      - uses: actions/create-github-app-token@v1
+        id: app-token
+        with:
+          app-id: ${{ secrets.GH_APP_ID }}
+          private-key: ${{ secrets.GH_APP_PRIVATE_KEY }}
+        continue-on-error: true
+      - name: Download all artifacts
+        uses: actions/download-artifact@v4
+        with:
+          pattern: "*-${{ matrix.agent.name }}-${{ github.run_id }}"
+          path: /tmp/artifacts/
+      - name: Generate audit report
+        run: bun run repo-agent run audit --agent "${{ matrix.agent.path }}"
+        env:
+          GH_TOKEN: ${{ steps.app-token.outputs.token || secrets.GITHUB_TOKEN }}
+          VALIDATION_RESULT: ${{ needs.agent-validation.result }}
+          EXECUTION_RESULT: ${{ needs.agent-execution.result }}
+          OUTPUTS_RESULT: ${{ needs.execute-outputs.result }}

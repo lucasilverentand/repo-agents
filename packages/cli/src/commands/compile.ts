@@ -1,15 +1,10 @@
-import { mkdir, writeFile } from "node:fs/promises";
+import { mkdir, readdir, rm, writeFile } from "node:fs/promises";
 import { join } from "node:path";
-import {
-  agentNameToWorkflowName,
-  DISPATCHER_WORKFLOW_NAME,
-  fileExists,
-  findMarkdownFiles,
-} from "@repo-agents/cli-utils/files";
+import { fileExists, findMarkdownFiles } from "@repo-agents/cli-utils/files";
 import { logger } from "@repo-agents/cli-utils/logger";
+import { getExistingSecrets } from "@repo-agents/cli-utils/secrets";
 import { workflowValidator } from "@repo-agents/cli-utils/workflow-validator";
-import { workflowGenerator } from "@repo-agents/generator";
-import { dispatcherGenerator } from "@repo-agents/generator/dispatcher";
+import { unifiedWorkflowGenerator } from "@repo-agents/generator/unified";
 import { agentParser } from "@repo-agents/parser";
 import type { AgentDefinition, CompileResult, ValidationError } from "@repo-agents/types";
 import chalk from "chalk";
@@ -102,16 +97,33 @@ export async function compileCommand(options: CompileOptions): Promise<void> {
 
   const agents = parsedAgents.map((p) => p.agent);
 
-  // Phase 2: Generate dispatcher workflow
+  // Phase 2: Detect available secrets
   logger.newline();
-  const dispatcherSpinner = ora("Generating dispatcher workflow...").start();
+  const secretsSpinner = ora("Detecting available secrets...").start();
+  const secrets = getExistingSecrets();
 
-  const dispatcherWorkflow = dispatcherGenerator.generate(agents);
+  if (!secrets.hasApiKey && !secrets.hasAccessToken) {
+    secretsSpinner.warn("No Claude authentication secrets found");
+    logger.log(
+      chalk.yellow(
+        "  ⚠ Set either ANTHROPIC_API_KEY or CLAUDE_CODE_OAUTH_TOKEN to enable Claude authentication",
+      ),
+    );
+    logger.log(chalk.gray("  Run: repo-agents setup-token"));
+  } else {
+    const authMethod = secrets.hasApiKey ? "ANTHROPIC_API_KEY" : "CLAUDE_CODE_OAUTH_TOKEN";
+    secretsSpinner.succeed(`Found Claude authentication: ${authMethod}`);
+  }
+
+  // Phase 3: Generate unified workflow
+  const workflowSpinner = ora("Generating unified workflow...").start();
+
+  const unifiedWorkflow = unifiedWorkflowGenerator.generate(agents, secrets);
 
   try {
-    const schemaErrors = await workflowValidator.validateWorkflow(dispatcherWorkflow);
+    const schemaErrors = await workflowValidator.validateWorkflow(unifiedWorkflow);
     if (schemaErrors.length > 0) {
-      dispatcherSpinner.fail("Dispatcher workflow schema validation failed");
+      workflowSpinner.fail("Unified workflow schema validation failed");
       logger.newline();
       schemaErrors.forEach((error) => {
         logger.log(chalk.red(`  ✗ ${error.path}: ${error.message}`));
@@ -119,103 +131,73 @@ export async function compileCommand(options: CompileOptions): Promise<void> {
       process.exit(1);
     }
   } catch (error) {
-    dispatcherSpinner.warn(`Could not validate dispatcher schema (${(error as Error).message})`);
+    workflowSpinner.warn(`Could not validate workflow schema (${(error as Error).message})`);
   }
 
-  dispatcherSpinner.succeed("Generated dispatcher workflow");
+  workflowSpinner.succeed("Generated unified workflow");
 
-  // Phase 3: Generate agent workflows
-  const results: CompileResult[] = [];
+  // Phase 4: Build compile results
+  const results: CompileResult[] = parsedAgents.map(({ filePath, errors }) => ({
+    success: true,
+    inputPath: filePath,
+    errors,
+  }));
 
-  for (const { agent, filePath, errors } of parsedAgents) {
-    const fileName = filePath.split("/").pop() || filePath;
-    const agentSpinner = ora(`Generating ${chalk.cyan(agent.name)} workflow...`).start();
-
-    // Get relative path from cwd for the agent file
-    const relativeAgentPath = filePath.startsWith(cwd) ? filePath.slice(cwd.length + 1) : filePath;
-
-    const agentWorkflow = workflowGenerator.generate(agent, relativeAgentPath);
-
-    try {
-      const schemaErrors = await workflowValidator.validateWorkflow(agentWorkflow);
-      if (schemaErrors.length > 0) {
-        agentSpinner.fail(`Workflow schema validation failed for ${agent.name}`);
-        logger.newline();
-        schemaErrors.forEach((error) => {
-          logger.log(chalk.red(`  ✗ ${error.path}: ${error.message}`));
-        });
-        results.push({
-          success: false,
-          inputPath: filePath,
-          errors: [
-            ...errors,
-            ...schemaErrors.map((e) => ({
-              field: e.path,
-              message: e.message,
-              severity: "error" as const,
-            })),
-          ],
-        });
-        continue;
-      }
-    } catch (error) {
-      agentSpinner.warn(`Could not validate schema for ${fileName} (${(error as Error).message})`);
-    }
-
-    agentSpinner.succeed(`Generated ${agent.name} workflow`);
-    results.push({
-      success: true,
-      inputPath: filePath,
-      errors,
-      // outputPath will be set below if not dry-run
-    });
-  }
-
-  // Phase 4: Write workflows
+  // Phase 5: Write workflows
   if (options.dryRun) {
     logger.newline();
     logger.info("Dry run - not writing files");
     logger.newline();
 
-    logger.log(chalk.gray("--- Dispatcher Workflow ---"));
-    logger.log(dispatcherWorkflow);
-    logger.log(chalk.gray("--- End Dispatcher Workflow ---"));
-
-    for (const { agent, filePath } of parsedAgents) {
-      const relativeAgentPath = filePath.startsWith(cwd)
-        ? filePath.slice(cwd.length + 1)
-        : filePath;
-      logger.newline();
-      logger.log(chalk.gray(`--- ${agent.name} Workflow ---`));
-      logger.log(workflowGenerator.generate(agent, relativeAgentPath));
-      logger.log(chalk.gray(`--- End ${agent.name} Workflow ---`));
-    }
+    logger.log(chalk.gray("--- Unified Workflow ---"));
+    logger.log(unifiedWorkflow);
+    logger.log(chalk.gray("--- End Unified Workflow ---"));
   } else {
     await mkdir(workflowsDir, { recursive: true });
 
-    // Write dispatcher workflow
-    const dispatcherPath = join(workflowsDir, `${DISPATCHER_WORKFLOW_NAME}.yml`);
-    await writeFile(dispatcherPath, dispatcherWorkflow, "utf-8");
-    logger.info(`Wrote dispatcher: ${chalk.cyan(`${DISPATCHER_WORKFLOW_NAME}.yml`)}`);
+    // Clean up old workflow files
+    await cleanupOldWorkflows(workflowsDir);
 
-    // Write agent workflows
-    for (let i = 0; i < parsedAgents.length; i++) {
-      const { agent, filePath } = parsedAgents[i];
-      const relativeAgentPath = filePath.startsWith(cwd)
-        ? filePath.slice(cwd.length + 1)
-        : filePath;
-      const workflow = workflowGenerator.generate(agent, relativeAgentPath);
-      const workflowFileName = `${agentNameToWorkflowName(agent.name)}.yml`;
-      const outputPath = join(workflowsDir, workflowFileName);
-      await writeFile(outputPath, workflow, "utf-8");
+    // Write unified workflow
+    const workflowPath = join(workflowsDir, "agents.yml");
+    await writeFile(workflowPath, unifiedWorkflow, "utf-8");
+    logger.info(`Wrote unified workflow: ${chalk.cyan("agents.yml")}`);
 
-      results[i].outputPath = outputPath;
+    // Set output path for results
+    for (let i = 0; i < results.length; i++) {
+      results[i].outputPath = workflowPath;
     }
   }
 
   // Print summary
   logger.newline();
   printSummary(results, options.dryRun || false);
+}
+
+/**
+ * Clean up old dispatcher and per-agent workflow files.
+ */
+async function cleanupOldWorkflows(workflowsDir: string): Promise<void> {
+  try {
+    const files = await readdir(workflowsDir);
+    const filesToDelete = files.filter(
+      (file) =>
+        file === "agent-dispatcher.yml" ||
+        (file.startsWith("agent-") && file.endsWith(".yml") && file !== "agents.yml"),
+    );
+
+    for (const file of filesToDelete) {
+      const filePath = join(workflowsDir, file);
+      await rm(filePath, { force: true });
+      logger.log(chalk.gray(`  Removed old workflow: ${file}`));
+    }
+
+    if (filesToDelete.length > 0) {
+      logger.newline();
+    }
+  } catch {
+    // Ignore errors - directory might not exist yet
+  }
 }
 
 function printSummary(results: CompileResult[], dryRun: boolean): void {
@@ -225,7 +207,7 @@ function printSummary(results: CompileResult[], dryRun: boolean): void {
 
   logger.info("Compilation Summary:");
   logger.log(`  ${chalk.green("✓")} Agents: ${successful}`);
-  logger.log(`  ${chalk.green("✓")} Dispatcher: 1`);
+  logger.log(`  ${chalk.green("✓")} Unified workflow: 1`);
   if (failed > 0) {
     logger.log(`  ${chalk.red("✗")} Failed: ${failed}`);
   }
@@ -235,7 +217,8 @@ function printSummary(results: CompileResult[], dryRun: boolean): void {
 
   if (!dryRun) {
     logger.newline();
-    logger.info("Workflows generated successfully!");
-    logger.log("  The dispatcher handles all triggers and routes events to the appropriate agent.");
+    logger.info("Unified workflow generated successfully!");
+    logger.log("  All agents are now handled by a single workflow file (agents.yml).");
+    logger.log("  This improves performance and simplifies the architecture.");
   }
 }

@@ -61,14 +61,16 @@ describe("Compile Command", () => {
     await proc.exited;
 
     expect(proc.exitCode).toBe(0);
-    expect(output).toContain("issue-analyzer");
+    expect(output).toContain("AI Agents");
+    expect(output).toContain("global-preflight");
+    expect(output).toContain("route-event");
 
     // Should not create actual files in dry-run
     const workflowsDir = join(tempDir, ".github/workflows");
     expect(existsSync(workflowsDir)).toBe(false);
   });
 
-  test("compile generates dispatcher and agent workflow files", async () => {
+  test("compile generates unified workflow file", async () => {
     const proc = Bun.spawn(["bun", CLI_PATH, "compile"], {
       cwd: tempDir,
       stdout: "pipe",
@@ -79,18 +81,18 @@ describe("Compile Command", () => {
 
     expect(proc.exitCode).toBe(0);
 
-    // Check dispatcher workflow was created
-    const dispatcherPath = join(tempDir, ".github/workflows/agent-dispatcher.yml");
-    expect(existsSync(dispatcherPath)).toBe(true);
-
-    // Check agent workflow was created
-    const agentPath = join(tempDir, ".github/workflows/agent-issue-analyzer.yml");
-    expect(existsSync(agentPath)).toBe(true);
+    // Check unified workflow was created
+    const workflowPath = join(tempDir, ".github/workflows/agents.yml");
+    expect(existsSync(workflowPath)).toBe(true);
 
     // Verify workflow contains expected content
-    const agentContent = await Bun.file(agentPath).text();
-    expect(agentContent).toContain("name: Issue Analyzer");
-    expect(agentContent).toContain("workflow_dispatch");
+    const workflowContent = await Bun.file(workflowPath).text();
+    expect(workflowContent).toContain("name: AI Agents");
+    expect(workflowContent).toContain("global-preflight:");
+    expect(workflowContent).toContain("route-event:");
+    expect(workflowContent).toContain("agent-validation:");
+    expect(workflowContent).toContain("agent-execution:");
+    expect(workflowContent).toContain("workflow_dispatch");
   });
 
   test("compile with custom output directory", async () => {
@@ -106,11 +108,8 @@ describe("Compile Command", () => {
 
     expect(proc.exitCode).toBe(0);
 
-    // Check workflows were created in custom directory
-    const dispatcherPath = join(customDir, "agent-dispatcher.yml");
-    expect(existsSync(dispatcherPath)).toBe(true);
-
-    const agentPath = join(customDir, "agent-issue-analyzer.yml");
-    expect(existsSync(agentPath)).toBe(true);
+    // Check unified workflow was created in custom directory
+    const workflowPath = join(customDir, "agents.yml");
+    expect(existsSync(workflowPath)).toBe(true);
   });
 });

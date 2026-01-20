@@ -3,7 +3,6 @@
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
 import { Command } from "commander";
-import { runDispatch, runGlobalPreflight, runRoute } from "./stages/dispatcher/index";
 import {
   runAgent,
   runAudit,
@@ -13,6 +12,8 @@ import {
   runProgress,
   runSetup,
 } from "./stages/index";
+import { runUnifiedRoute } from "./stages/unified/route";
+import { runUnifiedValidate } from "./stages/unified/validate";
 import type { JobResult, StageContext, StageResult } from "./types";
 
 const packageJson = JSON.parse(readFileSync(join(__dirname, "../package.json"), "utf-8"));
@@ -34,10 +35,10 @@ const stages = {
   progress: runProgress,
 } as const;
 
-const dispatcherStages = {
-  "dispatcher:global-preflight": runGlobalPreflight,
-  "dispatcher:route": runRoute,
-  "dispatcher:dispatch": runDispatch,
+const unifiedStages = {
+  "setup:preflight": runPreFlight,
+  "unified:route": runUnifiedRoute,
+  "unified:validate": runUnifiedValidate,
 } as const;
 
 type StageName = keyof typeof stages;
@@ -89,8 +90,8 @@ program
     "Final comment to replace progress (for progress stage)",
   )
   .action(async (stage: string, options: RunOptions) => {
-    // Check if this is a dispatcher stage
-    if (stage in dispatcherStages) {
+    // Check if this is a unified workflow stage
+    if (stage === "unified:route" || stage === "unified:validate" || stage === "setup:preflight") {
       // Extract event action from event payload
       let eventAction = "";
       const eventPath = process.env.GITHUB_EVENT_PATH;
@@ -104,32 +105,52 @@ program
         }
       }
 
-      const dispatcherCtx = {
-        github: {
+      let result: StageResult;
+
+      if (stage === "unified:route") {
+        result = await runUnifiedRoute({
+          github: {
+            repository: process.env.GITHUB_REPOSITORY ?? "",
+            runId: Number(process.env.GITHUB_RUN_ID ?? "0"),
+            serverUrl: process.env.GITHUB_SERVER_URL ?? "https://github.com",
+            eventName: process.env.GITHUB_EVENT_NAME ?? "",
+            eventAction,
+            actor: process.env.GITHUB_ACTOR ?? "",
+            eventPath: process.env.GITHUB_EVENT_PATH ?? "",
+          },
+          options: {
+            agentsDir: options.agentsDir,
+          },
+        });
+      } else if (stage === "unified:validate") {
+        result = await runUnifiedValidate({
+          github: {
+            repository: process.env.GITHUB_REPOSITORY ?? "",
+            runId: Number(process.env.GITHUB_RUN_ID ?? "0"),
+            serverUrl: process.env.GITHUB_SERVER_URL ?? "https://github.com",
+            eventName: process.env.GITHUB_EVENT_NAME ?? "",
+            actor: process.env.GITHUB_ACTOR ?? "",
+            eventPath: process.env.GITHUB_EVENT_PATH ?? "",
+          },
+          options: {
+            agentPath: options.agent,
+          },
+        });
+      } else {
+        // setup:preflight
+        result = await runPreFlight({
           repository: process.env.GITHUB_REPOSITORY ?? "",
           runId: process.env.GITHUB_RUN_ID ?? "",
-          runAttempt: process.env.GITHUB_RUN_ATTEMPT ?? "1",
-          serverUrl: process.env.GITHUB_SERVER_URL ?? "https://github.com",
-          eventName: process.env.GITHUB_EVENT_NAME ?? "",
-          eventAction,
-          ref: process.env.GITHUB_REF ?? "",
-          sha: process.env.GITHUB_SHA ?? "",
           actor: process.env.GITHUB_ACTOR ?? "",
+          eventName: process.env.GITHUB_EVENT_NAME ?? "",
           eventPath: process.env.GITHUB_EVENT_PATH ?? "",
-        },
-        options: {
-          agentsDir: options.agentsDir,
-          agentPath: options.agent,
-          workflowFile: options.workflowFile,
-        },
-      };
-
-      const stageFn = dispatcherStages[stage as keyof typeof dispatcherStages];
-      const result = await stageFn(dispatcherCtx);
+          agentPath: options.agent ?? "",
+        });
+      }
 
       // Write outputs to GITHUB_OUTPUT if available
       const outputFile = process.env.GITHUB_OUTPUT;
-      if (outputFile && Object.keys(result.outputs).length > 0) {
+      if (outputFile && result.outputs && Object.keys(result.outputs).length > 0) {
         const { appendFileSync } = await import("node:fs");
         for (const [key, value] of Object.entries(result.outputs)) {
           appendFileSync(outputFile, `${key}=${value}\n`);
@@ -144,7 +165,7 @@ program
     if (!(stage in stages)) {
       console.error(`Unknown stage: ${stage}`);
       console.error(
-        `Available stages: ${[...Object.keys(stages), ...Object.keys(dispatcherStages)].join(", ")}`,
+        `Available stages: ${[...Object.keys(stages), ...Object.keys(unifiedStages)].join(", ")}`,
       );
       process.exit(1);
     }
