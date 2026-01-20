@@ -13,6 +13,6 @@
   "dependencies": {
     "@repo-agents/types": "workspace:*",
     "gray-matter": "^4.0.3",
-    "zod": "^3.25.76"
+    "zod": "^4.3.5"
   }
 }
