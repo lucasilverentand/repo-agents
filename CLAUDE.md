@@ -213,7 +213,7 @@ Agent files in `.github/agents/*.md` must have:
   - `permissions`: GitHub permissions (contents, issues, pull_requests, discussions)
   - `outputs`: Allowed agent actions with constraints
   - `context`: Data collection configuration
-  - `claude`: Model configuration (model, max_tokens, temperature)
+  - `provider`: AI provider to use ("claude-code" or "opencode")
   - `allowed-users`, `allowed-actors`, `allowed-teams`: Authorization lists
   - `allowed-paths`: Glob patterns for file operations
   - `trigger_labels`: Labels required to trigger agent
