@@ -104,6 +104,7 @@ jobs:
         run: bun packages/runtime/src/index.ts run outputs --agent .github/agents/issue-lifecycle/issue-implementer.md --output-type ${{ matrix.output-type }}
         env:
           GH_TOKEN: ${{ needs.setup.outputs.app-token || secrets.GITHUB_TOKEN }}
+          TARGET_ISSUE_NUMBER: ${{ inputs.progress-issue-number }}
 
   audit-report:
     runs-on: ubuntu-latest

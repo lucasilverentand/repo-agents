@@ -545,30 +545,18 @@ async function executeOutput(
 ): Promise<void> {
   const repository = ctx.repository;
 
-  // Get issue/PR number from event context
-  // First check for dispatcher context (when triggered via dispatcher)
-  const dispatchContextPath = "/tmp/dispatch-context/context.json";
+  // Get issue/PR number from workflow input or event context
+  // Priority: 1. Environment variable (passed from dispatcher), 2. Event path
   let issueNumber: string | undefined;
   let prNumber: string | undefined;
 
-  if (existsSync(dispatchContextPath)) {
-    try {
-      const dispatchContextContent = await readFile(dispatchContextPath, "utf-8");
-      const dispatchContext = JSON.parse(dispatchContextContent);
-
-      // Extract issue/PR number from original event
-      if (dispatchContext.issue?.number) {
-        issueNumber = String(dispatchContext.issue.number);
-      }
-      if (dispatchContext.pullRequest?.number) {
-        prNumber = String(dispatchContext.pullRequest.number);
-      }
-    } catch (error) {
-      console.warn("Failed to read dispatch context:", error);
-    }
+  // First check for workflow input (passed via environment variable from dispatcher)
+  const targetNumber = process.env.TARGET_ISSUE_NUMBER;
+  if (targetNumber) {
+    issueNumber = targetNumber;
   }
 
-  // Fallback to standard event path if dispatcher context not available
+  // Fallback to standard event path
   if (!issueNumber && !prNumber) {
     const eventPath = ctx.eventPath;
     if (eventPath && existsSync(eventPath)) {

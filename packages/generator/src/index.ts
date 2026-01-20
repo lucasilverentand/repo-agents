@@ -406,6 +406,7 @@ git config --global user.email "${ghExpr("needs.setup.outputs.git-email")}"`,
         run: `${cliCommand} run outputs --agent ${agentFilePath} --output-type ${ghExpr("matrix.output-type")}`,
         env: {
           GH_TOKEN: ghExpr("needs.setup.outputs.app-token || secrets.GITHUB_TOKEN"),
+          TARGET_ISSUE_NUMBER: ghExpr("inputs.progress-issue-number"),
         },
       });
 
