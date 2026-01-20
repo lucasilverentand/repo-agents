@@ -1,0 +1,80 @@
+{
+  "version": "2.0.0",
+  "tasks": [
+    {
+      "label": "Validate All Agents",
+      "type": "shell",
+      "command": "bun",
+      "args": ["scripts/validate-agents.ts"],
+      "problemMatcher": {
+        "owner": "repo-agents",
+        "fileLocation": ["relative", "${workspaceFolder}"],
+        "pattern": [
+          {
+            "regexp": "^❌\\s+(.+\\.md):$",
+            "file": 1
+          },
+          {
+            "regexp": "^\\s+(ERROR|WARNING)\\s+\\((.+)\\):\\s+(.+)$",
+            "severity": 1,
+            "message": 3,
+            "location": 2,
+            "loop": true
+          }
+        ]
+      },
+      "presentation": {
+        "echo": true,
+        "reveal": "always",
+        "focus": false,
+        "panel": "shared",
+        "showReuseMessage": false,
+        "clear": true
+      },
+      "group": {
+        "kind": "test",
+        "isDefault": true
+      }
+    },
+    {
+      "label": "Validate Agents (Watch)",
+      "type": "shell",
+      "command": "bun",
+      "args": ["--watch", "scripts/validate-agents.ts"],
+      "problemMatcher": {
+        "owner": "repo-agents",
+        "fileLocation": ["relative", "${workspaceFolder}"],
+        "pattern": [
+          {
+            "regexp": "^❌\\s+(.+\\.md):$",
+            "file": 1
+          },
+          {
+            "regexp": "^\\s+(ERROR|WARNING)\\s+\\((.+)\\):\\s+(.+)$",
+            "severity": 1,
+            "message": 3,
+            "location": 2,
+            "loop": true
+          }
+        ],
+        "background": {
+          "activeOnStart": true,
+          "beginsPattern": "^🔍 Validating",
+          "endsPattern": "^(✅ All .+ agent\\(s\\) valid|❌ Validation failed)"
+        }
+      },
+      "isBackground": true,
+      "presentation": {
+        "echo": true,
+        "reveal": "always",
+        "focus": false,
+        "panel": "dedicated",
+        "showReuseMessage": false,
+        "clear": false
+      },
+      "runOptions": {
+        "runOn": "folderOpen"
+      }
+    }
+  ]
+}
