@@ -14,6 +14,10 @@ name: Issue Triage
         type: string
         required: false
         description: Target issue/PR number for outputs (from dispatcher)
+      event-payload:
+        type: string
+        required: false
+        description: Original event payload JSON (from dispatcher)
 jobs:
   setup:
     runs-on: ubuntu-latest
@@ -62,6 +66,7 @@ jobs:
           ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
           CLAUDE_CODE_OAUTH_TOKEN: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
           GH_TOKEN: ${{ needs.setup.outputs.app-token || secrets.GITHUB_TOKEN }}
+          EVENT_PAYLOAD: ${{ inputs.event-payload }}
       - uses: actions/upload-artifact@v4
         with:
           name: claude-outputs-${{ github.run_id }}

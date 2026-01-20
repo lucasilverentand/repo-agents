@@ -162,6 +162,11 @@ export class WorkflowGenerator {
               required: boolean;
               description: string;
             };
+            "event-payload": {
+              type: string;
+              required: boolean;
+              description: string;
+            };
           };
         };
       };
@@ -188,6 +193,11 @@ export class WorkflowGenerator {
               type: "string",
               required: false,
               description: "Target issue/PR number for outputs (from dispatcher)",
+            },
+            "event-payload": {
+              type: "string",
+              required: false,
+              description: "Original event payload JSON (from dispatcher)",
             },
           },
         },
@@ -349,6 +359,7 @@ git config --global user.email "${ghExpr("needs.setup.outputs.git-email")}"`,
           ANTHROPIC_API_KEY: ghExpr("secrets.ANTHROPIC_API_KEY"),
           CLAUDE_CODE_OAUTH_TOKEN: ghExpr("secrets.CLAUDE_CODE_OAUTH_TOKEN"),
           GH_TOKEN: ghExpr("needs.setup.outputs.app-token || secrets.GITHUB_TOKEN"),
+          EVENT_PAYLOAD: ghExpr("inputs.event-payload"),
         },
       },
       {

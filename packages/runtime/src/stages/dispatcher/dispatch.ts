@@ -194,6 +194,12 @@ export async function runDispatch(ctx: DispatcherContext): Promise<StageResult> 
       outputs["target-issue-number"] = String(targetNumber);
     }
 
+    // Get the full event payload for agent stage context
+    const eventPayload = await getEventPayload(ctx);
+    if (eventPayload) {
+      outputs["event-payload"] = eventPayload;
+    }
+
     // Create progress comment if enabled for this agent
     const progressCommentResult = await createProgressCommentIfEnabled(ctx, agent);
     if (progressCommentResult.created) {
@@ -600,6 +606,17 @@ async function getIssueOrPRNumber(ctx: DispatcherContext): Promise<number | unde
       pull_request?: { number: number };
     };
     return eventPayload.issue?.number ?? eventPayload.pull_request?.number;
+  } catch {
+    return undefined;
+  }
+}
+
+/**
+ * Get the full event payload as a JSON string for agent context.
+ */
+async function getEventPayload(ctx: DispatcherContext): Promise<string | undefined> {
+  try {
+    return await Bun.file(ctx.github.eventPath).text();
   } catch {
     return undefined;
   }
