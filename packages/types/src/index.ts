@@ -474,58 +474,6 @@ export interface RoutingRule {
   }>;
 }
 
-export interface DispatchContext {
-  dispatchId: string;
-  dispatchedAt: string;
-  dispatcherRunId: string;
-  dispatcherRunUrl: string;
-  eventName: string;
-  eventAction?: string;
-  repository: string;
-  ref: string;
-  sha: string;
-  actor: string;
-  issue?: {
-    number: number;
-    title: string;
-    body: string;
-    author: string;
-    labels: string[];
-    state: string;
-    url: string;
-  };
-  pullRequest?: {
-    number: number;
-    title: string;
-    body: string;
-    author: string;
-    labels: string[];
-    baseBranch: string;
-    headBranch: string;
-    state: string;
-    url: string;
-  };
-  discussion?: {
-    number: number;
-    title: string;
-    body: string;
-    author: string;
-    category: string;
-    url: string;
-  };
-  schedule?: {
-    cron: string;
-  };
-  repositoryDispatch?: {
-    eventType: string;
-    clientPayload: Record<string, unknown>;
-  };
-  progressComment?: {
-    commentId: number;
-    issueNumber: number;
-  };
-}
-
 // Progress Comment Types
 export type ProgressStage = "validation" | "context" | "agent" | "outputs" | "complete" | "failed";
 

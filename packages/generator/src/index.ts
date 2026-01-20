@@ -106,11 +106,12 @@ export class WorkflowGenerator {
     stage: string,
     status: string,
   ): WorkflowStep {
+    const ghExpr = (expr: string) => `\${{ ${expr} }}`;
     return {
       name: `Update progress: ${stage} ${status}`,
-      run: `${cliCommand} run progress --agent ${agentFilePath} --progress-stage ${stage} --progress-status ${status}`,
+      run: `${cliCommand} run progress --agent ${agentFilePath} --progress-stage ${stage} --progress-status ${status} --progress-comment-id "${ghExpr("inputs.progress-comment-id")}" --progress-issue-number "${ghExpr("inputs.progress-issue-number")}"`,
       env: {
-        GH_TOKEN: "${{ secrets.GITHUB_TOKEN }}",
+        GH_TOKEN: ghExpr("needs.setup.outputs.app-token || secrets.GITHUB_TOKEN"),
       },
       "continue-on-error": true,
     };
@@ -119,6 +120,16 @@ export class WorkflowGenerator {
   /**
    * Generate a workflow that uses the runtime CLI instead of embedded bash scripts.
    * This produces clean workflows that delegate logic to `repo-agent run <stage>`.
+   *
+   * Architecture:
+   * - setup job: Generates GitHub App token (if configured), validates Claude auth
+   * - collect-context job (optional): Collects repo data
+   * - agent job: Runs Claude Code CLI
+   * - execute-outputs job (optional): Executes outputs
+   * - audit-report job: Always runs, tracks metrics
+   *
+   * Event context is read directly from $GITHUB_EVENT_PATH by each job.
+   * Token is generated once in setup and passed to other jobs.
    */
   generate(agent: AgentDefinition, agentFilePath: string): string {
     // For this repository, use local code. For user repos, would use bunx @repo-agents/cli@X
@@ -136,9 +147,15 @@ export class WorkflowGenerator {
       on: {
         workflow_dispatch: {
           inputs: {
-            "context-run-id": {
+            "progress-comment-id": {
               type: string;
               required: boolean;
+              description: string;
+            };
+            "progress-issue-number": {
+              type: string;
+              required: boolean;
+              description: string;
             };
           };
         };
@@ -152,9 +169,15 @@ export class WorkflowGenerator {
       on: {
         workflow_dispatch: {
           inputs: {
-            "context-run-id": {
+            "progress-comment-id": {
               type: "string",
-              required: true,
+              required: false,
+              description: "Progress comment ID (from dispatcher)",
+            },
+            "progress-issue-number": {
+              type: "string",
+              required: false,
+              description: "Issue/PR number for progress comment (from dispatcher)",
             },
           },
         },
@@ -174,6 +197,41 @@ export class WorkflowGenerator {
       );
     }
 
+    // Setup job - generates GitHub App token and validates auth
+    workflow.jobs.setup = {
+      "runs-on": "ubuntu-latest",
+      outputs: {
+        "should-continue": ghExpr("steps.setup.outputs.should-continue"),
+        "app-token": ghExpr("steps.setup.outputs.app-token"),
+        "git-user": ghExpr("steps.setup.outputs.git-user"),
+        "git-email": ghExpr("steps.setup.outputs.git-email"),
+      },
+      steps: [
+        {
+          uses: "actions/checkout@v4",
+        },
+        {
+          uses: "oven-sh/setup-bun@v2",
+        },
+        {
+          name: "Install dependencies",
+          run: "bun install --frozen-lockfile",
+        },
+        {
+          name: "Setup agent",
+          id: "setup",
+          env: {
+            ANTHROPIC_API_KEY: ghExpr("secrets.ANTHROPIC_API_KEY"),
+            CLAUDE_CODE_OAUTH_TOKEN: ghExpr("secrets.CLAUDE_CODE_OAUTH_TOKEN"),
+            GH_APP_ID: ghExpr("secrets.GH_APP_ID"),
+            GH_APP_PRIVATE_KEY: ghExpr("secrets.GH_APP_PRIVATE_KEY"),
+            GITHUB_TOKEN: ghExpr("secrets.GITHUB_TOKEN"),
+          },
+          run: `${cliCommand} run setup --agent ${agentFilePath}`,
+        },
+      ],
+    };
+
     // Collect-context job (only if context is configured)
     if (hasContext) {
       const contextSteps: WorkflowStep[] = [
@@ -186,16 +244,6 @@ export class WorkflowGenerator {
         {
           name: "Install dependencies",
           run: "bun install --frozen-lockfile",
-        },
-        {
-          name: "Download dispatch context",
-          uses: "actions/download-artifact@v4",
-          with: {
-            name: `dispatch-context-${ghExpr("inputs.context-run-id")}`,
-            path: "/tmp/dispatch-context/",
-            "run-id": ghExpr("inputs.context-run-id"),
-            "github-token": ghExpr("secrets.GITHUB_TOKEN"),
-          },
         },
       ];
 
@@ -211,7 +259,7 @@ export class WorkflowGenerator {
           id: "run",
           run: `${cliCommand} run context --agent ${agentFilePath}`,
           env: {
-            GH_TOKEN: ghExpr("secrets.GITHUB_TOKEN"),
+            GH_TOKEN: ghExpr("needs.setup.outputs.app-token || secrets.GITHUB_TOKEN"),
           },
         },
         {
@@ -232,6 +280,8 @@ export class WorkflowGenerator {
 
       workflow.jobs["collect-context"] = {
         "runs-on": "ubuntu-latest",
+        needs: "setup",
+        if: "needs.setup.outputs.should-continue == 'true'",
         outputs: {
           "has-context": ghExpr("steps.run.outputs.has-context"),
         },
@@ -240,8 +290,10 @@ export class WorkflowGenerator {
     }
 
     // Agent job
-    const agentNeeds = hasContext ? ["collect-context"] : undefined;
-    const agentIf = hasContext ? "needs.collect-context.outputs.has-context == 'true'" : undefined;
+    const agentNeeds = hasContext ? ["setup", "collect-context"] : ["setup"];
+    const agentIf = hasContext
+      ? "needs.setup.outputs.should-continue == 'true' && needs.collect-context.outputs.has-context == 'true'"
+      : "needs.setup.outputs.should-continue == 'true'";
 
     const agentSteps: WorkflowStep[] = [
       {
@@ -253,16 +305,6 @@ export class WorkflowGenerator {
       {
         name: "Install dependencies",
         run: "bun install --frozen-lockfile",
-      },
-      {
-        name: "Download dispatch context",
-        uses: "actions/download-artifact@v4",
-        with: {
-          name: `dispatch-context-${ghExpr("inputs.context-run-id")}`,
-          path: "/tmp/dispatch-context/",
-          "run-id": ghExpr("inputs.context-run-id"),
-          "github-token": ghExpr("secrets.GITHUB_TOKEN"),
-        },
       },
     ];
 
@@ -286,12 +328,17 @@ export class WorkflowGenerator {
 
     agentSteps.push(
       {
+        name: "Configure git identity",
+        run: `git config --global user.name "${ghExpr("needs.setup.outputs.git-user")}"
+git config --global user.email "${ghExpr("needs.setup.outputs.git-email")}"`,
+      },
+      {
         id: "run",
         run: `${cliCommand} run agent --agent ${agentFilePath}`,
         env: {
           ANTHROPIC_API_KEY: ghExpr("secrets.ANTHROPIC_API_KEY"),
           CLAUDE_CODE_OAUTH_TOKEN: ghExpr("secrets.CLAUDE_CODE_OAUTH_TOKEN"),
-          GH_TOKEN: ghExpr("secrets.GITHUB_TOKEN"),
+          GH_TOKEN: ghExpr("needs.setup.outputs.app-token || secrets.GITHUB_TOKEN"),
         },
       },
       {
@@ -317,14 +364,10 @@ export class WorkflowGenerator {
 
     const agentJob: GitHubWorkflowJob = {
       "runs-on": "ubuntu-latest",
+      needs: agentNeeds,
+      if: agentIf,
       steps: agentSteps,
     };
-    if (agentNeeds) {
-      agentJob.needs = agentNeeds;
-    }
-    if (agentIf) {
-      agentJob.if = agentIf;
-    }
     workflow.jobs.agent = agentJob;
 
     // Execute-outputs job (only if outputs are configured)
@@ -339,16 +382,6 @@ export class WorkflowGenerator {
         {
           name: "Install dependencies",
           run: "bun install --frozen-lockfile",
-        },
-        {
-          name: "Download dispatch context",
-          uses: "actions/download-artifact@v4",
-          with: {
-            name: `dispatch-context-${ghExpr("inputs.context-run-id")}`,
-            path: "/tmp/dispatch-context/",
-            "run-id": ghExpr("inputs.context-run-id"),
-            "github-token": ghExpr("secrets.GITHUB_TOKEN"),
-          },
         },
         {
           name: "Download output files",
@@ -372,13 +405,13 @@ export class WorkflowGenerator {
         name: `Execute ${ghExpr("matrix.output-type")} outputs`,
         run: `${cliCommand} run outputs --agent ${agentFilePath} --output-type ${ghExpr("matrix.output-type")}`,
         env: {
-          GH_TOKEN: ghExpr("secrets.GITHUB_TOKEN"),
+          GH_TOKEN: ghExpr("needs.setup.outputs.app-token || secrets.GITHUB_TOKEN"),
         },
       });
 
       workflow.jobs["execute-outputs"] = {
         "runs-on": "ubuntu-latest",
-        needs: "agent",
+        needs: hasContext ? ["setup", "agent"] : ["setup", "agent"],
         strategy: {
           matrix: {
             "output-type": outputTypes,
@@ -392,11 +425,11 @@ export class WorkflowGenerator {
     // Audit-report job (always present)
     const auditNeeds = hasContext
       ? hasOutputs
-        ? ["collect-context", "agent", "execute-outputs"]
-        : ["collect-context", "agent"]
+        ? ["setup", "collect-context", "agent", "execute-outputs"]
+        : ["setup", "collect-context", "agent"]
       : hasOutputs
-        ? ["agent", "execute-outputs"]
-        : ["agent"];
+        ? ["setup", "agent", "execute-outputs"]
+        : ["setup", "agent"];
 
     const auditRunParts: string[] = [`${cliCommand} run audit --agent ${agentFilePath}`];
 
@@ -422,17 +455,6 @@ export class WorkflowGenerator {
         run: "bun install --frozen-lockfile",
       },
       {
-        name: "Download dispatch context",
-        uses: "actions/download-artifact@v4",
-        with: {
-          name: `dispatch-context-${ghExpr("inputs.context-run-id")}`,
-          path: "/tmp/dispatch-context/",
-          "run-id": ghExpr("inputs.context-run-id"),
-          "github-token": ghExpr("secrets.GITHUB_TOKEN"),
-        },
-        "continue-on-error": true,
-      },
-      {
         uses: "actions/download-artifact@v4",
         with: {
           pattern: `*-${ghExpr("github.run_id")}`,
@@ -444,7 +466,7 @@ export class WorkflowGenerator {
       {
         run: auditRunParts.join(" \\\n            "),
         env: {
-          GH_TOKEN: ghExpr("secrets.GITHUB_TOKEN"),
+          GH_TOKEN: ghExpr("needs.setup.outputs.app-token || secrets.GITHUB_TOKEN"),
         },
       },
     ];
@@ -470,30 +492,30 @@ fi`,
 
       auditSteps.push({
         name: "Update progress: complete with comment",
-        run: `${cliCommand} run progress --agent ${agentFilePath} --progress-stage complete --progress-status success --progress-final-comment "${ghExpr("steps.final-comment.outputs.comment")}"`,
+        run: `${cliCommand} run progress --agent ${agentFilePath} --progress-stage complete --progress-status success --progress-comment-id "${ghExpr("inputs.progress-comment-id")}" --progress-issue-number "${ghExpr("inputs.progress-issue-number")}" --progress-final-comment "${ghExpr("steps.final-comment.outputs.comment")}"`,
         if: `needs.agent.result == 'success' && steps.final-comment.outputs.has-comment == 'true'`,
         env: {
-          GH_TOKEN: ghExpr("secrets.GITHUB_TOKEN"),
+          GH_TOKEN: ghExpr("needs.setup.outputs.app-token || secrets.GITHUB_TOKEN"),
         },
         "continue-on-error": true,
       });
 
       auditSteps.push({
         name: "Update progress: complete",
-        run: `${cliCommand} run progress --agent ${agentFilePath} --progress-stage complete --progress-status success`,
+        run: `${cliCommand} run progress --agent ${agentFilePath} --progress-stage complete --progress-status success --progress-comment-id "${ghExpr("inputs.progress-comment-id")}" --progress-issue-number "${ghExpr("inputs.progress-issue-number")}"`,
         if: `needs.agent.result == 'success' && steps.final-comment.outputs.has-comment != 'true'`,
         env: {
-          GH_TOKEN: ghExpr("secrets.GITHUB_TOKEN"),
+          GH_TOKEN: ghExpr("needs.setup.outputs.app-token || secrets.GITHUB_TOKEN"),
         },
         "continue-on-error": true,
       });
 
       auditSteps.push({
         name: "Update progress: failed",
-        run: `${cliCommand} run progress --agent ${agentFilePath} --progress-stage failed --progress-status failed --progress-error "Workflow failed"`,
+        run: `${cliCommand} run progress --agent ${agentFilePath} --progress-stage failed --progress-status failed --progress-comment-id "${ghExpr("inputs.progress-comment-id")}" --progress-issue-number "${ghExpr("inputs.progress-issue-number")}" --progress-error "Workflow failed"`,
         if: "needs.agent.result != 'success'",
         env: {
-          GH_TOKEN: ghExpr("secrets.GITHUB_TOKEN"),
+          GH_TOKEN: ghExpr("needs.setup.outputs.app-token || secrets.GITHUB_TOKEN"),
         },
         "continue-on-error": true,
       });

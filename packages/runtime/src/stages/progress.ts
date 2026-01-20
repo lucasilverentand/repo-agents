@@ -1,6 +1,6 @@
 import { readFile } from "node:fs/promises";
 import { agentParser } from "@repo-agents/parser";
-import type { DispatchContext, ProgressCommentState, ProgressStage } from "@repo-agents/types";
+import type { ProgressCommentState, ProgressStage } from "@repo-agents/types";
 import type { StageContext, StageResult } from "../types";
 import {
   findProgressComment,
@@ -23,6 +23,10 @@ interface ProgressOptions {
  *
  * This stage is called at each workflow stage transition to update
  * the progress comment with the current status.
+ *
+ * Progress comment info is passed from dispatcher via workflow inputs:
+ * - progressCommentId: The comment ID to update
+ * - progressIssueNumber: The issue/PR number where the comment was created
  */
 export async function runProgress(
   ctx: StageContext,
@@ -39,14 +43,15 @@ export async function runProgress(
       return { success: true, outputs: {} };
     }
 
-    // Load dispatch context to get progress comment info
-    const dispatchContext = await loadDispatchContext();
-    if (!dispatchContext?.progressComment) {
-      console.log("No progress comment found in dispatch context");
+    // Get progress comment info from context (passed via workflow inputs)
+    const commentId = ctx.progressCommentId;
+    const issueNumber = ctx.progressIssueNumber;
+
+    if (!commentId || !issueNumber) {
+      console.log("No progress comment info in context");
       return { success: true, outputs: {} };
     }
 
-    const { commentId, issueNumber } = dispatchContext.progressComment;
     const { owner, repo } = parseRepository(ctx.repository);
 
     // Find existing comment to get current state
@@ -64,7 +69,7 @@ export async function runProgress(
     }
 
     // Parse current state from comment (or create new state)
-    let state = parseProgressState(existingComment.body, agent.name, ctx.runId, dispatchContext);
+    let state = parseProgressState(existingComment.body, agent.name, ctx.runId, ctx.repository);
 
     // Handle final comment replacement
     if (options.finalComment) {
@@ -93,18 +98,6 @@ export async function runProgress(
 }
 
 /**
- * Load dispatch context from artifact.
- */
-async function loadDispatchContext(): Promise<DispatchContext | null> {
-  try {
-    const content = await readFile("/tmp/dispatch-context/context.json", "utf-8");
-    return JSON.parse(content) as DispatchContext;
-  } catch {
-    return null;
-  }
-}
-
-/**
  * Parse progress state from existing comment body.
  * Falls back to creating initial state if parsing fails.
  */
@@ -112,14 +105,12 @@ function parseProgressState(
   _body: string,
   agentName: string,
   runId: string,
-  dispatchContext: DispatchContext,
+  repository: string,
 ): ProgressCommentState {
   // For simplicity, we recreate state based on the stage updates
   // A more sophisticated implementation could parse the table from the comment
-  const workflowRunUrl = dispatchContext.dispatcherRunUrl.replace(
-    dispatchContext.dispatcherRunId,
-    runId,
-  );
+  const serverUrl = process.env.GITHUB_SERVER_URL ?? "https://github.com";
+  const workflowRunUrl = `${serverUrl}/${repository}/actions/runs/${runId}`;
 
   return {
     agentName,

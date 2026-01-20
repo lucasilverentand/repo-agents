@@ -89,57 +89,59 @@ The system generates two types of workflows:
 
 #### Dispatcher Workflow (centralized)
 
-The dispatcher workflow handles event routing and pre-flight validation for all agents:
+The dispatcher is a thin routing layer (3 jobs) that validates and routes events:
 
-1. **pre-flight job**: Global validation before routing
-   - Generates GitHub App token (if configured)
+1. **pre-flight job**: Global validation
    - Checks required secrets (ANTHROPIC_API_KEY or CLAUDE_CODE_OAUTH_TOKEN)
-   - Outputs: `should-continue`, `app-token`
+   - Outputs: `should-continue`
+   - Creates self-healing issue if auth is missing
 
-2. **prepare-context job**: Prepares event context
-   - Downloads event payload
-   - Uploads context as artifact for agent workflows
-
-3. **route-event job**: Determines which agents to trigger
+2. **route-event job**: Determines which agents to trigger
    - Matches event against routing table
-   - Outputs: `agents` (JSON array of matching agents)
+   - Outputs: `matching-agents` (JSON array)
 
-4. **dispatch-agents job**: Per-agent validation and dispatch (matrix strategy)
-   - Runs per-agent pre-flight checks (authorization, rate limits, labels)
+3. **dispatch-agents job**: Per-agent validation and dispatch (matrix strategy)
    - Validates user authorization (admin, write, org member, or allow list)
    - Checks trigger labels (if configured)
    - Enforces rate limiting (default: 5 minutes between runs)
-   - Dispatches agent workflow if checks pass
+   - Checks blocking issues (if configured)
+   - Creates progress comment (if enabled)
+   - Dispatches agent workflow with progress comment info
+
+Note: Token generation and event context reading have been moved to agent workflows.
 
 #### Agent Workflows (per-agent)
 
-Each agent workflow handles execution after pre-flight passes in the dispatcher:
+Each agent workflow is self-contained with its own setup:
 
-1. **collect-context job** (optional): Collects repository data
+1. **setup job**: First job, always runs
+   - Generates GitHub App token (if GH_APP_ID and GH_APP_PRIVATE_KEY configured)
+   - Falls back to GITHUB_TOKEN if no app configured
+   - Validates Claude authentication
+   - Outputs: `app-token`, `git-user`, `git-email`
+
+2. **collect-context job** (optional): Collects repository data
    - Only generated when `context` is configured
    - Queries GitHub API for issues, PRs, discussions, commits, etc.
    - Filters by time range and other criteria
    - Skips execution if `min_items` threshold not met
-   - Outputs: `has-context`, `context-data`
+   - Outputs: `has-context`
 
-2. **agent job**: Runs Claude with agent instructions
-   - Checks out repository
-   - Sets up Bun runtime
-   - Installs Claude Code CLI via bunx
-   - Prepares context file with event data and collected context
+3. **agent job**: Runs Claude with agent instructions
+   - Reads event context directly from `$GITHUB_EVENT_PATH`
+   - Configures git identity from setup job
    - Creates skills documentation file (`.claude/CLAUDE.md`) for outputs
    - Runs Claude with appropriate tool permissions
    - Extracts and logs execution metrics (cost, turns, duration)
    - Uploads outputs artifact
 
-3. **execute-outputs job** (optional): Executes agent outputs
+4. **execute-outputs job** (optional): Executes agent outputs
    - Only generated when `outputs` is configured
    - Uses matrix strategy to process each output type
    - Validates output files against schemas
    - Executes GitHub operations via gh CLI
-   - Reports validation errors
 
-4. **audit-report job**: Always runs for tracking
+5. **audit-report job**: Always runs for tracking
    - Collects all audit artifacts
    - Generates comprehensive audit report
    - Creates GitHub issues for failures (configurable)
@@ -196,7 +198,10 @@ The `setup-app` command ([src/cli/commands/setup-app.ts](src/cli/commands/setup-
 - Displays interactive setup guide
 - Collects App ID and private key
 - Stores secrets at org level (all repos) or repo level
-- Generated workflows automatically use app token when available
+
+Token generation happens in each agent workflow's setup job:
+- If GH_APP_ID and GH_APP_PRIVATE_KEY are configured, generates an app token
+- Falls back to GITHUB_TOKEN if no app configured
 - Enables branded identity (commits/comments appear as the app)
 - Allows PRs created by the agent to trigger CI workflows
 
@@ -308,14 +313,18 @@ repo-agents/
 4. Document in docs
 
 ### Modifying Workflow Generation
-- All workflow generation logic is in [src/generator/index.ts](src/generator/index.ts)
-- `generate()`: Main entry point, builds workflow object
-- `generateValidationSteps()`: Pre-flight validation
-- `generateCollectContextJob()`: Context collection job
-- `generateClaudeAgentSteps()`: Claude execution steps
-- `generateExecuteOutputsJob()`: Output execution with matrix strategy
-- `generateAuditReportJob()`: Audit and failure reporting
-- `generateTokenGenerationStep()`: GitHub App token generation
+- Agent workflow generation in [packages/generator/src/index.ts](packages/generator/src/index.ts)
+  - `generate()`: Main entry point, builds workflow object with setup, agent, outputs, and audit jobs
+  - `generateProgressStep()`: Progress comment update step
+  - `shouldUseProgressComment()`: Determines if progress comments enabled
+- Dispatcher workflow generation in [packages/generator/src/dispatcher.ts](packages/generator/src/dispatcher.ts)
+  - `generate()`: Main entry point for dispatcher workflow
+  - `generatePreFlightSteps()`: Global auth validation
+  - `generateRoutingSteps()`: Event routing
+  - `generateDispatchJob()`: Per-agent validation and dispatch
+- Runtime stages in [packages/runtime/src/stages/](packages/runtime/src/stages/)
+  - `setup.ts`: Token generation and auth validation (new)
+  - `dispatcher/global-preflight.ts`: Claude auth check only
 
 ## Dependencies
 

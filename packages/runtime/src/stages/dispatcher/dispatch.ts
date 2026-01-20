@@ -1,6 +1,5 @@
-import { readFile, writeFile } from "node:fs/promises";
 import { agentParser } from "@repo-agents/parser";
-import type { AgentDefinition, DispatchContext } from "@repo-agents/types";
+import type { AgentDefinition } from "@repo-agents/types";
 import type { StageResult } from "../../types";
 import { writeArtifact } from "../../utils/artifacts";
 import {
@@ -574,9 +573,6 @@ async function createProgressCommentIfEnabled(
   try {
     const comment = await createProgressComment(owner, repo, issueNumber, state);
 
-    // Update dispatch context with progress comment info
-    await updateDispatchContextWithProgress(issueNumber, comment.id);
-
     return {
       created: true,
       commentId: comment.id,
@@ -600,26 +596,5 @@ async function getIssueOrPRNumber(ctx: DispatcherContext): Promise<number | unde
     return eventPayload.issue?.number ?? eventPayload.pull_request?.number;
   } catch {
     return undefined;
-  }
-}
-
-/**
- * Update dispatch context file with progress comment info.
- */
-async function updateDispatchContextWithProgress(
-  issueNumber: number,
-  commentId: number,
-): Promise<void> {
-  const contextPath = "/tmp/dispatch-context/context.json";
-  try {
-    const content = await readFile(contextPath, "utf-8");
-    const context = JSON.parse(content) as DispatchContext;
-    context.progressComment = {
-      commentId,
-      issueNumber,
-    };
-    await writeFile(contextPath, JSON.stringify(context, null, 2));
-  } catch (error) {
-    console.warn("Failed to update dispatch context with progress comment:", error);
   }
 }

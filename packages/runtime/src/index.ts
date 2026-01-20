@@ -3,12 +3,7 @@
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
 import { Command } from "commander";
-import {
-  runDispatch,
-  runGlobalPreflight,
-  runPrepareContext,
-  runRoute,
-} from "./stages/dispatcher/index";
+import { runDispatch, runGlobalPreflight, runRoute } from "./stages/dispatcher/index";
 import {
   runAgent,
   runAudit,
@@ -16,6 +11,7 @@ import {
   runOutputs,
   runPreFlight,
   runProgress,
+  runSetup,
 } from "./stages/index";
 import type { JobResult, StageContext, StageResult } from "./types";
 
@@ -29,6 +25,7 @@ program
   .version(packageJson.version);
 
 const stages = {
+  setup: runSetup,
   "pre-flight": runPreFlight,
   context: runContext,
   agent: runAgent,
@@ -39,7 +36,6 @@ const stages = {
 
 const dispatcherStages = {
   "dispatcher:global-preflight": runGlobalPreflight,
-  "dispatcher:prepare-context": runPrepareContext,
   "dispatcher:route": runRoute,
   "dispatcher:dispatch": runDispatch,
 } as const;
@@ -58,6 +54,9 @@ interface RunOptions {
   executeOutputsResult?: JobResult;
   collectContextResult?: JobResult;
   rateLimited?: boolean;
+  // Progress comment info (from dispatcher via workflow inputs)
+  progressCommentId?: string;
+  progressIssueNumber?: string;
   // Progress stage options
   progressStage?: "validation" | "context" | "agent" | "outputs" | "complete" | "failed";
   progressStatus?: "running" | "success" | "failed" | "skipped";
@@ -77,6 +76,11 @@ program
   .option("--execute-outputs-result <result>", "Result of execute-outputs job (for audit stage)")
   .option("--collect-context-result <result>", "Result of collect-context job (for audit stage)")
   .option("--rate-limited", "Whether the run was rate-limited (for audit stage)")
+  .option("--progress-comment-id <id>", "Progress comment ID (from dispatcher)")
+  .option(
+    "--progress-issue-number <number>",
+    "Issue/PR number for progress comment (from dispatcher)",
+  )
   .option("--progress-stage <stage>", "Stage to update (for progress stage)")
   .option("--progress-status <status>", "Status to set (for progress stage)")
   .option("--progress-error <error>", "Error message (for progress stage)")
@@ -165,6 +169,10 @@ program
         collectContext: options.collectContextResult,
         rateLimited: options.rateLimited,
       },
+      progressCommentId: options.progressCommentId ? Number(options.progressCommentId) : undefined,
+      progressIssueNumber: options.progressIssueNumber
+        ? Number(options.progressIssueNumber)
+        : undefined,
     };
 
     // Handle progress stage specially (requires additional options)

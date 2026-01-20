@@ -35,6 +35,10 @@ export interface StageContext {
   dispatchRunId?: string;
   /** Job statuses from previous stages (for audit stage) */
   jobStatuses?: JobStatuses;
+  /** Progress comment ID (from dispatcher via workflow input) */
+  progressCommentId?: number;
+  /** Issue/PR number for progress comment (from dispatcher via workflow input) */
+  progressIssueNumber?: number;
 }
 
 /**

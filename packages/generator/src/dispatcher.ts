@@ -221,6 +221,13 @@ export class DispatcherGenerator {
 
   /**
    * Generate the dispatcher workflow YAML.
+   *
+   * The dispatcher is a thin routing layer that:
+   * 1. Validates Claude auth is configured (pre-flight)
+   * 2. Routes events to matching agents (route-event)
+   * 3. Per-agent validation and dispatch (dispatch-agents)
+   *
+   * Token generation and context reading are handled by agent workflows.
    */
   generate(agents: AgentDefinition[]): string {
     const triggers = this.aggregateTriggers(agents);
@@ -235,20 +242,8 @@ export class DispatcherGenerator {
           "runs-on": "ubuntu-latest",
           outputs: {
             "should-continue": "${{ steps.global-preflight.outputs.should-continue }}",
-            "app-token": "${{ steps.global-preflight.outputs.app-token }}",
-            "git-user": "${{ steps.global-preflight.outputs.git-user }}",
-            "git-email": "${{ steps.global-preflight.outputs.git-email }}",
           },
           steps: this.generatePreFlightSteps(),
-        },
-        "prepare-context": {
-          "runs-on": "ubuntu-latest",
-          needs: "pre-flight",
-          if: "needs.pre-flight.outputs.should-continue == 'true'",
-          outputs: {
-            "run-id": "${{ steps.prepare-context.outputs.run-id }}",
-          },
-          steps: this.generateContextSteps(),
         },
         "route-event": {
           "runs-on": "ubuntu-latest",
@@ -292,45 +287,9 @@ export class DispatcherGenerator {
         env: {
           ANTHROPIC_API_KEY: "${{ secrets.ANTHROPIC_API_KEY }}",
           CLAUDE_CODE_OAUTH_TOKEN: "${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}",
-          GH_APP_ID: "${{ secrets.GH_APP_ID }}",
-          GH_APP_PRIVATE_KEY: "${{ secrets.GH_APP_PRIVATE_KEY }}",
           GH_TOKEN: "${{ secrets.GITHUB_TOKEN }}",
-          FALLBACK_TOKEN: "${{ secrets.GITHUB_TOKEN }}",
         },
         run: `${cliCommand} run dispatcher:global-preflight`,
-      },
-    ];
-  }
-
-  private generateContextSteps(): WorkflowStep[] {
-    // For this repository, use local code. For user repos, would use bunx @repo-agents/cli@X
-    const cliCommand = "bun packages/runtime/src/index.ts";
-    const ghExpr = (expr: string) => `\${{ ${expr} }}`;
-
-    return [
-      {
-        uses: "actions/checkout@v4",
-      },
-      {
-        uses: "oven-sh/setup-bun@v2",
-      },
-      {
-        name: "Install dependencies",
-        run: "bun install --frozen-lockfile",
-      },
-      {
-        name: "Prepare dispatch context",
-        id: "prepare-context",
-        run: `${cliCommand} run dispatcher:prepare-context`,
-      },
-      {
-        name: "Upload context artifact",
-        uses: "actions/upload-artifact@v4",
-        with: {
-          name: `dispatch-context-${ghExpr("github.run_id")}`,
-          path: "/tmp/dispatch-context/",
-          "retention-days": "1",
-        },
       },
     ];
   }
@@ -369,7 +328,7 @@ export class DispatcherGenerator {
 
     return {
       "runs-on": "ubuntu-latest",
-      needs: ["pre-flight", "prepare-context", "route-event"],
+      needs: ["pre-flight", "route-event"],
       if: "needs.route-event.outputs.matching-agents != '[]'",
       strategy: {
         matrix: {
@@ -389,16 +348,11 @@ export class DispatcherGenerator {
           run: "bun install --frozen-lockfile",
         },
         {
-          name: "Download dispatch context",
-          uses: "actions/download-artifact@v4",
-          with: {
-            name: `dispatch-context-${ghExpr("needs.prepare-context.outputs.run-id")}`,
-            path: "/tmp/dispatch-context/",
-          },
-        },
-        {
           name: `Validate dispatch for ${ghExpr("matrix.agent.agentName")}`,
           id: "validate-dispatch",
+          env: {
+            GITHUB_TOKEN: "${{ secrets.GITHUB_TOKEN }}",
+          },
           run: `${cliCommand} run dispatcher:dispatch --agent ${ghExpr("matrix.agent.agentPath")} --workflow-file ${ghExpr("matrix.agent.workflowFile")}`,
         },
         {
@@ -414,14 +368,15 @@ export class DispatcherGenerator {
           name: `Dispatch to ${ghExpr("matrix.agent.agentName")}`,
           if: "steps.validate-dispatch.outputs.should-run == 'true'",
           env: {
-            GH_TOKEN: ghExpr("needs.pre-flight.outputs.app-token || github.token"),
+            GH_TOKEN: "${{ secrets.GITHUB_TOKEN }}",
           },
           run: `echo "Triggering workflow: ${ghExpr("matrix.agent.workflowFile")}"
 echo "Agent: ${ghExpr("matrix.agent.agentName")}"
 
 gh workflow run "${ghExpr("matrix.agent.workflowFile")}" \\
   --ref "${ghExpr("github.ref")}" \\
-  -f context-run-id="${ghExpr("needs.prepare-context.outputs.run-id")}"
+  -f progress-comment-id="${ghExpr("steps.validate-dispatch.outputs.progress-comment-id || ''")}" \\
+  -f progress-issue-number="${ghExpr("steps.validate-dispatch.outputs.progress-issue-number || ''")}"
 
 echo "✓ Dispatched to ${ghExpr("matrix.agent.agentName")}"`,
         },
