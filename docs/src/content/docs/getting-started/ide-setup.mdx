@@ -32,6 +32,48 @@ This schema is rebuilt with every documentation deployment, ensuring it stays in
 
 ## VS Code Setup
 
+:::note[Validation with Tasks]
+**Note:** The Red Hat YAML extension does not currently support validating YAML frontmatter in markdown files. The repo-agents repository includes VS Code tasks that provide validation through the Problems panel instead.
+
+Run `bun run validate:agents` or use the built-in tasks (see below) for real-time validation.
+:::
+
+### Option 1: VS Code Tasks (Recommended)
+
+The repo-agents repository includes pre-configured tasks that run validation and report errors to the Problems panel.
+
+<Steps>
+
+1. **Run Validation Task**
+
+   Press `Cmd+Shift+B` (Windows/Linux: `Ctrl+Shift+B`) to run the default validation task, or:
+   - Open Command Palette (`Cmd+Shift+P`)
+   - Type "Tasks: Run Task"
+   - Select "Validate All Agents"
+
+2. **Enable Watch Mode** (Optional)
+
+   For continuous validation as you edit:
+   - Open Command Palette (`Cmd+Shift+P`)
+   - Type "Tasks: Run Task"
+   - Select "Validate Agents (Watch)"
+
+   This runs validation in the background and updates the Problems panel automatically.
+
+3. **View Errors**
+
+   - Open the Problems panel: `View > Problems` or `Cmd+Shift+M`
+   - Errors show with file locations - click to jump to the issue
+   - Validation runs against the full Zod schemas
+
+</Steps>
+
+### Option 2: YAML Extension (Limited Support)
+
+:::caution
+This approach has limitations - YAML validation in markdown frontmatter is not natively supported. Use tasks instead for reliable validation.
+:::
+
 <Steps>
 
 1. **Install YAML Extension**
