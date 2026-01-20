@@ -25,6 +25,7 @@
     "format": "bun x @biomejs/biome format --write .",
     "format:check": "bun x @biomejs/biome format .",
     "typecheck": "bun x tsc --noEmit",
+    "validate:agents": "bun scripts/validate-agents.ts",
     "docs:dev": "bun run --filter docs dev",
     "docs:build": "bun run --filter docs build",
     "docs:preview": "bun run --filter docs preview",
