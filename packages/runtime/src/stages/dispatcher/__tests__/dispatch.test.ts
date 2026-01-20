@@ -20,6 +20,7 @@ const mockIsOrgMember = mock(() => Promise.resolve(false));
 const mockIsTeamMember = mock(() => Promise.resolve(false));
 const mockGetRepositoryPermission = mock(() => Promise.resolve("read"));
 const mockGetRecentWorkflowRuns = mock((): Promise<WorkflowRun[]> => Promise.resolve([]));
+const mockCountOpenPRs = mock(() => Promise.resolve(0));
 
 // Mock the utils module
 mock.module("../../../utils/index", () => ({
@@ -31,6 +32,11 @@ mock.module("../../../utils/index", () => ({
   isTeamMember: mockIsTeamMember,
   getRepositoryPermission: mockGetRepositoryPermission,
   getRecentWorkflowRuns: mockGetRecentWorkflowRuns,
+  countOpenPRs: mockCountOpenPRs,
+  // Progress comment utilities (no-op for tests)
+  shouldUseProgressComment: () => false,
+  createInitialProgressState: () => ({}),
+  createProgressComment: () => Promise.resolve({ id: 1 }),
 }));
 
 describe("runDispatch", () => {
@@ -47,12 +53,14 @@ describe("runDispatch", () => {
     mockIsTeamMember.mockClear();
     mockGetRepositoryPermission.mockClear();
     mockGetRecentWorkflowRuns.mockClear();
+    mockCountOpenPRs.mockClear();
 
     // Default mock behaviors
     mockIsOrgMember.mockResolvedValue(false);
     mockIsTeamMember.mockResolvedValue(false);
     mockGetRepositoryPermission.mockResolvedValue("read");
     mockGetRecentWorkflowRuns.mockResolvedValue([]);
+    mockCountOpenPRs.mockResolvedValue(0);
   });
 
   afterEach(async () => {
@@ -448,5 +456,170 @@ Test agent`,
     // Audit artifact should be created at /tmp/artifacts/validation-audit/audit.json
     // We can't easily test this without mocking file system, but we can verify no errors
     expect(true).toBe(true);
+  });
+
+  // max_open_prs tests
+  describe("max_open_prs check", () => {
+    test("allows execution when max_open_prs not configured", async () => {
+      await writeFile(
+        tempAgentPath,
+        `---
+name: test-agent
+on:
+  issues:
+    types: [opened]
+outputs:
+  create-pr: {}
+---
+Test agent`,
+      );
+
+      mockIsOrgMember.mockResolvedValue(true);
+      mockGetRepositoryPermission.mockResolvedValue("write");
+
+      const ctx = createContext("issues", "opened", "user");
+      const result = await runDispatch(ctx);
+
+      expect(result.success).toBe(true);
+      expect(result.outputs["should-run"]).toBe("true");
+      // countOpenPRs should not be called when max_open_prs is not configured
+      expect(mockCountOpenPRs).not.toHaveBeenCalled();
+    });
+
+    test("allows execution when agent has no create-pr output", async () => {
+      await writeFile(
+        tempAgentPath,
+        `---
+name: test-agent
+on:
+  issues:
+    types: [opened]
+max_open_prs: 3
+outputs:
+  add-comment: {}
+---
+Test agent`,
+      );
+
+      mockIsOrgMember.mockResolvedValue(true);
+      mockGetRepositoryPermission.mockResolvedValue("write");
+
+      const ctx = createContext("issues", "opened", "user");
+      const result = await runDispatch(ctx);
+
+      expect(result.success).toBe(true);
+      expect(result.outputs["should-run"]).toBe("true");
+      // countOpenPRs should not be called when agent can't create PRs
+      expect(mockCountOpenPRs).not.toHaveBeenCalled();
+    });
+
+    test("allows execution when open PRs count is below limit", async () => {
+      await writeFile(
+        tempAgentPath,
+        `---
+name: test-agent
+on:
+  issues:
+    types: [opened]
+max_open_prs: 3
+outputs:
+  create-pr: {}
+---
+Test agent`,
+      );
+
+      mockIsOrgMember.mockResolvedValue(true);
+      mockGetRepositoryPermission.mockResolvedValue("write");
+      mockCountOpenPRs.mockResolvedValue(2); // Below limit of 3
+
+      const ctx = createContext("issues", "opened", "user");
+      const result = await runDispatch(ctx);
+
+      expect(result.success).toBe(true);
+      expect(result.outputs["should-run"]).toBe("true");
+      expect(mockCountOpenPRs).toHaveBeenCalledWith("test", "repo", "implementation-in-progress");
+    });
+
+    test("blocks execution when open PRs count equals limit", async () => {
+      await writeFile(
+        tempAgentPath,
+        `---
+name: test-agent
+on:
+  issues:
+    types: [opened]
+max_open_prs: 3
+outputs:
+  create-pr: {}
+---
+Test agent`,
+      );
+
+      mockIsOrgMember.mockResolvedValue(true);
+      mockGetRepositoryPermission.mockResolvedValue("write");
+      mockCountOpenPRs.mockResolvedValue(3); // At limit
+
+      const ctx = createContext("issues", "opened", "user");
+      const result = await runDispatch(ctx);
+
+      expect(result.success).toBe(true);
+      expect(result.outputs["should-run"]).toBe("false");
+      expect(result.outputs["pr-limited"]).toBe("true");
+      expect(result.outputs["skip-reason"]).toContain("Max open PRs limit reached");
+    });
+
+    test("blocks execution when open PRs count exceeds limit", async () => {
+      await writeFile(
+        tempAgentPath,
+        `---
+name: test-agent
+on:
+  issues:
+    types: [opened]
+max_open_prs: 3
+outputs:
+  create-pr: {}
+---
+Test agent`,
+      );
+
+      mockIsOrgMember.mockResolvedValue(true);
+      mockGetRepositoryPermission.mockResolvedValue("write");
+      mockCountOpenPRs.mockResolvedValue(5); // Above limit
+
+      const ctx = createContext("issues", "opened", "user");
+      const result = await runDispatch(ctx);
+
+      expect(result.success).toBe(true);
+      expect(result.outputs["should-run"]).toBe("false");
+      expect(result.outputs["pr-limited"]).toBe("true");
+      expect(result.outputs["skip-reason"]).toContain("5/3");
+    });
+
+    test("allows execution when countOpenPRs fails (graceful degradation)", async () => {
+      await writeFile(
+        tempAgentPath,
+        `---
+name: test-agent
+on:
+  issues:
+    types: [opened]
+max_open_prs: 3
+outputs:
+  create-pr: {}
+---
+Test agent`,
+      );
+
+      mockIsOrgMember.mockResolvedValue(true);
+      mockGetRepositoryPermission.mockResolvedValue("write");
+      mockCountOpenPRs.mockRejectedValue(new Error("API error"));
+
+      const ctx = createContext("issues", "opened", "user");
+      const result = await runDispatch(ctx);
+
+      expect(result.success).toBe(true);
+      expect(result.outputs["should-run"]).toBe("true");
+    });
   });
 });
