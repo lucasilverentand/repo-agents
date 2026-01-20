@@ -22,43 +22,17 @@ Tests the dynamic agent discovery and event routing logic:
 - Agent selection for manual dispatches
 - Graceful handling of parsing errors
 
-### ✅ prepare-context.test.ts (11 tests - all passing)
+### ✅ global-preflight.test.ts (4 tests - all passing)
 
-Tests event data extraction and normalization:
-
-- Issue event data extraction
-- Pull request event data extraction
-- Discussion event data extraction
-- Schedule event data extraction
-- Repository dispatch event data extraction
-- Base context field generation
-- Missing optional fields handling
-- Invalid event path handling
-- Directory creation
-
-**Key Features Tested:**
-- Event payload parsing for all event types
-- Normalized data format across different events
-- Graceful degradation with missing fields
-- Artifact file creation for downstream jobs
-
-### ✅ global-preflight.test.ts (8 tests - all passing)
-
-Tests configuration validation and token generation:
+Tests Claude authentication validation:
 
 - Claude API key validation
 - Claude OAuth token validation
 - Missing authentication detection
-- GitHub token fallback
-- Token priority (FALLBACK_TOKEN > GITHUB_TOKEN)
-- Default git user configuration
-- GitHub App validation
-- Missing token handling
+- Auth failure handling
 
 **Key Features Tested:**
-- Authentication validation
-- Token fallback chain
-- Git identity configuration
+- Authentication validation only (token generation moved to agent setup stage)
 - Error handling for missing credentials
 
 ### ⚠️ dispatch.test.ts (9 tests - 4 passing, 5 requiring mocks)
@@ -125,10 +99,10 @@ bun test --watch packages/runtime/src/stages/dispatcher/__tests__/
 
 ## Test Statistics
 
-- **Total Tests:** 45
-- **Passing:** 40 (89%)
+- **Total Tests:** 30
+- **Passing:** 25 (83%)
 - **Requires Mocking:** 5 (authorization tests)
-- **Test Files:** 5
+- **Test Files:** 4
 - **Fixtures:** 8 (5 agents + 3 events)
 
 ## Notes
