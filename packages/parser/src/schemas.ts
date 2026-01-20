@@ -8,40 +8,47 @@ const workflowInputSchema = z.object({
   options: z.array(z.string()).optional(),
 });
 
-const triggerConfigSchema = z.object({
-  issues: z
-    .object({
-      types: z.array(z.string()).optional(),
-    })
-    .optional(),
-  pull_request: z
-    .object({
-      types: z.array(z.string()).optional(),
-    })
-    .optional(),
-  discussion: z
-    .object({
-      types: z.array(z.string()).optional(),
-    })
-    .optional(),
-  schedule: z
-    .array(
-      z.object({
-        cron: z.string(),
-      }),
-    )
-    .optional(),
-  workflow_dispatch: z
-    .object({
-      inputs: z.record(workflowInputSchema).optional(),
-    })
-    .optional(),
-  repository_dispatch: z
-    .object({
-      types: z.array(z.string()).optional(),
-    })
-    .optional(),
-});
+const triggerConfigSchema = z
+  .object({
+    issues: z
+      .object({
+        types: z.array(z.string()).optional(),
+      })
+      .strict()
+      .optional(),
+    pull_request: z
+      .object({
+        types: z.array(z.string()).optional(),
+      })
+      .strict()
+      .optional(),
+    discussion: z
+      .object({
+        types: z.array(z.string()).optional(),
+      })
+      .strict()
+      .optional(),
+    schedule: z
+      .array(
+        z.object({
+          cron: z.string(),
+        }).strict(),
+      )
+      .optional(),
+    workflow_dispatch: z
+      .object({
+        inputs: z.record(workflowInputSchema).optional(),
+      })
+      .strict()
+      .optional(),
+    repository_dispatch: z
+      .object({
+        types: z.array(z.string()).optional(),
+      })
+      .strict()
+      .optional(),
+  })
+  .strict();
 
 const permissionsSchema = z
   .object({
@@ -50,14 +57,7 @@ const permissionsSchema = z
     pull_requests: z.enum(["read", "write"]).optional(),
     discussions: z.enum(["read", "write"]).optional(),
   })
-  .optional();
-
-const claudeConfigSchema = z
-  .object({
-    model: z.string().optional(),
-    max_tokens: z.number().optional(),
-    temperature: z.number().min(0).max(1).optional(),
-  })
+  .strict()
   .optional();
 
 const outputConfigSchema = z
@@ -305,25 +305,26 @@ const auditConfigSchema = z
   })
   .optional();
 
-export const agentFrontmatterSchema = z.object({
-  name: z.string().min(1, "Agent name is required"),
-  on: triggerConfigSchema,
-  permissions: permissionsSchema,
-  provider: z.enum(["claude-code", "opencode"]).optional(),
-  claude: claudeConfigSchema,
-  outputs: outputSchema,
-  tools: toolSchema,
-  "allowed-actors": z.array(z.string()).optional(),
-  "allowed-users": z.array(z.string()).optional(),
-  "allowed-teams": z.array(z.string()).optional(),
-  "allowed-paths": z.array(z.string()).optional(),
-  trigger_labels: z.array(z.string()).optional(),
-  max_open_prs: z.number().min(1).optional(),
-  rate_limit_minutes: z.number().min(0).optional(),
-  pre_flight: preFlightConfigSchema,
-  context: contextConfigSchema,
-  audit: auditConfigSchema,
-  progress_comment: z.boolean().optional(), // Show progress comment on issue/PR (default: true for issue/PR triggers)
-});
+export const agentFrontmatterSchema = z
+  .object({
+    name: z.string().min(1, "Agent name is required"),
+    on: triggerConfigSchema,
+    permissions: permissionsSchema,
+    provider: z.enum(["claude-code", "opencode"]).optional(),
+    outputs: outputSchema,
+    tools: toolSchema,
+    "allowed-actors": z.array(z.string()).optional(),
+    "allowed-users": z.array(z.string()).optional(),
+    "allowed-teams": z.array(z.string()).optional(),
+    "allowed-paths": z.array(z.string()).optional(),
+    trigger_labels: z.array(z.string()).optional(),
+    max_open_prs: z.number().min(1).optional(),
+    rate_limit_minutes: z.number().min(0).optional(),
+    pre_flight: preFlightConfigSchema,
+    context: contextConfigSchema,
+    audit: auditConfigSchema,
+    progress_comment: z.boolean().optional(), // Show progress comment on issue/PR (default: true for issue/PR triggers)
+  })
+  .strict(); // Reject unknown properties
 
 export type AgentFrontmatter = z.infer<typeof agentFrontmatterSchema>;

@@ -9,10 +9,6 @@ outputs:
   add-comment: { max: 1 }
   add-label: true
 rate_limit_minutes: 1
-claude:
-  model: claude-sonnet-4-20250514
-  max_tokens: 4096
-  temperature: 0.5
 ---
 
 # Issue Analyzer Agent
