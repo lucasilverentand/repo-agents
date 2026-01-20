@@ -188,6 +188,12 @@ export async function runDispatch(ctx: DispatcherContext): Promise<StageResult> 
     // All checks passed
     await writeAuditData(validationStatus, permissionIssues, agent.name);
 
+    // Always get the target issue/PR number for outputs to use
+    const targetNumber = await getIssueOrPRNumber(ctx);
+    if (targetNumber) {
+      outputs["target-issue-number"] = String(targetNumber);
+    }
+
     // Create progress comment if enabled for this agent
     const progressCommentResult = await createProgressCommentIfEnabled(ctx, agent);
     if (progressCommentResult.created) {

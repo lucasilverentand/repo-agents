@@ -157,6 +157,11 @@ export class WorkflowGenerator {
               required: boolean;
               description: string;
             };
+            "target-issue-number": {
+              type: string;
+              required: boolean;
+              description: string;
+            };
           };
         };
       };
@@ -178,6 +183,11 @@ export class WorkflowGenerator {
               type: "string",
               required: false,
               description: "Issue/PR number for progress comment (from dispatcher)",
+            },
+            "target-issue-number": {
+              type: "string",
+              required: false,
+              description: "Target issue/PR number for outputs (from dispatcher)",
             },
           },
         },
@@ -406,7 +416,7 @@ git config --global user.email "${ghExpr("needs.setup.outputs.git-email")}"`,
         run: `${cliCommand} run outputs --agent ${agentFilePath} --output-type ${ghExpr("matrix.output-type")}`,
         env: {
           GH_TOKEN: ghExpr("needs.setup.outputs.app-token || secrets.GITHUB_TOKEN"),
-          TARGET_ISSUE_NUMBER: ghExpr("inputs.progress-issue-number"),
+          TARGET_ISSUE_NUMBER: ghExpr("inputs.target-issue-number"),
         },
       });
 

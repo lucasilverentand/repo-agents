@@ -91,7 +91,8 @@ jobs:
           gh workflow run "${{ matrix.agent.workflowFile }}" \
             --ref "${{ github.ref }}" \
             -f progress-comment-id="${{ steps.validate-dispatch.outputs.progress-comment-id || '' }}" \
-            -f progress-issue-number="${{ steps.validate-dispatch.outputs.progress-issue-number || '' }}"
+            -f progress-issue-number="${{ steps.validate-dispatch.outputs.progress-issue-number || '' }}" \
+            -f target-issue-number="${{ steps.validate-dispatch.outputs.target-issue-number || '' }}"
 
           echo "✓ Dispatched to ${{ matrix.agent.agentName }}"
       - name: Skip notification

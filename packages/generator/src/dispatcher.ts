@@ -376,7 +376,8 @@ echo "Agent: ${ghExpr("matrix.agent.agentName")}"
 gh workflow run "${ghExpr("matrix.agent.workflowFile")}" \\
   --ref "${ghExpr("github.ref")}" \\
   -f progress-comment-id="${ghExpr("steps.validate-dispatch.outputs.progress-comment-id || ''")}" \\
-  -f progress-issue-number="${ghExpr("steps.validate-dispatch.outputs.progress-issue-number || ''")}"
+  -f progress-issue-number="${ghExpr("steps.validate-dispatch.outputs.progress-issue-number || ''")}" \\
+  -f target-issue-number="${ghExpr("steps.validate-dispatch.outputs.target-issue-number || ''")}"
 
 echo "✓ Dispatched to ${ghExpr("matrix.agent.agentName")}"`,
         },

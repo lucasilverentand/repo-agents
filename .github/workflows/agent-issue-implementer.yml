@@ -10,6 +10,10 @@ name: Issue Implementer
         type: string
         required: false
         description: Issue/PR number for progress comment (from dispatcher)
+      target-issue-number:
+        type: string
+        required: false
+        description: Target issue/PR number for outputs (from dispatcher)
 jobs:
   setup:
     runs-on: ubuntu-latest
@@ -104,7 +108,7 @@ jobs:
         run: bun packages/runtime/src/index.ts run outputs --agent .github/agents/issue-lifecycle/issue-implementer.md --output-type ${{ matrix.output-type }}
         env:
           GH_TOKEN: ${{ needs.setup.outputs.app-token || secrets.GITHUB_TOKEN }}
-          TARGET_ISSUE_NUMBER: ${{ inputs.progress-issue-number }}
+          TARGET_ISSUE_NUMBER: ${{ inputs.target-issue-number }}
 
   audit-report:
     runs-on: ubuntu-latest
