@@ -1,7 +1,7 @@
-import { mkdtempSync, writeFileSync } from "node:fs";
+import { mkdirSync, mkdtempSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { agentNameToWorkflowName, findMarkdownFiles, toKebabCase } from "./files.js";
+import { agentNameToWorkflowName, fileExists, findMarkdownFiles, toKebabCase } from "./files.js";
 
 describe("files utils", () => {
   describe("toKebabCase", () => {
@@ -28,6 +28,22 @@ describe("files utils", () => {
     it("should handle already kebab-case", () => {
       expect(toKebabCase("already-kebab")).toBe("already-kebab");
     });
+
+    it("should handle empty string", () => {
+      expect(toKebabCase("")).toBe("");
+    });
+
+    it("should handle numbers", () => {
+      expect(toKebabCase("Agent 123")).toBe("agent-123");
+    });
+
+    it("should handle consecutive special characters", () => {
+      expect(toKebabCase("Test!!!Agent???")).toBe("testagent");
+    });
+
+    it("should handle unicode characters", () => {
+      expect(toKebabCase("Café Résumé")).toBe("caf-rsum");
+    });
   });
 
   describe("agentNameToWorkflowName", () => {
@@ -41,6 +57,14 @@ describe("files utils", () => {
 
     it("should remove special characters", () => {
       expect(agentNameToWorkflowName("Test@Agent!")).toBe("agent-testagent");
+    });
+
+    it("should handle empty string", () => {
+      expect(agentNameToWorkflowName("")).toBe("agent-");
+    });
+
+    it("should handle numbers", () => {
+      expect(agentNameToWorkflowName("Agent 2")).toBe("agent-agent-2");
     });
   });
 
@@ -72,6 +96,123 @@ describe("files utils", () => {
 
       expect(files[0]).toContain("alpha.md");
       expect(files[1]).toContain("zebra.md");
+    });
+
+    it("should recursively search subdirectories", async () => {
+      const tempDir = mkdtempSync(join(tmpdir(), "repo-agents-test-"));
+      const subDir = join(tempDir, "subdir");
+      const nestedDir = join(subDir, "nested");
+
+      mkdirSync(subDir);
+      mkdirSync(nestedDir);
+
+      writeFileSync(join(tempDir, "root.md"), "test");
+      writeFileSync(join(subDir, "sub.md"), "test");
+      writeFileSync(join(nestedDir, "nested.md"), "test");
+      writeFileSync(join(subDir, "other.txt"), "test");
+
+      const files = await findMarkdownFiles(tempDir);
+
+      expect(files).toHaveLength(3);
+      expect(files.some((f) => f.endsWith("root.md"))).toBe(true);
+      expect(files.some((f) => f.endsWith("sub.md"))).toBe(true);
+      expect(files.some((f) => f.endsWith("nested.md"))).toBe(true);
+    });
+
+    it("should handle empty directory", async () => {
+      const tempDir = mkdtempSync(join(tmpdir(), "repo-agents-test-"));
+      const files = await findMarkdownFiles(tempDir);
+
+      expect(files).toEqual([]);
+    });
+
+    it("should handle directory with only non-markdown files", async () => {
+      const tempDir = mkdtempSync(join(tmpdir(), "repo-agents-test-"));
+      writeFileSync(join(tempDir, "file1.txt"), "test");
+      writeFileSync(join(tempDir, "file2.json"), "test");
+
+      const files = await findMarkdownFiles(tempDir);
+
+      expect(files).toEqual([]);
+    });
+
+    it("should handle directories with subdirectories but no markdown files", async () => {
+      const tempDir = mkdtempSync(join(tmpdir(), "repo-agents-test-"));
+      const subDir = join(tempDir, "subdir");
+      mkdirSync(subDir);
+      writeFileSync(join(subDir, "file.txt"), "test");
+
+      const files = await findMarkdownFiles(tempDir);
+
+      expect(files).toEqual([]);
+    });
+
+    it("should handle mixed case markdown extensions", async () => {
+      const tempDir = mkdtempSync(join(tmpdir(), "repo-agents-test-"));
+      writeFileSync(join(tempDir, "file.md"), "test");
+      writeFileSync(join(tempDir, "FILE.MD"), "test");
+      writeFileSync(join(tempDir, "other.Md"), "test");
+
+      const files = await findMarkdownFiles(tempDir);
+
+      // Only lowercase .md should match
+      expect(files).toHaveLength(1);
+      expect(files[0]).toContain("file.md");
+    });
+  });
+
+  describe("fileExists", () => {
+    it("should return true for existing file", async () => {
+      const tempDir = mkdtempSync(join(tmpdir(), "repo-agents-test-"));
+      const filePath = join(tempDir, "test.txt");
+      writeFileSync(filePath, "test content");
+
+      const exists = await fileExists(filePath);
+
+      expect(exists).toBe(true);
+    });
+
+    it("should return true for existing directory", async () => {
+      const tempDir = mkdtempSync(join(tmpdir(), "repo-agents-test-"));
+
+      const exists = await fileExists(tempDir);
+
+      expect(exists).toBe(true);
+    });
+
+    it("should return false for non-existent file", async () => {
+      const exists = await fileExists("/non/existent/file.txt");
+
+      expect(exists).toBe(false);
+    });
+
+    it("should return false for non-existent directory", async () => {
+      const exists = await fileExists("/non/existent/directory");
+
+      expect(exists).toBe(false);
+    });
+
+    it("should handle empty path", async () => {
+      const exists = await fileExists("");
+
+      expect(exists).toBe(false);
+    });
+
+    it("should handle paths with special characters", async () => {
+      const tempDir = mkdtempSync(join(tmpdir(), "repo-agents-test-"));
+      const filePath = join(tempDir, "file with spaces.txt");
+      writeFileSync(filePath, "test");
+
+      const exists = await fileExists(filePath);
+
+      expect(exists).toBe(true);
+    });
+
+    it("should return false for paths that are not accessible", async () => {
+      // Test with a path that doesn't exist
+      const exists = await fileExists("/root/inaccessible/file.txt");
+
+      expect(exists).toBe(false);
     });
   });
 });
