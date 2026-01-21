@@ -77,7 +77,7 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: validation-audit-${{ matrix.agent.name }}-${{ github.run_id }}
-          path: /tmp/validation-audit/
+          path: /tmp/artifacts/validation-audit/
           retention-days: "7"
 
   agent-execution:
@@ -102,10 +102,10 @@ jobs:
         id: check-validation
         run: |-
           # Read validation result from artifact
-          if [ -f /tmp/validation-results/validation-audit/result.json ]; then
-            SHOULD_RUN=$(cat /tmp/validation-results/validation-audit/result.json | jq -r '.should_run // "false"')
-            EVENT_PAYLOAD=$(cat /tmp/validation-results/validation-audit/result.json | jq -r '.event_payload // ""')
-            TARGET_ISSUE=$(cat /tmp/validation-results/validation-audit/result.json | jq -r '.target_issue_number // ""')
+          if [ -f /tmp/validation-results/result.json ]; then
+            SHOULD_RUN=$(cat /tmp/validation-results/result.json | jq -r '.should_run // "false"')
+            EVENT_PAYLOAD=$(cat /tmp/validation-results/result.json | jq -r '.event_payload // ""')
+            TARGET_ISSUE=$(cat /tmp/validation-results/result.json | jq -r '.target_issue_number // ""')
             echo "should-run=$SHOULD_RUN" >> $GITHUB_OUTPUT
             echo "event-payload=$EVENT_PAYLOAD" >> $GITHUB_OUTPUT
             echo "target-issue-number=$TARGET_ISSUE" >> $GITHUB_OUTPUT
@@ -206,8 +206,8 @@ jobs:
         id: read-target
         run: |-
           # Read target issue number from validation artifact
-          if [ -f /tmp/validation-results/validation-audit/result.json ]; then
-            TARGET_ISSUE=$(cat /tmp/validation-results/validation-audit/result.json | jq -r '.target_issue_number // ""')
+          if [ -f /tmp/validation-results/result.json ]; then
+            TARGET_ISSUE=$(cat /tmp/validation-results/result.json | jq -r '.target_issue_number // ""')
             echo "target-issue-number=$TARGET_ISSUE" >> $GITHUB_OUTPUT
           fi
       - if: steps.check-outputs.outputs.has-outputs == 'true'
