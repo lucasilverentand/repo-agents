@@ -142,7 +142,7 @@ jobs:
           CODECOV_TOKEN: ${{ secrets.CODECOV_TOKEN }}
 
       - name: Upload coverage artifacts
-        uses: actions/upload-artifact@v5
+        uses: actions/upload-artifact@v6
         if: matrix.os == 'ubuntu-latest'
         with:
           name: coverage-report
@@ -297,7 +297,7 @@ jobs:
         run: bun run docs:build
 
       - name: Upload docs artifacts
-        uses: actions/upload-artifact@v5
+        uses: actions/upload-artifact@v6
         with:
           name: docs-build
           path: docs/dist/
