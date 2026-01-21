@@ -29,6 +29,8 @@ describe("OutputHandlerRegistry", () => {
         "trigger-workflow",
         "add-reaction",
         "create-branch",
+        "copy-project",
+        "mark-template",
       ];
 
       expectedOutputs.forEach((output) => {
@@ -63,8 +65,10 @@ describe("OutputHandlerRegistry", () => {
       expect(registeredOutputs).toContain("trigger-workflow");
       expect(registeredOutputs).toContain("add-reaction");
       expect(registeredOutputs).toContain("create-branch");
+      expect(registeredOutputs).toContain("copy-project");
+      expect(registeredOutputs).toContain("mark-template");
 
-      expect(registeredOutputs.length).toBe(24);
+      expect(registeredOutputs.length).toBe(26);
     });
   });
 
@@ -214,6 +218,8 @@ describe("OutputHandlerRegistry", () => {
         "trigger-workflow",
         "add-reaction",
         "create-branch",
+        "copy-project",
+        "mark-template",
       ];
 
       outputs.forEach((output) => {

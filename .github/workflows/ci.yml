@@ -101,12 +101,16 @@ jobs:
         run: bun run validate:agents
 
   test-unit:
-    name: Unit Tests (${{ matrix.os }})
-    runs-on: ${{ matrix.os }}
+    name: Unit Tests (${{ matrix.arch }})
+    runs-on: ${{ matrix.runner }}
     strategy:
       fail-fast: false
       matrix:
-        os: [ubuntu-latest, macos-latest, windows-latest]
+        include:
+          - runner: ubuntu-latest
+            arch: amd64
+          - runner: ubuntu-24.04-arm
+            arch: arm64
 
     steps:
       - name: Checkout code
@@ -121,9 +125,9 @@ jobs:
         uses: actions/cache@v5
         with:
           path: ~/.bun/install/cache
-          key: ${{ runner.os }}-bun-${{ hashFiles('bun.lock') }}
+          key: ${{ runner.os }}-${{ matrix.arch }}-bun-${{ hashFiles('bun.lock') }}
           restore-keys: |
-            ${{ runner.os }}-bun-
+            ${{ runner.os }}-${{ matrix.arch }}-bun-
 
       - name: Install dependencies
         run: bun install --frozen-lockfile
@@ -133,7 +137,7 @@ jobs:
 
       - name: Upload coverage to Codecov
         uses: codecov/codecov-action@v5
-        if: matrix.os == 'ubuntu-latest'
+        if: matrix.arch == 'amd64'
         with:
           files: ./coverage/lcov.info
           flags: unittests
@@ -143,7 +147,7 @@ jobs:
 
       - name: Upload coverage artifacts
         uses: actions/upload-artifact@v6
-        if: matrix.os == 'ubuntu-latest'
+        if: matrix.arch == 'amd64'
         with:
           name: coverage-report
           path: coverage/
