@@ -174,8 +174,11 @@ jobs:
       - name: Check if agent has outputs
         id: check-outputs
         run: |-
-          if [ "${{ matrix.agent.config.has_outputs }}" = "true" ]; then
+          AGENT_JSON='${{ toJson(matrix.agent) }}'
+          OUTPUT_TYPES=$(echo "$AGENT_JSON" | jq -r '.config.output_types[]?' || echo "")
+          if [ -n "$OUTPUT_TYPES" ]; then
             echo "has-outputs=true" >> $GITHUB_OUTPUT
+            echo "output_types=$(echo "$OUTPUT_TYPES" | jq -sR 'split("\n") | map(select(. != ""))')" >> $GITHUB_OUTPUT
           else
             echo "Agent has no outputs configured, skipping"
             echo "has-outputs=false" >> $GITHUB_OUTPUT
@@ -219,7 +222,12 @@ jobs:
         continue-on-error: true
       - if: steps.check-outputs.outputs.has-outputs == 'true'
         name: Execute outputs
-        run: bun run repo-agent run outputs --agent "${{ matrix.agent.path }}"
+        run: |-
+          OUTPUT_TYPES='${{ steps.check-outputs.outputs.output_types }}'
+          for OUTPUT_TYPE in $(echo "$OUTPUT_TYPES" | jq -r '.[]?'); do
+            echo "Executing output type: $OUTPUT_TYPE"
+            bun run repo-agent run outputs --agent "${{ matrix.agent.path }}" --output-type "$OUTPUT_TYPE"
+          done
         env:
           GH_TOKEN: ${{ steps.app-token.outputs.token || secrets.GITHUB_TOKEN }}
           TARGET_ISSUE_NUMBER: ${{ steps.read-target.outputs.target-issue-number }}
