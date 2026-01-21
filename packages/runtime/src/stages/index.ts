@@ -5,6 +5,7 @@
 export { runAgent } from "./agent";
 export { runAudit } from "./audit";
 export { runContext } from "./context";
+export { runDispatcher } from "./dispatcher";
 export { runOutputs } from "./outputs";
 export { runPreFlight } from "./pre-flight";
 export { readFinalComment, runProgress } from "./progress";

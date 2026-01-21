@@ -55,18 +55,34 @@ export class UnifiedWorkflowGenerator {
   generate(agents: AgentDefinition[], secrets?: SecretsConfig): string {
     // Store secrets config for use in job generation
     this.secrets = secrets || { hasApiKey: false, hasAccessToken: false };
+
+    // Build jobs dynamically
+    const jobs: Record<string, GitHubWorkflowJob> = {
+      "global-preflight": this.generateGlobalPreflightJob(),
+      dispatcher: this.generateDispatcherJob(agents),
+    };
+
+    // Generate individual jobs for each agent
+    for (const agent of agents) {
+      const agentSlug = this.slugifyAgentName(agent.name);
+
+      // Agent execution job
+      jobs[`agent-${agentSlug}`] = this.generateAgentExecutionJob(agent, agentSlug);
+
+      // Agent outputs job (if agent has outputs)
+      if (agent.outputs && Object.keys(agent.outputs).length > 0) {
+        jobs[`agent-${agentSlug}-outputs`] = this.generateAgentOutputsJob(agent, agentSlug);
+      }
+
+      // Agent audit job (always runs)
+      jobs[`agent-${agentSlug}-audit`] = this.generateAgentAuditJob(agent, agentSlug);
+    }
+
     const workflow: UnifiedWorkflow = {
       name: "AI Agents",
       on: this.aggregateTriggers(agents),
       permissions: this.aggregatePermissions(agents),
-      jobs: {
-        "global-preflight": this.generateGlobalPreflightJob(),
-        "route-event": this.generateRouteEventJob(),
-        "agent-validation": this.generateValidationJob(),
-        "agent-execution": this.generateExecutionJob(),
-        "execute-outputs": this.generateOutputsJob(),
-        "audit-report": this.generateAuditJob(),
-      },
+      jobs,
     };
 
     const yamlString = yaml.dump(workflow, {
@@ -77,6 +93,16 @@ export class UnifiedWorkflowGenerator {
     });
 
     return this.formatYaml(yamlString);
+  }
+
+  /**
+   * Convert agent name to URL-safe slug for job names.
+   */
+  private slugifyAgentName(name: string): string {
+    return name
+      .toLowerCase()
+      .replace(/[^a-z0-9]+/g, "-")
+      .replace(/^-|-$/g, "");
   }
 
   /**
@@ -245,18 +271,35 @@ export class UnifiedWorkflowGenerator {
   }
 
   /**
-   * Job 2: Route event - discovers agents and matches to current event
+   * Job 2: Dispatcher - discovers, routes, and validates all agents
+   * Outputs per-agent decisions: agent-{slug}-should-run, agent-{slug}-skip-reason, etc.
    */
-  private generateRouteEventJob(): GitHubWorkflowJob {
+  private generateDispatcherJob(agents: AgentDefinition[]): GitHubWorkflowJob {
     const ghExpr = (expr: string) => `\${{ ${expr} }}`;
+
+    // Build outputs for each agent
+    const outputs: Record<string, string> = {};
+    for (const agent of agents) {
+      const slug = this.slugifyAgentName(agent.name);
+      outputs[`agent-${slug}-should-run`] = ghExpr(
+        `steps.dispatcher.outputs.agent-${slug}-should-run`,
+      );
+      outputs[`agent-${slug}-skip-reason`] = ghExpr(
+        `steps.dispatcher.outputs.agent-${slug}-skip-reason`,
+      );
+      outputs[`agent-${slug}-target-issue`] = ghExpr(
+        `steps.dispatcher.outputs.agent-${slug}-target-issue`,
+      );
+      outputs[`agent-${slug}-event-payload`] = ghExpr(
+        `steps.dispatcher.outputs.agent-${slug}-event-payload`,
+      );
+    }
 
     return {
       "runs-on": "ubuntu-latest",
       needs: "global-preflight",
       if: `needs.global-preflight.outputs.should-continue == 'true'`,
-      outputs: {
-        "matching-agents": ghExpr("steps.route.outputs.matching-agents"),
-      },
+      outputs,
       steps: [
         {
           uses: "actions/checkout@v4",
@@ -269,9 +312,9 @@ export class UnifiedWorkflowGenerator {
           run: "bun install --frozen-lockfile",
         },
         {
-          name: "Route event to agents",
-          id: "route",
-          run: "bun run repo-agent run unified:route",
+          name: "Dispatch agents",
+          id: "dispatcher",
+          run: "bun run repo-agent run dispatcher",
           env: {
             GITHUB_TOKEN: ghExpr("secrets.GITHUB_TOKEN"),
             WORKFLOW_DISPATCH_AGENT: ghExpr("inputs.agent"),
@@ -282,300 +325,109 @@ export class UnifiedWorkflowGenerator {
   }
 
   /**
-   * Job 3: Agent validation - per-agent validation in matrix
+   * Generate agent execution job for a specific agent
+   * Checks dispatcher output and runs Claude if approved
    */
-  private generateValidationJob(): GitHubWorkflowJob {
+  private generateAgentExecutionJob(agent: AgentDefinition, agentSlug: string): GitHubWorkflowJob {
     const ghExpr = (expr: string) => `\${{ ${expr} }}`;
+    const hasContext = !!agent.context;
 
-    return {
-      "runs-on": "ubuntu-latest",
-      needs: ["global-preflight", "route-event"],
-      if: `fromJson(needs.route-event.outputs.matching-agents)[0] != null`,
-      strategy: {
-        "fail-fast": false,
-        matrix: {
-          agent: ghExpr("fromJson(needs.route-event.outputs.matching-agents)"),
+    const steps: WorkflowStep[] = [
+      {
+        uses: "actions/checkout@v4",
+      },
+      {
+        uses: "oven-sh/setup-bun@v2",
+      },
+      {
+        name: "Install dependencies",
+        run: "bun install --frozen-lockfile",
+      },
+      {
+        uses: "actions/create-github-app-token@v1",
+        id: "app-token",
+        with: {
+          "app-id": ghExpr("secrets.GH_APP_ID"),
+          "private-key": ghExpr("secrets.GH_APP_PRIVATE_KEY"),
+        },
+        "continue-on-error": true,
+      },
+    ];
+
+    // Add context collection if configured
+    if (hasContext) {
+      steps.push({
+        name: "Collect context",
+        run: `bun run repo-agent run context --agent "${agent.name}"`,
+        env: {
+          GH_TOKEN: ghExpr("steps.app-token.outputs.token || secrets.GITHUB_TOKEN"),
+        },
+      });
+    }
+
+    // Configure git identity and run agent
+    steps.push(
+      {
+        name: "Configure git identity",
+        run: [
+          `git config --global user.name "${ghExpr("steps.app-token.outputs.app-slug || 'github-actions[bot]'")}"`,
+          `git config --global user.email "${ghExpr("steps.app-token.outputs.app-slug || 'github-actions[bot]'")}@users.noreply.github.com"`,
+        ].join("\n"),
+      },
+      {
+        name: `Run ${agent.name}`,
+        run: `bun run repo-agent run agent --agent "${agent.name}"`,
+        env: {
+          ...this.buildClaudeEnv(ghExpr),
+          EVENT_PAYLOAD: ghExpr(`needs.dispatcher.outputs.agent-${agentSlug}-event-payload`),
         },
       },
-      steps: [
-        {
-          uses: "actions/checkout@v4",
-        },
-        {
-          uses: "oven-sh/setup-bun@v2",
-        },
-        {
-          name: "Install dependencies",
-          run: "bun install --frozen-lockfile",
-        },
-        {
-          name: "Validate agent",
-          id: "validate",
-          run: `bun run repo-agent run unified:validate --agent "${ghExpr("matrix.agent.path")}"`,
-          env: {
-            GITHUB_TOKEN: ghExpr("secrets.GITHUB_TOKEN"),
-          },
-        },
-        {
-          name: "Upload validation audit",
-          if: "always()",
-          uses: "actions/upload-artifact@v4",
-          with: {
-            name: `validation-audit-${ghExpr("matrix.agent.name")}-${ghExpr("github.run_id")}`,
-            path: "/tmp/validation-audit/",
-            "retention-days": "7",
-          },
-        },
-      ],
-    };
-  }
+    );
 
-  /**
-   * Job 4: Agent execution - runs Claude for validated agents
-   */
-  private generateExecutionJob(): GitHubWorkflowJob {
-    const ghExpr = (expr: string) => `\${{ ${expr} }}`;
+    // Upload outputs if agent has them
+    if (agent.outputs && Object.keys(agent.outputs).length > 0) {
+      steps.push({
+        name: "Upload outputs",
+        uses: "actions/upload-artifact@v4",
+        with: {
+          name: `agent-${agentSlug}-outputs-${ghExpr("github.run_id")}`,
+          path: "/tmp/outputs/",
+          "retention-days": "7",
+        },
+      });
+    }
 
-    return {
-      "runs-on": "ubuntu-latest",
-      needs: ["global-preflight", "route-event", "agent-validation"],
-      if: `needs.agent-validation.result == 'success'`,
-      strategy: {
-        "fail-fast": false,
-        matrix: {
-          agent: ghExpr("fromJson(needs.route-event.outputs.matching-agents)"),
-        },
-      },
-      steps: [
-        // Download validation artifact to check if this agent should run
-        {
-          name: "Download validation results",
-          uses: "actions/download-artifact@v4",
-          with: {
-            name: `validation-audit-${ghExpr("matrix.agent.name")}-${ghExpr("github.run_id")}`,
-            path: "/tmp/validation-results/",
-          },
-          "continue-on-error": true,
-        },
-
-        // Read validation result from artifact
-        {
-          name: "Check validation result",
-          id: "check-validation",
-          run: [
-            "# Read validation result from artifact",
-            "if [ -f /tmp/validation-results/validation-audit/result.json ]; then",
-            "  SHOULD_RUN=$(cat /tmp/validation-results/validation-audit/result.json | jq -r '.should_run // \"false\"')",
-            "  EVENT_PAYLOAD=$(cat /tmp/validation-results/validation-audit/result.json | jq -r '.event_payload // \"\"')",
-            "  TARGET_ISSUE=$(cat /tmp/validation-results/validation-audit/result.json | jq -r '.target_issue_number // \"\"')",
-            '  echo "should-run=$SHOULD_RUN" >> $GITHUB_OUTPUT',
-            '  echo "event-payload=$EVENT_PAYLOAD" >> $GITHUB_OUTPUT',
-            '  echo "target-issue-number=$TARGET_ISSUE" >> $GITHUB_OUTPUT',
-            "else",
-            '  echo "No validation result found, skipping agent execution"',
-            '  echo "should-run=false" >> $GITHUB_OUTPUT',
-            "fi",
-          ].join("\n"),
-        },
-
-        // Setup steps (conditional on validation pass)
-        {
-          if: `steps.check-validation.outputs.should-run == 'true'`,
-          uses: "actions/checkout@v4",
-        },
-        {
-          if: `steps.check-validation.outputs.should-run == 'true'`,
-          uses: "oven-sh/setup-bun@v2",
-        },
-        {
-          if: `steps.check-validation.outputs.should-run == 'true'`,
-          name: "Install dependencies",
-          run: "bun install --frozen-lockfile",
-        },
-
-        // Generate GitHub App token
-        {
-          if: `steps.check-validation.outputs.should-run == 'true'`,
-          uses: "actions/create-github-app-token@v1",
-          id: "app-token",
-          with: {
-            "app-id": ghExpr("secrets.GH_APP_ID"),
-            "private-key": ghExpr("secrets.GH_APP_PRIVATE_KEY"),
-          },
-          "continue-on-error": true,
-        },
-
-        // Context collection (inline, conditional)
-        {
-          if: `steps.check-validation.outputs.should-run == 'true' && matrix.agent.config.has_context`,
-          name: "Collect context",
-          run: `bun run repo-agent run context --agent "${ghExpr("matrix.agent.path")}"`,
-          env: {
-            GH_TOKEN: ghExpr("steps.app-token.outputs.token || secrets.GITHUB_TOKEN"),
-          },
-        },
-
-        // Configure git identity
-        {
-          if: `steps.check-validation.outputs.should-run == 'true'`,
-          name: "Configure git identity",
-          run:
-            'git config --global user.name "' +
-            ghExpr("steps.app-token.outputs.app-slug || 'github-actions[bot]'") +
-            '"\n' +
-            'git config --global user.email "' +
-            ghExpr("steps.app-token.outputs.app-slug || 'github-actions[bot]'") +
-            '@users.noreply.github.com"',
-        },
-
-        // Run Claude
-        {
-          if: `steps.check-validation.outputs.should-run == 'true'`,
-          name: "Run agent",
-          run: `bun run repo-agent run agent --agent "${ghExpr("matrix.agent.path")}"`,
-          env: this.buildClaudeEnv(ghExpr),
-        },
-
-        // Upload outputs
-        {
-          if: `steps.check-validation.outputs.should-run == 'true' && matrix.agent.config.has_outputs`,
-          name: "Upload agent outputs",
-          uses: "actions/upload-artifact@v4",
-          with: {
-            name: `agent-outputs-${ghExpr("matrix.agent.name")}-${ghExpr("github.run_id")}`,
-            path: "/tmp/outputs/",
-            "retention-days": "7",
-          },
-        },
-
-        // Upload audit metrics
-        {
-          if: `always()`,
-          name: "Upload audit metrics",
-          uses: "actions/upload-artifact@v4",
-          with: {
-            name: `audit-metrics-${ghExpr("matrix.agent.name")}-${ghExpr("github.run_id")}`,
-            path: "/tmp/audit/",
-            "retention-days": "7",
-          },
-        },
-      ],
-    };
-  }
-
-  /**
-   * Job 5: Execute outputs - per-agent-per-output execution
-   */
-  private generateOutputsJob(): GitHubWorkflowJob {
-    const ghExpr = (expr: string) => `\${{ ${expr} }}`;
-
-    return {
-      "runs-on": "ubuntu-latest",
-      needs: ["route-event", "agent-validation", "agent-execution"],
-      if: `needs.agent-execution.result == 'success'`,
-      strategy: {
-        "fail-fast": false,
-        matrix: {
-          agent: ghExpr("fromJson(needs.route-event.outputs.matching-agents)"),
-        },
-      },
-      steps: [
-        {
-          name: "Check if agent has outputs",
-          id: "check-outputs",
-          run: [
-            `if [ "${ghExpr("matrix.agent.config.has_outputs")}" = "true" ]; then`,
-            '  echo "has-outputs=true" >> $GITHUB_OUTPUT',
-            "else",
-            '  echo "Agent has no outputs configured, skipping"',
-            '  echo "has-outputs=false" >> $GITHUB_OUTPUT',
-            "fi",
-          ].join("\n"),
-        },
-        {
-          if: `steps.check-outputs.outputs.has-outputs == 'true'`,
-          uses: "actions/checkout@v4",
-        },
-        {
-          if: `steps.check-outputs.outputs.has-outputs == 'true'`,
-          uses: "oven-sh/setup-bun@v2",
-        },
-        {
-          if: `steps.check-outputs.outputs.has-outputs == 'true'`,
-          name: "Install dependencies",
-          run: "bun install --frozen-lockfile",
-        },
-        {
-          if: `steps.check-outputs.outputs.has-outputs == 'true'`,
-          uses: "actions/create-github-app-token@v1",
-          id: "app-token",
-          with: {
-            "app-id": ghExpr("secrets.GH_APP_ID"),
-            "private-key": ghExpr("secrets.GH_APP_PRIVATE_KEY"),
-          },
-          "continue-on-error": true,
-        },
-        {
-          if: `steps.check-outputs.outputs.has-outputs == 'true'`,
-          name: "Download validation results",
-          uses: "actions/download-artifact@v4",
-          with: {
-            name: `validation-audit-${ghExpr("matrix.agent.name")}-${ghExpr("github.run_id")}`,
-            path: "/tmp/validation-results/",
-          },
-          "continue-on-error": true,
-        },
-        {
-          if: `steps.check-outputs.outputs.has-outputs == 'true'`,
-          name: "Read target issue number",
-          id: "read-target",
-          run: [
-            "# Read target issue number from validation artifact",
-            "if [ -f /tmp/validation-results/validation-audit/result.json ]; then",
-            "  TARGET_ISSUE=$(cat /tmp/validation-results/validation-audit/result.json | jq -r '.target_issue_number // \"\"')",
-            '  echo "target-issue-number=$TARGET_ISSUE" >> $GITHUB_OUTPUT',
-            "fi",
-          ].join("\n"),
-        },
-        {
-          if: `steps.check-outputs.outputs.has-outputs == 'true'`,
-          name: "Download agent outputs",
-          uses: "actions/download-artifact@v4",
-          with: {
-            name: `agent-outputs-${ghExpr("matrix.agent.name")}-${ghExpr("github.run_id")}`,
-            path: "/tmp/outputs/",
-          },
-          "continue-on-error": true,
-        },
-        {
-          if: `steps.check-outputs.outputs.has-outputs == 'true'`,
-          name: "Execute outputs",
-          run: `bun run repo-agent run outputs --agent "${ghExpr("matrix.agent.path")}"`,
-          env: {
-            GH_TOKEN: ghExpr("steps.app-token.outputs.token || secrets.GITHUB_TOKEN"),
-            TARGET_ISSUE_NUMBER: ghExpr("steps.read-target.outputs.target-issue-number"),
-          },
-        },
-      ],
-    };
-  }
-
-  /**
-   * Job 6: Audit report - per-agent audit tracking
-   */
-  private generateAuditJob(): GitHubWorkflowJob {
-    const ghExpr = (expr: string) => `\${{ ${expr} }}`;
-
-    return {
-      "runs-on": "ubuntu-latest",
-      needs: ["route-event", "agent-validation", "agent-execution", "execute-outputs"],
+    // Always upload audit metrics
+    steps.push({
       if: "always()",
-      strategy: {
-        "fail-fast": false,
-        matrix: {
-          agent: ghExpr("fromJson(needs.route-event.outputs.matching-agents)"),
-        },
+      name: "Upload audit metrics",
+      uses: "actions/upload-artifact@v4",
+      with: {
+        name: `agent-${agentSlug}-audit-${ghExpr("github.run_id")}`,
+        path: "/tmp/audit/",
+        "retention-days": "7",
       },
+    });
+
+    return {
+      "runs-on": "ubuntu-latest",
+      needs: ["global-preflight", "dispatcher"],
+      if: `needs.dispatcher.outputs.agent-${agentSlug}-should-run == 'true'`,
+      steps,
+    };
+  }
+
+  /**
+   * Generate outputs execution job for a specific agent
+   * Executes all configured outputs for the agent
+   */
+  private generateAgentOutputsJob(agent: AgentDefinition, agentSlug: string): GitHubWorkflowJob {
+    const ghExpr = (expr: string) => `\${{ ${expr} }}`;
+
+    return {
+      "runs-on": "ubuntu-latest",
+      needs: [`agent-${agentSlug}`],
+      if: `needs.agent-${agentSlug}.result == 'success'`,
       steps: [
         {
           uses: "actions/checkout@v4",
@@ -597,21 +449,71 @@ export class UnifiedWorkflowGenerator {
           "continue-on-error": true,
         },
         {
-          name: "Download all artifacts",
+          name: "Download outputs",
           uses: "actions/download-artifact@v4",
           with: {
-            pattern: `*-${ghExpr("matrix.agent.name")}-${ghExpr("github.run_id")}`,
+            name: `agent-${agentSlug}-outputs-${ghExpr("github.run_id")}`,
+            path: "/tmp/outputs/",
+          },
+        },
+        {
+          name: "Execute outputs",
+          run: `bun run repo-agent run outputs --agent "${agent.name}"`,
+          env: {
+            GH_TOKEN: ghExpr("steps.app-token.outputs.token || secrets.GITHUB_TOKEN"),
+            TARGET_ISSUE_NUMBER: ghExpr(`needs.dispatcher.outputs.agent-${agentSlug}-target-issue`),
+          },
+        },
+      ],
+    };
+  }
+
+  /**
+   * Generate audit job for a specific agent
+   * Generates audit report and creates issue if configured
+   */
+  private generateAgentAuditJob(agent: AgentDefinition, agentSlug: string): GitHubWorkflowJob {
+    const ghExpr = (expr: string) => `\${{ ${expr} }}`;
+
+    return {
+      "runs-on": "ubuntu-latest",
+      needs: [`agent-${agentSlug}`],
+      if: "always()",
+      steps: [
+        {
+          uses: "actions/checkout@v4",
+        },
+        {
+          uses: "oven-sh/setup-bun@v2",
+        },
+        {
+          name: "Install dependencies",
+          run: "bun install --frozen-lockfile",
+        },
+        {
+          uses: "actions/create-github-app-token@v1",
+          id: "app-token",
+          with: {
+            "app-id": ghExpr("secrets.GH_APP_ID"),
+            "private-key": ghExpr("secrets.GH_APP_PRIVATE_KEY"),
+          },
+          "continue-on-error": true,
+        },
+        {
+          name: "Download audit metrics",
+          uses: "actions/download-artifact@v4",
+          with: {
+            name: `agent-${agentSlug}-audit-${ghExpr("github.run_id")}`,
             path: "/tmp/artifacts/",
           },
+          "continue-on-error": true,
         },
         {
           name: "Generate audit report",
-          run: `bun run repo-agent run audit --agent "${ghExpr("matrix.agent.path")}"`,
+          run: `bun run repo-agent run audit --agent "${agent.name}"`,
           env: {
             GH_TOKEN: ghExpr("steps.app-token.outputs.token || secrets.GITHUB_TOKEN"),
-            VALIDATION_RESULT: ghExpr("needs.agent-validation.result"),
-            EXECUTION_RESULT: ghExpr("needs.agent-execution.result"),
-            OUTPUTS_RESULT: ghExpr("needs.execute-outputs.result"),
+            AGENT_RESULT: ghExpr(`needs.agent-${agentSlug}.result`),
           },
         },
       ],
@@ -625,7 +527,6 @@ export class UnifiedWorkflowGenerator {
   private buildClaudeEnv(ghExpr: (expr: string) => string): Record<string, string> {
     const env: Record<string, string> = {
       GH_TOKEN: ghExpr("steps.app-token.outputs.token || secrets.GITHUB_TOKEN"),
-      EVENT_PAYLOAD: ghExpr("steps.check-validation.outputs.event-payload"),
     };
 
     if (this.secrets.hasApiKey) {

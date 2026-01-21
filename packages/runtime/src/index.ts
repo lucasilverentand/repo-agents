@@ -7,6 +7,7 @@ import {
   runAgent,
   runAudit,
   runContext,
+  runDispatcher,
   runOutputs,
   runPreFlight,
   runProgress,
@@ -39,6 +40,7 @@ const unifiedStages = {
   "setup:preflight": runPreFlight,
   "unified:route": runUnifiedRoute,
   "unified:validate": runUnifiedValidate,
+  dispatcher: runDispatcher,
 } as const;
 
 type StageName = keyof typeof stages;
@@ -91,7 +93,12 @@ program
   )
   .action(async (stage: string, options: RunOptions) => {
     // Check if this is a unified workflow stage
-    if (stage === "unified:route" || stage === "unified:validate" || stage === "setup:preflight") {
+    if (
+      stage === "unified:route" ||
+      stage === "unified:validate" ||
+      stage === "setup:preflight" ||
+      stage === "dispatcher"
+    ) {
       // Extract event action from event payload
       let eventAction = "";
       const eventPath = process.env.GITHUB_EVENT_PATH;
@@ -107,7 +114,22 @@ program
 
       let result: StageResult;
 
-      if (stage === "unified:route") {
+      if (stage === "dispatcher") {
+        result = await runDispatcher({
+          github: {
+            repository: process.env.GITHUB_REPOSITORY ?? "",
+            runId: Number(process.env.GITHUB_RUN_ID ?? "0"),
+            serverUrl: process.env.GITHUB_SERVER_URL ?? "https://github.com",
+            eventName: process.env.GITHUB_EVENT_NAME ?? "",
+            eventAction,
+            actor: process.env.GITHUB_ACTOR ?? "",
+            eventPath: process.env.GITHUB_EVENT_PATH ?? "",
+          },
+          options: {
+            agentsDir: options.agentsDir,
+          },
+        });
+      } else if (stage === "unified:route") {
         result = await runUnifiedRoute({
           github: {
             repository: process.env.GITHUB_REPOSITORY ?? "",
@@ -175,13 +197,26 @@ program
       process.exit(1);
     }
 
+    // Resolve agent path (could be name or path)
+    let agentPath = options.agent;
+    if (!agentPath.endsWith(".md")) {
+      // Assume it's a name, try to find it
+      const { findAgentByName } = await import("./utils/agent-finder");
+      const foundPath = await findAgentByName(agentPath);
+      if (!foundPath) {
+        console.error(`Error: Could not find agent with name "${agentPath}"`);
+        process.exit(1);
+      }
+      agentPath = foundPath;
+    }
+
     const ctx: StageContext = {
       repository: process.env.GITHUB_REPOSITORY ?? "",
       runId: process.env.GITHUB_RUN_ID ?? "",
       actor: process.env.GITHUB_ACTOR ?? "",
       eventName: process.env.GITHUB_EVENT_NAME ?? "",
       eventPath: process.env.GITHUB_EVENT_PATH ?? "",
-      agentPath: options.agent,
+      agentPath,
       outputType: options.outputType,
       dispatchRunId: options.dispatchRunId,
       jobStatuses: {
