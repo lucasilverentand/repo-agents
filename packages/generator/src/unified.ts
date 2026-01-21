@@ -477,8 +477,8 @@ export class UnifiedWorkflowGenerator {
 
     return {
       "runs-on": "ubuntu-latest",
-      needs: [`agent-${agentSlug}`],
-      if: "always()",
+      needs: ["dispatcher", `agent-${agentSlug}`],
+      if: `always() && needs.dispatcher.outputs.agent-${agentSlug}-should-run == 'true'`,
       steps: [
         {
           uses: "actions/checkout@v4",

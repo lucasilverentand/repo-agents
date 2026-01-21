@@ -149,8 +149,9 @@ You are a triage agent that analyzes new issues. Read the issue and provide anal
 
     // Validate audit job structure
     const auditJob = workflow.jobs["agent-simple-triage-agent-audit"];
+    expect(auditJob.needs).toContain("dispatcher");
     expect(auditJob.needs).toContain("agent-simple-triage-agent");
-    expect(auditJob.if).toBe("always()");
+    expect(auditJob.if).toBe("always() && needs.dispatcher.outputs.agent-simple-triage-agent-should-run == 'true'");
   });
 
   test("generates workflow for agent with multiple outputs", async () => {
@@ -336,10 +337,11 @@ Analyze recent activity and create a summary issue.
       expect(outputsJob.needs).toContain("agent-comment-and-label-agent");
     }
 
-    // Audit job should depend on agent job and run always
+    // Audit job should depend on agent job and run always (when agent should run)
     const auditJob = workflow.jobs["agent-simple-triage-agent-audit"];
+    expect(auditJob.needs).toContain("dispatcher");
     expect(auditJob.needs).toContain("agent-simple-triage-agent");
-    expect(auditJob.if).toBe("always()");
+    expect(auditJob.if).toBe("always() && needs.dispatcher.outputs.agent-simple-triage-agent-should-run == 'true'");
   });
 
   test("workflow includes required environment variables", async () => {

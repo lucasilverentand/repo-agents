@@ -129,8 +129,9 @@ jobs:
   agent-test-agent-audit:
     runs-on: ubuntu-latest
     needs:
+      - dispatcher
       - agent-test-agent
-    if: always()
+    if: always() && needs.dispatcher.outputs.agent-test-agent-should-run == 'true'
     steps:
       - uses: actions/checkout@v4
       - uses: oven-sh/setup-bun@v2
