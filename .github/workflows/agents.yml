@@ -175,10 +175,10 @@ jobs:
         id: check-outputs
         run: |-
           AGENT_JSON='${{ toJson(matrix.agent) }}'
-          OUTPUT_TYPES_JSON=$(echo "$AGENT_JSON" | jq -r '.config.output_types')
+          OUTPUT_TYPES_JSON=$(echo "$AGENT_JSON" | jq -c '.config.output_types')
           if [ "$OUTPUT_TYPES_JSON" != "null" ] && [ "$(echo "$OUTPUT_TYPES_JSON" | jq 'length')" -gt 0 ]; then
             echo "has-outputs=true" >> $GITHUB_OUTPUT
-            echo "output_types=$OUTPUT_TYPES_JSON" >> $GITHUB_OUTPUT
+            echo "output_types=$(echo "$OUTPUT_TYPES_JSON" | jq -c '.')" >> $GITHUB_OUTPUT
           else
             echo "Agent has no outputs configured, skipping"
             echo "has-outputs=false" >> $GITHUB_OUTPUT
