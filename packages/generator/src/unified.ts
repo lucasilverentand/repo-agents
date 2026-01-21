@@ -455,6 +455,7 @@ export class UnifiedWorkflowGenerator {
             name: `agent-${agentSlug}-outputs-${ghExpr("github.run_id")}`,
             path: "/tmp/outputs/",
           },
+          "continue-on-error": true,
         },
         {
           name: "Execute outputs",

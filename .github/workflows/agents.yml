@@ -134,6 +134,7 @@ jobs:
         with:
           name: agent-issue-analyzer-outputs-${{ github.run_id }}
           path: /tmp/outputs/
+        continue-on-error: true
       - name: Execute outputs
         run: bun run repo-agent run outputs --agent "Issue Analyzer"
         env:
@@ -231,6 +232,7 @@ jobs:
         with:
           name: agent-issue-formatter-outputs-${{ github.run_id }}
           path: /tmp/outputs/
+        continue-on-error: true
       - name: Execute outputs
         run: bun run repo-agent run outputs --agent "Issue Formatter"
         env:
@@ -328,6 +330,7 @@ jobs:
         with:
           name: agent-issue-implementer-outputs-${{ github.run_id }}
           path: /tmp/outputs/
+        continue-on-error: true
       - name: Execute outputs
         run: bun run repo-agent run outputs --agent "Issue Implementer"
         env:
@@ -425,6 +428,7 @@ jobs:
         with:
           name: agent-issue-triage-outputs-${{ github.run_id }}
           path: /tmp/outputs/
+        continue-on-error: true
       - name: Execute outputs
         run: bun run repo-agent run outputs --agent "Issue Triage"
         env:
@@ -522,6 +526,7 @@ jobs:
         with:
           name: agent-test-agent-outputs-${{ github.run_id }}
           path: /tmp/outputs/
+        continue-on-error: true
       - name: Execute outputs
         run: bun run repo-agent run outputs --agent "Test Agent"
         env:

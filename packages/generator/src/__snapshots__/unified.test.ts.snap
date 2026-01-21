@@ -120,6 +120,7 @@ jobs:
         with:
           name: agent-test-agent-outputs-\${{ github.run_id }}
           path: /tmp/outputs/
+        continue-on-error: true
       - name: Execute outputs
         run: bun run repo-agent run outputs --agent "Test Agent"
         env:
