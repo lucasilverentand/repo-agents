@@ -17,6 +17,7 @@
   "scripts": {
     "preinstall": "node -e \"if(process.env.npm_execpath.indexOf('bun') === -1) throw new Error('\\n❌ This project requires Bun. Please use:\\n  bun install\\n\\nInstall Bun: https://bun.sh\\n')\"",
     "cli": "bun packages/cli/src/index.ts",
+    "repo-agent": "bun packages/runtime/src/index.ts",
     "test": "bun test packages/*/src/**/*.test.ts",
     "test:integration": "bun test packages/cli/tests/integration/*.test.ts",
     "test:all": "bun run typecheck && bun run test && bun run test:integration && bun run validate:agents",
