@@ -25,18 +25,23 @@ export async function setOutput(name: string, value: string): Promise<void> {
     return;
   }
 
+  console.log(`Setting output '${name}' (${value.length} characters)`);
+
   let content: string;
 
   if (value.includes("\n")) {
     // Multiline value - use heredoc-style delimiter
     const delimiter = generateDelimiter();
     content = `${name}<<${delimiter}\n${value}\n${delimiter}\n`;
+    console.log(`Using heredoc format for multiline value`);
   } else {
     // Single line value
     content = `${name}=${value}\n`;
+    console.log(`Using single-line format`);
   }
 
   await appendFile(outputFile, content, "utf-8");
+  console.log(`Output '${name}' written to ${outputFile}`);
 }
 
 /**
