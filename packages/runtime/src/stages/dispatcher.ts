@@ -10,7 +10,6 @@ import {
   checkTriggerLabels,
   checkUserAuthorization,
   getEventPayload,
-  getIssueOrPRNumber,
   type ValidationContext,
 } from "../utils/validation";
 
@@ -23,7 +22,6 @@ import {
  * Outputs (per agent):
  * - agent-{slug}-should-run: "true" | "false"
  * - agent-{slug}-skip-reason: Reason for skipping
- * - agent-{slug}-target-issue: Issue/PR number for outputs
  * - agent-{slug}-event-payload: Base64-encoded event payload
  */
 export async function runDispatcher(ctx: {
@@ -95,12 +93,7 @@ export async function runDispatcher(ctx: {
       console.log(`  ✓ Approved`);
     }
 
-    // Always get target issue and event payload for agents that might run
-    const targetIssue = await getIssueOrPRNumber(validationContext);
-    if (targetIssue) {
-      outputs[`agent-${slug}-target-issue`] = String(targetIssue);
-    }
-
+    // Always get event payload for agents that might run
     const eventPayload = await getEventPayload(validationContext);
     if (eventPayload) {
       outputs[`agent-${slug}-event-payload`] = eventPayload;

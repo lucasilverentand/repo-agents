@@ -548,18 +548,27 @@ async function executeOutput(
 ): Promise<void> {
   const repository = ctx.repository;
 
-  // Get issue/PR number from workflow input or event context
-  // Priority: 1. Environment variable (passed from dispatcher), 2. Event path
+  // Get issue/PR number from event payload
+  // Priority: 1. EVENT_PAYLOAD (from dispatcher), 2. GITHUB_EVENT_PATH (direct trigger)
   let issueNumber: string | undefined;
   let prNumber: string | undefined;
 
-  // First check for workflow input (passed via environment variable from dispatcher)
-  const targetNumber = process.env.TARGET_ISSUE_NUMBER;
-  if (targetNumber) {
-    issueNumber = targetNumber;
+  // Priority 1: Check for EVENT_PAYLOAD environment variable (from dispatcher)
+  // Note: EVENT_PAYLOAD is base64-encoded to avoid newline issues with GitHub Actions
+  const eventPayloadEnv = process.env.EVENT_PAYLOAD;
+  if (eventPayloadEnv) {
+    try {
+      const decodedPayload = Buffer.from(eventPayloadEnv, "base64").toString("utf-8");
+      const event = JSON.parse(decodedPayload);
+      issueNumber = event.issue?.number?.toString();
+      prNumber = event.pull_request?.number?.toString();
+    } catch (error) {
+      console.warn("Failed to parse EVENT_PAYLOAD:", error);
+      // Fall through to standard event path handling
+    }
   }
 
-  // Fallback to standard event path
+  // Priority 2: Fallback to standard event path (GITHUB_EVENT_PATH)
   if (!issueNumber && !prNumber) {
     const eventPath = ctx.eventPath;
     if (eventPath && existsSync(eventPath)) {

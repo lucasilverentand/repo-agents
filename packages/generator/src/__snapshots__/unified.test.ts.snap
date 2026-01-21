@@ -44,7 +44,6 @@ jobs:
     outputs:
       agent-test-agent-should-run: \${{ steps.dispatcher.outputs.agent-test-agent-should-run }}
       agent-test-agent-skip-reason: \${{ steps.dispatcher.outputs.agent-test-agent-skip-reason }}
-      agent-test-agent-target-issue: \${{ steps.dispatcher.outputs.agent-test-agent-target-issue }}
       agent-test-agent-event-payload: \${{ steps.dispatcher.outputs.agent-test-agent-event-payload }}
     steps:
       - uses: actions/checkout@v4
@@ -125,7 +124,7 @@ jobs:
         run: bun run repo-agent run outputs --agent "Test Agent"
         env:
           GH_TOKEN: \${{ steps.app-token.outputs.token || secrets.GITHUB_TOKEN }}
-          TARGET_ISSUE_NUMBER: \${{ needs.dispatcher.outputs.agent-test-agent-target-issue }}
+          EVENT_PAYLOAD: \${{ needs.dispatcher.outputs.agent-test-agent-event-payload }}
 
   agent-test-agent-audit:
     runs-on: ubuntu-latest

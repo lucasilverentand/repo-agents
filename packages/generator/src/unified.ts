@@ -287,9 +287,6 @@ export class UnifiedWorkflowGenerator {
       outputs[`agent-${slug}-skip-reason`] = ghExpr(
         `steps.dispatcher.outputs.agent-${slug}-skip-reason`,
       );
-      outputs[`agent-${slug}-target-issue`] = ghExpr(
-        `steps.dispatcher.outputs.agent-${slug}-target-issue`,
-      );
       outputs[`agent-${slug}-event-payload`] = ghExpr(
         `steps.dispatcher.outputs.agent-${slug}-event-payload`,
       );
@@ -462,7 +459,7 @@ export class UnifiedWorkflowGenerator {
           run: `bun run repo-agent run outputs --agent "${agent.name}"`,
           env: {
             GH_TOKEN: ghExpr("steps.app-token.outputs.token || secrets.GITHUB_TOKEN"),
-            TARGET_ISSUE_NUMBER: ghExpr(`needs.dispatcher.outputs.agent-${agentSlug}-target-issue`),
+            EVENT_PAYLOAD: ghExpr(`needs.dispatcher.outputs.agent-${agentSlug}-event-payload`),
           },
         },
       ],

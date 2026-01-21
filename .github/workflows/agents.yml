@@ -42,23 +42,18 @@ jobs:
     outputs:
       agent-issue-analyzer-should-run: ${{ steps.dispatcher.outputs.agent-issue-analyzer-should-run }}
       agent-issue-analyzer-skip-reason: ${{ steps.dispatcher.outputs.agent-issue-analyzer-skip-reason }}
-      agent-issue-analyzer-target-issue: ${{ steps.dispatcher.outputs.agent-issue-analyzer-target-issue }}
       agent-issue-analyzer-event-payload: ${{ steps.dispatcher.outputs.agent-issue-analyzer-event-payload }}
       agent-issue-formatter-should-run: ${{ steps.dispatcher.outputs.agent-issue-formatter-should-run }}
       agent-issue-formatter-skip-reason: ${{ steps.dispatcher.outputs.agent-issue-formatter-skip-reason }}
-      agent-issue-formatter-target-issue: ${{ steps.dispatcher.outputs.agent-issue-formatter-target-issue }}
       agent-issue-formatter-event-payload: ${{ steps.dispatcher.outputs.agent-issue-formatter-event-payload }}
       agent-issue-implementer-should-run: ${{ steps.dispatcher.outputs.agent-issue-implementer-should-run }}
       agent-issue-implementer-skip-reason: ${{ steps.dispatcher.outputs.agent-issue-implementer-skip-reason }}
-      agent-issue-implementer-target-issue: ${{ steps.dispatcher.outputs.agent-issue-implementer-target-issue }}
       agent-issue-implementer-event-payload: ${{ steps.dispatcher.outputs.agent-issue-implementer-event-payload }}
       agent-issue-triage-should-run: ${{ steps.dispatcher.outputs.agent-issue-triage-should-run }}
       agent-issue-triage-skip-reason: ${{ steps.dispatcher.outputs.agent-issue-triage-skip-reason }}
-      agent-issue-triage-target-issue: ${{ steps.dispatcher.outputs.agent-issue-triage-target-issue }}
       agent-issue-triage-event-payload: ${{ steps.dispatcher.outputs.agent-issue-triage-event-payload }}
       agent-test-agent-should-run: ${{ steps.dispatcher.outputs.agent-test-agent-should-run }}
       agent-test-agent-skip-reason: ${{ steps.dispatcher.outputs.agent-test-agent-skip-reason }}
-      agent-test-agent-target-issue: ${{ steps.dispatcher.outputs.agent-test-agent-target-issue }}
       agent-test-agent-event-payload: ${{ steps.dispatcher.outputs.agent-test-agent-event-payload }}
     steps:
       - uses: actions/checkout@v4
@@ -139,7 +134,7 @@ jobs:
         run: bun run repo-agent run outputs --agent "Issue Analyzer"
         env:
           GH_TOKEN: ${{ steps.app-token.outputs.token || secrets.GITHUB_TOKEN }}
-          TARGET_ISSUE_NUMBER: ${{ needs.dispatcher.outputs.agent-issue-analyzer-target-issue }}
+          EVENT_PAYLOAD: ${{ needs.dispatcher.outputs.agent-issue-analyzer-event-payload }}
 
   agent-issue-analyzer-audit:
     runs-on: ubuntu-latest
@@ -237,7 +232,7 @@ jobs:
         run: bun run repo-agent run outputs --agent "Issue Formatter"
         env:
           GH_TOKEN: ${{ steps.app-token.outputs.token || secrets.GITHUB_TOKEN }}
-          TARGET_ISSUE_NUMBER: ${{ needs.dispatcher.outputs.agent-issue-formatter-target-issue }}
+          EVENT_PAYLOAD: ${{ needs.dispatcher.outputs.agent-issue-formatter-event-payload }}
 
   agent-issue-formatter-audit:
     runs-on: ubuntu-latest
@@ -335,7 +330,7 @@ jobs:
         run: bun run repo-agent run outputs --agent "Issue Implementer"
         env:
           GH_TOKEN: ${{ steps.app-token.outputs.token || secrets.GITHUB_TOKEN }}
-          TARGET_ISSUE_NUMBER: ${{ needs.dispatcher.outputs.agent-issue-implementer-target-issue }}
+          EVENT_PAYLOAD: ${{ needs.dispatcher.outputs.agent-issue-implementer-event-payload }}
 
   agent-issue-implementer-audit:
     runs-on: ubuntu-latest
@@ -433,7 +428,7 @@ jobs:
         run: bun run repo-agent run outputs --agent "Issue Triage"
         env:
           GH_TOKEN: ${{ steps.app-token.outputs.token || secrets.GITHUB_TOKEN }}
-          TARGET_ISSUE_NUMBER: ${{ needs.dispatcher.outputs.agent-issue-triage-target-issue }}
+          EVENT_PAYLOAD: ${{ needs.dispatcher.outputs.agent-issue-triage-event-payload }}
 
   agent-issue-triage-audit:
     runs-on: ubuntu-latest
@@ -531,7 +526,7 @@ jobs:
         run: bun run repo-agent run outputs --agent "Test Agent"
         env:
           GH_TOKEN: ${{ steps.app-token.outputs.token || secrets.GITHUB_TOKEN }}
-          TARGET_ISSUE_NUMBER: ${{ needs.dispatcher.outputs.agent-test-agent-target-issue }}
+          EVENT_PAYLOAD: ${{ needs.dispatcher.outputs.agent-test-agent-event-payload }}
 
   agent-test-agent-audit:
     runs-on: ubuntu-latest

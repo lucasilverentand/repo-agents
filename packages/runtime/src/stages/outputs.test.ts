@@ -1455,11 +1455,14 @@ describe("runOutputs", () => {
       expect(result.success).toBeDefined();
     });
 
-    it("should use TARGET_ISSUE_NUMBER environment variable when present", async () => {
+    it("should use EVENT_PAYLOAD environment variable when present", async () => {
       const { runOutputs } = await import("./outputs");
 
-      // Set environment variable
-      process.env.TARGET_ISSUE_NUMBER = "789";
+      // Set environment variable with base64-encoded event payload
+      const eventPayload = JSON.stringify({
+        issue: { number: 789 },
+      });
+      process.env.EVENT_PAYLOAD = Buffer.from(eventPayload).toString("base64");
 
       await writeFile(agentPath, createAgentMd({ outputs: { "add-comment": true } }));
       await writeFile(
@@ -1470,7 +1473,7 @@ describe("runOutputs", () => {
       const result = await runOutputs(createContext());
 
       // Clean up
-      delete process.env.TARGET_ISSUE_NUMBER;
+      delete process.env.EVENT_PAYLOAD;
 
       // Validation passes
       expect(result.success).toBeDefined();
