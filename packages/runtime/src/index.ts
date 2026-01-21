@@ -171,12 +171,9 @@ program
       }
 
       // Write outputs to GITHUB_OUTPUT if available
-      const outputFile = process.env.GITHUB_OUTPUT;
-      if (outputFile && result.outputs && Object.keys(result.outputs).length > 0) {
-        const { appendFileSync } = await import("node:fs");
-        for (const [key, value] of Object.entries(result.outputs)) {
-          appendFileSync(outputFile, `${key}=${value}\n`);
-        }
+      if (result.outputs && Object.keys(result.outputs).length > 0) {
+        const { setOutputs } = await import("./utils/outputs");
+        await setOutputs(result.outputs);
       }
 
       // Exit with appropriate code
