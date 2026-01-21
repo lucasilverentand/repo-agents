@@ -59,10 +59,7 @@ export const runPreFlight: Stage = async (ctx: StageContext): Promise<StageResul
   };
 
   try {
-    // Step 1: Load and validate agent definition
-    const agent = await loadAgent(ctx.agentPath);
-
-    // Step 2: Check secrets
+    // Step 1: Check secrets (required for both global and agent-specific preflight)
     const secretsResult = checkSecrets();
     if (!secretsResult.valid) {
       permissionIssues.push({
@@ -73,6 +70,7 @@ export const runPreFlight: Stage = async (ctx: StageContext): Promise<StageResul
         context: { required: ["ANTHROPIC_API_KEY", "CLAUDE_CODE_OAUTH_TOKEN"] },
       });
       await writeAuditData(validationStatus, permissionIssues);
+      outputs["should-continue"] = "false";
       return {
         success: false,
         outputs,
@@ -81,7 +79,20 @@ export const runPreFlight: Stage = async (ctx: StageContext): Promise<StageResul
     validationStatus.secrets_check = true;
     console.log("Secrets check passed");
 
-    // Step 3: Check user authorization
+    // If no agent path provided, this is global preflight (just check secrets)
+    if (!ctx.agentPath) {
+      outputs["should-continue"] = "true";
+      console.log("Global preflight passed");
+      return {
+        success: true,
+        outputs,
+      };
+    }
+
+    // Load and validate agent definition for agent-specific preflight
+    const agent = await loadAgent(ctx.agentPath);
+
+    // Step 2: Check user authorization
     const authResult = await checkUserAuthorization(ctx, agent);
     if (!authResult.authorized) {
       permissionIssues.push({
@@ -101,7 +112,7 @@ export const runPreFlight: Stage = async (ctx: StageContext): Promise<StageResul
     validationStatus.user_authorization = true;
     console.log(`User authorization passed: ${authResult.reason}`);
 
-    // Step 4: Check trigger labels (if configured)
+    // Step 3: Check trigger labels (if configured)
     if (agent.trigger_labels && agent.trigger_labels.length > 0) {
       const labelsResult = await checkTriggerLabels(ctx, agent.trigger_labels);
       if (!labelsResult.valid) {
@@ -129,7 +140,7 @@ export const runPreFlight: Stage = async (ctx: StageContext): Promise<StageResul
       validationStatus.labels_check = true;
     }
 
-    // Step 5: Check rate limiting
+    // Step 4: Check rate limiting
     const rateLimitMinutes = agent.rate_limit_minutes ?? 5;
     const rateLimitResult = await checkRateLimit(ctx, rateLimitMinutes);
     if (!rateLimitResult.allowed) {
