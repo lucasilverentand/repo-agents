@@ -92,7 +92,9 @@ export type Output =
   | "set-milestone"
   | "trigger-workflow"
   | "add-reaction"
-  | "create-branch";
+  | "create-branch"
+  | "copy-project"
+  | "mark-template";
 
 export interface OutputConfig {
   max?: number; // Maximum times this output can be used

@@ -84,6 +84,8 @@ const outputSchema = z
       "trigger-workflow",
       "add-reaction",
       "create-branch",
+      "copy-project",
+      "mark-template",
     ]),
     z.union([outputConfigSchema, z.boolean()]),
   )
