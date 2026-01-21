@@ -1,6 +1,6 @@
 {
   "name": "@repo-agents/cli",
-  "version": "1.5.0",
+  "version": "1.6.0",
   "description": "CLI tool for creating AI-powered GitHub Actions workflows from markdown agent definitions",
   "type": "module",
   "packageManager": "bun@1.3.5",

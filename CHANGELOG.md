@@ -5,6 +5,32 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.6.0](https://github.com/lucasilverentand/repo-agents/compare/v1.5.0...v1.6.0) (2026-01-21)
+
+
+### Features
+
+* add agent-specific attribution to comments ([e7ee26f](https://github.com/lucasilverentand/repo-agents/commit/e7ee26f0aa0558cc46374dc1ef522b329e2023a7))
+* add copy-project and mark-template output types ([8076f4a](https://github.com/lucasilverentand/repo-agents/commit/8076f4a18504a34bdebdac7ff2384db9eececd97))
+* add copy-project and mark-template output types ([25d3271](https://github.com/lucasilverentand/repo-agents/commit/25d3271ebcfe35461739177733545f8bfbb3f6c8)), closes [#197](https://github.com/lucasilverentand/repo-agents/issues/197)
+* refactor agent workflow to use dispatcher for event handling ([cf75a62](https://github.com/lucasilverentand/repo-agents/commit/cf75a62dc85016b4011fe2f0369ba59c51ee1311))
+* refactor workflow to per-agent job generation ([7d94f59](https://github.com/lucasilverentand/repo-agents/commit/7d94f596d2c59c9412fd0e8f6a5a51950530bdaf))
+
+
+### Bug Fixes
+
+* add repo-agent script to package.json for workflow execution ([59235b1](https://github.com/lucasilverentand/repo-agents/commit/59235b168d9d9bc5b5ac7279079135d98e06d8a5))
+* compact JSON output for GitHub Actions environment ([a024772](https://github.com/lucasilverentand/repo-agents/commit/a024772988aebff59e28097d34199e362981a4af))
+* correct validation artifact paths in workflow ([cc7fce5](https://github.com/lucasilverentand/repo-agents/commit/cc7fce572c04996972c3f631c81a0f1f0e76144c))
+* disable coverage threshold temporarily ([b1fc804](https://github.com/lucasilverentand/repo-agents/commit/b1fc8048e26f76386ea0e5b1c15df5eb8d4a84e9))
+* **docs:** pin zod v3 for Astro compatibility ([87f2666](https://github.com/lucasilverentand/repo-agents/commit/87f266649858ce3c8d4133edf7a096932b6457c7))
+* execute outputs for each configured output type in agent ([9b3373a](https://github.com/lucasilverentand/repo-agents/commit/9b3373a709c2c427d0346678cd17467a43405109))
+* restore unified workflow architecture with route-event ([4107f65](https://github.com/lucasilverentand/repo-agents/commit/4107f654fb3dc6409e59411f41fce1056228598a))
+* simplify output_types parsing in check-outputs step ([ee6d31b](https://github.com/lucasilverentand/repo-agents/commit/ee6d31b4e8d0b864b03ac1c332f3691e7c5ccba7))
+* support global preflight without agent path ([3358d13](https://github.com/lucasilverentand/repo-agents/commit/3358d13f1175cf8b7c8a4d685447d8c6589fe5c8))
+* update CLI version retrieval and refine package file structure ([89dffea](https://github.com/lucasilverentand/repo-agents/commit/89dffea33158854fd851039754ad1373c577f685))
+* update workflow tests to reflect dispatcher changes ([a6ef9ad](https://github.com/lucasilverentand/repo-agents/commit/a6ef9add0331f58e3ae5d0665aa31c32c414e34e))
+
 ## [1.5.0](https://github.com/lucasilverentand/repo-agents/compare/v1.4.0...v1.5.0) (2026-01-20)
 
 
