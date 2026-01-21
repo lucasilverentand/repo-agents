@@ -47,7 +47,7 @@ Create \`/tmp/outputs/create-issue.json\` with:
 {
   "title": "Add support for custom configurations",
   "body": "## Description\\n\\nThis issue tracks the work to add custom configuration support...\\n\\n## Acceptance Criteria\\n\\n- [ ] Configuration file parsing\\n- [ ] Validation logic\\n- [ ] Documentation",
-  "labels": ["enhancement", "good first issue"]
+  "labels": ["enhancement"]
 }
 \`\`\`
 

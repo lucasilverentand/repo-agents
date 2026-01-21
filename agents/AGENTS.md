@@ -169,7 +169,6 @@ Copy the agents from `.github/agents/` to your repository and configure:
 - Add appropriate labels:
   - `needs-info` - Missing critical information (pauses pipeline)
   - `ready-for-triage` - Complete and ready for categorization
-  - `good-first-issue` - Approachable for newcomers
 - Comment acknowledging issue and requesting any missing info
 
 **Outputs**: `add-comment`, `add-label`
@@ -689,7 +688,6 @@ Create these labels in your repository for the agents to function properly.
 | `critical` | `#b60205` | Critical priority |
 | `in-progress` | `#fbca04` | Actively being worked |
 | `long-term` | `#bfd4f2` | Long-term initiative |
-| `good-first-issue` | `#7057ff` | Good for newcomers |
 
 ---
 

@@ -33,7 +33,6 @@ This example shows a comprehensive issue lifecycle powered by AI agents working 
 
     Analyzer -->|Missing Info| NeedsInfo[🏷️ Label: needs-info]:::labelNode
     Analyzer -->|Complete| ReadyTriage[🏷️ Label: ready-for-triage]:::labelNode
-    Analyzer -->|Simple & Clear| GoodFirst[🏷️ Label: good-first-issue]:::labelNode
 
     %% Human Intervention for Missing Info
     NeedsInfo --> HumanUpdate1([👤 Human Updates Issue]):::humanNode
@@ -147,7 +146,6 @@ outputs:
 **Actions:**
 - Adds `needs-info` if incomplete
 - Adds `ready-for-triage` if complete
-- May add `good-first-issue` for simple issues
 - **Rate Limit:** 1 minute
 
 ### 2. Issue Formatter (Optional Cleanup)

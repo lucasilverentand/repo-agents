@@ -73,7 +73,6 @@ describe("CreateIssueHandler", () => {
       expect(skill).toContain('"title":');
       expect(skill).toContain('"body":');
       expect(skill).toContain("enhancement");
-      expect(skill).toContain("good first issue");
     });
 
     it("should include multiple file naming pattern", () => {

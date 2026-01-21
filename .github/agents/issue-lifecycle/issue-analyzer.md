@@ -78,7 +78,6 @@ Once you've added this information, we'll be able to triage and prioritize this 
 
 1. Add the `ready-for-triage` label
 2. Write a brief comment thanking the reporter
-3. If the issue appears suitable for newcomers (clear scope, well-defined, not too complex), add the `good-first-issue` label
 
 **Example comment:**
 ```
@@ -126,7 +125,6 @@ If an issue is clearly a question (contains "how do I", "help", etc.):
 If an issue is exceptionally well-structured:
 - Express appreciation for the detail
 - Fast-track to `ready-for-triage`
-- Consider `good-first-issue` if appropriate
 
 ### Minimal but Clear Issues
 

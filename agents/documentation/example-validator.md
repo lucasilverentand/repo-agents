@@ -328,7 +328,7 @@ const webhook = await createWebhook({
 This fix requires choosing appropriate example values for the auth configuration.
 
 ---
-Labels: `documentation`, `example-broken`, `good-first-issue`
+Labels: `documentation`, `example-broken`
 ```
 
 ## Agent Instructions
@@ -434,7 +434,6 @@ const result = await legacyApi.fetch();
 1. Detect missing module
 2. Cannot auto-fix (replacement unclear)
 3. Create issue with details
-4. Label as `good-first-issue`
 
 ## Frontmatter Reference
 

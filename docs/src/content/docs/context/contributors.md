@@ -152,7 +152,7 @@ Monthly check for previously active contributors:
 3. Include:
    - Major changes since they were last active
    - New features or improvements
-   - Easy "good first issues" to jump back in
+   - Easy issues to jump back in
    - Invitation to reconnect
 
 This helps re-engage valuable community members.
