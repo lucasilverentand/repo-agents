@@ -63,7 +63,7 @@ describe("Compile Command", () => {
     expect(proc.exitCode).toBe(0);
     expect(output).toContain("AI Agents");
     expect(output).toContain("global-preflight");
-    expect(output).toContain("route-event");
+    expect(output).toContain("dispatcher");
 
     // Should not create actual files in dry-run
     const workflowsDir = join(tempDir, ".github/workflows");
@@ -89,9 +89,10 @@ describe("Compile Command", () => {
     const workflowContent = await Bun.file(workflowPath).text();
     expect(workflowContent).toContain("name: AI Agents");
     expect(workflowContent).toContain("global-preflight:");
-    expect(workflowContent).toContain("route-event:");
-    expect(workflowContent).toContain("agent-validation:");
-    expect(workflowContent).toContain("agent-execution:");
+    expect(workflowContent).toContain("dispatcher:");
+    expect(workflowContent).toContain("agent-issue-analyzer:");
+    expect(workflowContent).toContain("agent-issue-analyzer-outputs:");
+    expect(workflowContent).toContain("agent-issue-analyzer-audit:");
     expect(workflowContent).toContain("workflow_dispatch");
   });
 

@@ -4,7 +4,8 @@
   "private": true,
   "type": "module",
   "exports": {
-    ".": "./src/index.ts",
+    ".": "./src/unified.ts",
+    "./unified": "./src/unified.ts",
     "./dispatcher": "./src/dispatcher.ts",
     "./skills": "./src/skills.ts",
     "./context-collector": "./src/context-collector.ts"

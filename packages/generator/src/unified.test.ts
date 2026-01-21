@@ -5,7 +5,12 @@ import { unifiedWorkflowGenerator } from "./unified";
 
 interface WorkflowYaml {
   name: string;
-  on: Record<string, unknown>;
+  on: {
+    issues?: { types?: string[] };
+    pull_request?: { types?: string[] };
+    workflow_dispatch?: Record<string, unknown>;
+    [key: string]: unknown;
+  };
   permissions: Record<string, string>;
   jobs: Record<string, unknown>;
 }
@@ -36,11 +41,9 @@ describe("UnifiedWorkflowGenerator", () => {
     // Should contain expected structure
     expect(workflow).toContain("name: AI Agents");
     expect(workflow).toContain("global-preflight:");
-    expect(workflow).toContain("route-event:");
-    expect(workflow).toContain("agent-validation:");
-    expect(workflow).toContain("agent-execution:");
-    expect(workflow).toContain("execute-outputs:");
-    expect(workflow).toContain("audit-report:");
+    expect(workflow).toContain("dispatcher:");
+    expect(workflow).toContain("agent-test-agent:");
+    expect(workflow).toContain("agent-test-agent-audit:");
   });
 
   it("should aggregate triggers from multiple agents", () => {
@@ -66,15 +69,18 @@ describe("UnifiedWorkflowGenerator", () => {
     const parsed = yaml.load(workflow) as WorkflowYaml;
 
     // Should union issue types
-    expect(parsed.on.issues.types).toContain("opened");
-    expect(parsed.on.issues.types).toContain("labeled");
+    expect(parsed.on.issues).toBeDefined();
+    expect(parsed.on.issues?.types).toContain("opened");
+    expect(parsed.on.issues?.types).toContain("labeled");
 
     // Should include PR types
-    expect(parsed.on.pull_request.types).toContain("opened");
+    expect(parsed.on.pull_request).toBeDefined();
+    expect(parsed.on.pull_request?.types).toContain("opened");
 
     // Should always include workflow_dispatch
     expect(parsed.on.workflow_dispatch).toBeDefined();
-    expect(parsed.on.workflow_dispatch.inputs.agent).toBeDefined();
+    const workflowDispatch = parsed.on.workflow_dispatch as Record<string, unknown>;
+    expect((workflowDispatch.inputs as Record<string, unknown>)?.agent).toBeDefined();
   });
 
   it("should aggregate permissions to maximum level", () => {
@@ -126,10 +132,11 @@ describe("UnifiedWorkflowGenerator", () => {
     const parsed = yaml.load(workflow) as WorkflowYaml;
 
     // Should automatically add "closed" for retry logic
-    expect(parsed.on.issues.types).toContain("closed");
+    expect(parsed.on.issues).toBeDefined();
+    expect(parsed.on.issues?.types).toContain("closed");
   });
 
-  it("should generate all 6 jobs", () => {
+  it("should generate per-agent jobs", () => {
     const agents: AgentDefinition[] = [
       {
         name: "Test Agent",
@@ -142,14 +149,12 @@ describe("UnifiedWorkflowGenerator", () => {
     const parsed = yaml.load(workflow) as WorkflowYaml;
 
     expect(parsed.jobs["global-preflight"]).toBeDefined();
-    expect(parsed.jobs["route-event"]).toBeDefined();
-    expect(parsed.jobs["agent-validation"]).toBeDefined();
-    expect(parsed.jobs["agent-execution"]).toBeDefined();
-    expect(parsed.jobs["execute-outputs"]).toBeDefined();
-    expect(parsed.jobs["audit-report"]).toBeDefined();
+    expect(parsed.jobs["dispatcher"]).toBeDefined();
+    expect(parsed.jobs["agent-test-agent"]).toBeDefined();
+    expect(parsed.jobs["agent-test-agent-audit"]).toBeDefined();
   });
 
-  it("should generate matrix configuration in validation job", () => {
+  it("should generate dispatcher outputs for each agent", () => {
     const agents: AgentDefinition[] = [
       {
         name: "Test Agent",
@@ -161,12 +166,11 @@ describe("UnifiedWorkflowGenerator", () => {
     const workflow = unifiedWorkflowGenerator.generate(agents, defaultSecrets);
     const parsed = yaml.load(workflow) as WorkflowYaml;
 
-    const validationJob = parsed.jobs["agent-validation"];
-    expect(validationJob.strategy).toBeDefined();
-    expect(validationJob.strategy["fail-fast"]).toBe(false);
-    expect(validationJob.strategy.matrix.agent).toContain(
-      "fromJson(needs.route-event.outputs.matching-agents)",
-    );
+    const dispatcherJob = parsed.jobs.dispatcher as Record<string, unknown>;
+    expect(dispatcherJob.outputs).toBeDefined();
+    const outputs = dispatcherJob.outputs as Record<string, string>;
+    expect(outputs["agent-test-agent-should-run"]).toBeDefined();
+    expect(outputs["agent-test-agent-skip-reason"]).toBeDefined();
   });
 
   it("should format YAML with proper spacing", () => {
@@ -182,7 +186,7 @@ describe("UnifiedWorkflowGenerator", () => {
 
     // Should have blank lines between jobs
     expect(workflow).toMatch(/jobs:\n\s+global-preflight:/);
-    expect(workflow).toMatch(/\n\s+route-event:/);
+    expect(workflow).toMatch(/\n\s+dispatcher:/);
 
     // Should have blank lines between steps
     expect(workflow).toMatch(/steps:\n\s+- uses:/);
