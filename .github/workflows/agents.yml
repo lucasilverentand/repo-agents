@@ -95,14 +95,14 @@ jobs:
           CLAUDE_CODE_OAUTH_TOKEN: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
           EVENT_PAYLOAD: ${{ needs.dispatcher.outputs.agent-issue-analyzer-event-payload }}
       - name: Upload outputs
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v6
         with:
           name: agent-issue-analyzer-outputs-${{ github.run_id }}
           path: /tmp/outputs/
           retention-days: "7"
       - if: always()
         name: Upload audit metrics
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v6
         with:
           name: agent-issue-analyzer-audit-${{ github.run_id }}
           path: /tmp/audit/
@@ -191,14 +191,14 @@ jobs:
           CLAUDE_CODE_OAUTH_TOKEN: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
           EVENT_PAYLOAD: ${{ needs.dispatcher.outputs.agent-issue-formatter-event-payload }}
       - name: Upload outputs
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v6
         with:
           name: agent-issue-formatter-outputs-${{ github.run_id }}
           path: /tmp/outputs/
           retention-days: "7"
       - if: always()
         name: Upload audit metrics
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v6
         with:
           name: agent-issue-formatter-audit-${{ github.run_id }}
           path: /tmp/audit/
@@ -287,14 +287,14 @@ jobs:
           CLAUDE_CODE_OAUTH_TOKEN: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
           EVENT_PAYLOAD: ${{ needs.dispatcher.outputs.agent-issue-implementer-event-payload }}
       - name: Upload outputs
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v6
         with:
           name: agent-issue-implementer-outputs-${{ github.run_id }}
           path: /tmp/outputs/
           retention-days: "7"
       - if: always()
         name: Upload audit metrics
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v6
         with:
           name: agent-issue-implementer-audit-${{ github.run_id }}
           path: /tmp/audit/
@@ -383,14 +383,14 @@ jobs:
           CLAUDE_CODE_OAUTH_TOKEN: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
           EVENT_PAYLOAD: ${{ needs.dispatcher.outputs.agent-issue-triage-event-payload }}
       - name: Upload outputs
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v6
         with:
           name: agent-issue-triage-outputs-${{ github.run_id }}
           path: /tmp/outputs/
           retention-days: "7"
       - if: always()
         name: Upload audit metrics
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v6
         with:
           name: agent-issue-triage-audit-${{ github.run_id }}
           path: /tmp/audit/
