@@ -14,4 +14,5 @@ pre-commit:
 pre-push:
   commands:
     test:
-      run: bun test
+      # Run unit tests only (exclude runtime integration tests that make external API calls)
+      run: bun test packages/types packages/parser packages/generator packages/cli packages/cli-utils
