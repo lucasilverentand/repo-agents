@@ -29,13 +29,16 @@ export async function setOutput(name: string, value: string): Promise<void> {
 
   let content: string;
 
-  if (value.includes("\n")) {
-    // Multiline value - use heredoc-style delimiter
+  // Use heredoc format for:
+  // 1. Multiline values (contains newlines)
+  // 2. Large values (> 1000 characters) to avoid GitHub Actions truncation
+  if (value.includes("\n") || value.length > 1000) {
+    // Multiline or large value - use heredoc-style delimiter
     const delimiter = generateDelimiter();
     content = `${name}<<${delimiter}\n${value}\n${delimiter}\n`;
-    console.log(`Using heredoc format for multiline value`);
+    console.log(`Using heredoc format (multiline or large value)`);
   } else {
-    // Single line value
+    // Single line, small value
     content = `${name}=${value}\n`;
     console.log(`Using single-line format`);
   }
