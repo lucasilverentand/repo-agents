@@ -8,69 +8,57 @@ const workflowInputSchema = z.object({
   options: z.array(z.string()).optional(),
 });
 
-const triggerConfigSchema = z
-  .object({
-    issues: z
-      .object({
-        types: z.array(z.string()).optional(),
-      })
-      .strict()
-      .optional(),
-    pull_request: z
-      .object({
-        types: z.array(z.string()).optional(),
-      })
-      .strict()
-      .optional(),
-    discussion: z
-      .object({
-        types: z.array(z.string()).optional(),
-      })
-      .strict()
-      .optional(),
-    schedule: z
-      .array(
-        z
-          .object({
-            cron: z.string(),
-          })
-          .strict(),
-      )
-      .optional(),
-    workflow_dispatch: z
-      .object({
-        inputs: z.record(workflowInputSchema).optional(),
-      })
-      .strict()
-      .optional(),
-    repository_dispatch: z
-      .object({
-        types: z.array(z.string()).optional(),
-      })
-      .strict()
-      .optional(),
-  })
-  .strict();
+const triggerConfigSchema = z.strictObject({
+  issues: z
+    .strictObject({
+      types: z.array(z.string()).optional(),
+    })
+    .optional(),
+  pull_request: z
+    .strictObject({
+      types: z.array(z.string()).optional(),
+    })
+    .optional(),
+  discussion: z
+    .strictObject({
+      types: z.array(z.string()).optional(),
+    })
+    .optional(),
+  schedule: z
+    .array(
+      z.strictObject({
+        cron: z.string(),
+      }),
+    )
+    .optional(),
+  workflow_dispatch: z
+    .strictObject({
+      inputs: z.record(z.string(), workflowInputSchema).optional(),
+    })
+    .optional(),
+  repository_dispatch: z
+    .strictObject({
+      types: z.array(z.string()).optional(),
+    })
+    .optional(),
+});
 
 const permissionsSchema = z
-  .object({
+  .strictObject({
     contents: z.enum(["read", "write"]).optional(),
     issues: z.enum(["read", "write"]).optional(),
     pull_requests: z.enum(["read", "write"]).optional(),
     discussions: z.enum(["read", "write"]).optional(),
   })
-  .strict()
   .optional();
 
-const outputConfigSchema = z
-  .object({
-    max: z.number().optional(),
-    sign: z.boolean().optional(),
-  })
-  .passthrough(); // Allow additional properties
+const outputConfigSchema = z.looseObject({
+  max: z.number().optional(),
+  sign: z.boolean().optional(),
+}); // Allow additional properties
 
 const outputSchema = z
-  .record(
+  .partialRecord(
     z.enum([
       "add-comment",
       "add-label",
@@ -106,7 +94,7 @@ const toolSchema = z
     z.object({
       name: z.string(),
       description: z.string(),
-      parameters: z.record(z.unknown()).optional(),
+      parameters: z.record(z.string(), z.unknown()).optional(),
     }),
   )
   .optional();
@@ -307,26 +295,24 @@ const auditConfigSchema = z
   })
   .optional();
 
-export const agentFrontmatterSchema = z
-  .object({
-    name: z.string().min(1, "Agent name is required"),
-    on: triggerConfigSchema,
-    permissions: permissionsSchema,
-    provider: z.enum(["claude-code", "opencode"]).optional(),
-    outputs: outputSchema,
-    tools: toolSchema,
-    "allowed-actors": z.array(z.string()).optional(),
-    "allowed-users": z.array(z.string()).optional(),
-    "allowed-teams": z.array(z.string()).optional(),
-    "allowed-paths": z.array(z.string()).optional(),
-    trigger_labels: z.array(z.string()).optional(),
-    max_open_prs: z.number().min(1).optional(),
-    rate_limit_minutes: z.number().min(0).optional(),
-    pre_flight: preFlightConfigSchema,
-    context: contextConfigSchema,
-    audit: auditConfigSchema,
-    progress_comment: z.boolean().optional(), // Show progress comment on issue/PR (default: true for issue/PR triggers)
-  })
-  .strict(); // Reject unknown properties
+export const agentFrontmatterSchema = z.strictObject({
+  name: z.string().min(1, { message: "Agent name is required" }),
+  on: triggerConfigSchema,
+  permissions: permissionsSchema,
+  provider: z.enum(["claude-code", "opencode"]).optional(),
+  outputs: outputSchema,
+  tools: toolSchema,
+  "allowed-actors": z.array(z.string()).optional(),
+  "allowed-users": z.array(z.string()).optional(),
+  "allowed-teams": z.array(z.string()).optional(),
+  "allowed-paths": z.array(z.string()).optional(),
+  trigger_labels: z.array(z.string()).optional(),
+  max_open_prs: z.number().min(1).optional(),
+  rate_limit_minutes: z.number().min(0).optional(),
+  pre_flight: preFlightConfigSchema,
+  context: contextConfigSchema,
+  audit: auditConfigSchema,
+  progress_comment: z.boolean().optional(), // Show progress comment on issue/PR (default: true for issue/PR triggers)
+}); // Reject unknown properties
 
 export type AgentFrontmatter = z.infer<typeof agentFrontmatterSchema>;
