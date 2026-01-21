@@ -8,7 +8,7 @@
     "repo-agents": "./packages/cli/src/index.ts"
   },
   "files": [
-    "packages"
+    "packages/*/src"
   ],
   "workspaces": [
     "packages/*",

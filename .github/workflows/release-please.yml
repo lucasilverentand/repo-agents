@@ -46,12 +46,9 @@ jobs:
       - name: Run tests
         run: bun test
 
-      - name: Build
-        run: bun run build
-
       - name: Verify CLI version
         run: |
-          CLI_VERSION=$(bun dist/index.js --version)
+          CLI_VERSION=$(bun packages/cli/src/index.ts --version)
           RELEASE_VERSION="${{ needs.release-please.outputs.version }}"
           echo "CLI version: $CLI_VERSION"
           echo "Release version: $RELEASE_VERSION"
