@@ -370,10 +370,15 @@ export async function getIssueOrPRNumber(ctx: ValidationContext): Promise<number
  */
 export async function getEventPayload(ctx: ValidationContext): Promise<string | undefined> {
   try {
+    console.log(`Reading event payload from: ${ctx.github.eventPath}`);
     const payload = await Bun.file(ctx.github.eventPath).text();
+    console.log(`Event payload length: ${payload.length} characters`);
     // Base64 encode to avoid newline issues with GitHub Actions outputs
-    return Buffer.from(payload).toString("base64");
-  } catch {
+    const encoded = Buffer.from(payload).toString("base64");
+    console.log(`Encoded payload length: ${encoded.length} characters`);
+    return encoded;
+  } catch (error) {
+    console.error(`Failed to read event payload: ${error}`);
     return undefined;
   }
 }

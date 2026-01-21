@@ -96,7 +96,10 @@ export async function runDispatcher(ctx: {
     // Always get event payload for agents that might run
     const eventPayload = await getEventPayload(validationContext);
     if (eventPayload) {
+      console.log(`  Event payload size: ${eventPayload.length} characters (base64)`);
       outputs[`agent-${slug}-event-payload`] = eventPayload;
+    } else {
+      console.warn(`  ⚠ Event payload is undefined for ${agent.name}`);
     }
   }
 
