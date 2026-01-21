@@ -46,6 +46,37 @@ describe("UnifiedWorkflowGenerator", () => {
     expect(workflow).toContain("agent-test-agent-audit:");
   });
 
+  it("should generate consistent workflow output (snapshot)", () => {
+    const agents: AgentDefinition[] = [
+      {
+        name: "Test Agent",
+        markdown: "Test instructions for the agent",
+        on: {
+          issues: { types: ["opened", "labeled"] },
+          pull_request: { types: ["opened"] },
+        },
+        permissions: {
+          issues: "write",
+          contents: "read",
+          pull_requests: "write",
+        },
+        outputs: {
+          "add-comment": {
+            target: "event",
+          },
+          "add-label": {
+            allowed_labels: ["bug", "enhancement"],
+          },
+        },
+      },
+    ];
+
+    const workflow = unifiedWorkflowGenerator.generate(agents, defaultSecrets);
+
+    // This will fail on first run - run with --update-snapshots to create baseline
+    expect(workflow).toMatchSnapshot();
+  });
+
   it("should aggregate triggers from multiple agents", () => {
     const agents: AgentDefinition[] = [
       {

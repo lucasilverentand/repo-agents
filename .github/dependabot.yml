@@ -1,6 +1,9 @@
+# Dependabot configuration for automated dependency updates
+# https://docs.github.com/en/code-security/dependabot/dependabot-version-updates/configuration-options-for-the-dependabot.yml-file
+
 version: 2
 updates:
-  # Main dependencies
+  # Main workspace dependencies
   - package-ecosystem: "npm"
     directory: "/"
     schedule:
@@ -9,13 +12,23 @@ updates:
     open-pull-requests-limit: 5
     labels:
       - "dependencies"
+      - "automated"
+    commit-message:
+      prefix: "chore"
+      prefix-development: "chore"
     groups:
       dev-dependencies:
         dependency-type: "development"
+        update-types:
+          - "minor"
+          - "patch"
       production-dependencies:
         dependency-type: "production"
+        update-types:
+          - "minor"
+          - "patch"
 
-  # Documentation dependencies
+  # Documentation site dependencies
   - package-ecosystem: "npm"
     directory: "/docs"
     schedule:
@@ -24,14 +37,20 @@ updates:
     open-pull-requests-limit: 3
     labels:
       - "dependencies"
-      - "docs"
+      - "documentation"
+      - "automated"
+    commit-message:
+      prefix: "docs"
 
   # GitHub Actions
   - package-ecosystem: "github-actions"
     directory: "/"
     schedule:
       interval: "monthly"
-      day: "monday"
+    open-pull-requests-limit: 2
     labels:
       - "dependencies"
       - "ci"
+      - "automated"
+    commit-message:
+      prefix: "ci"

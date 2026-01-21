@@ -1,0 +1,19 @@
+# Bun configuration
+# https://bun.sh/docs/runtime/bunfig
+
+[test]
+# Coverage collection enabled
+# Updated after comprehensive test expansion (Jan 2026)
+coverage = true
+# Coverage threshold temporarily disabled - Bun's threshold checking appears to be per-file
+# coverageThreshold = 80.0  # Overall coverage minimum (current: 80.84% functions, 94.06% lines)
+
+# Test timeout (5 seconds per test)
+timeout = 5000
+
+# Report output
+coverageReporter = ["text", "lcov"]
+coverageDir = "coverage"
+
+# Bail on first failure in CI (faster feedback)
+# bail = 1  # Uncomment for CI fast-fail

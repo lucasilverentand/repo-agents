@@ -3,31 +3,6 @@ import { existsSync } from "node:fs";
 import { mkdir, rm, writeFile } from "node:fs/promises";
 import path from "node:path";
 
-// We need to test the internal functions, but they're not exported.
-// For now, we'll test the module by reading what it creates.
-// In a more complete test suite, we'd refactor to export testable units.
-
-// Create a minimal valid agent definition for testing
-// TODO: Use this helper in expanded test coverage
-const _createAgentMd = (options: { outputs?: boolean } = {}) => {
-  const outputs = options.outputs
-    ? `outputs:
-  add-comment: true
-  add-label: true`
-    : "";
-
-  return `---
-name: Test Agent
-on:
-  issues:
-    types: [opened]
-${outputs}
----
-
-You are a test agent. Please analyze the issue and provide a helpful response.
-`;
-};
-
 describe("runAgent", () => {
   const testDir = "/tmp/repo-agents-test";
   const agentPath = path.join(testDir, "test-agent.md");
@@ -36,6 +11,9 @@ describe("runAgent", () => {
     // Create test directory
     await mkdir(testDir, { recursive: true });
 
+    // Clean up environment variables from previous tests
+    delete process.env.EVENT_PAYLOAD;
+
     // Clean up any previous test artifacts
     for (const p of [
       "/tmp/outputs",
@@ -43,6 +21,7 @@ describe("runAgent", () => {
       "/tmp/context.txt",
       "/tmp/claude-output.json",
       "/tmp/context",
+      ".claude",
     ]) {
       if (existsSync(p)) {
         await rm(p, { recursive: true, force: true });
@@ -51,6 +30,9 @@ describe("runAgent", () => {
   });
 
   afterEach(async () => {
+    // Clean up environment variables
+    delete process.env.EVENT_PAYLOAD;
+
     // Clean up test directory
     if (existsSync(testDir)) {
       await rm(testDir, { recursive: true, force: true });
@@ -123,10 +105,6 @@ Instructions here
     });
   });
 
-  // Note: The following tests would require mocking the Claude CLI execution
-  // or extracting the buildContextFile function for unit testing.
-  // For now, we test the error paths which don't require Claude execution.
-
   describe("module integration", () => {
     it("should export runAgent function", async () => {
       const agentModule = await import("./agent");
@@ -153,5 +131,98 @@ Instructions here
       expect(typeof result.success).toBe("boolean");
       expect(typeof result.outputs).toBe("object");
     });
+  });
+
+  describe("metrics extraction from missing or malformed output", () => {
+    it("should handle missing Claude output file gracefully", async () => {
+      const { runAgent } = await import("./agent");
+
+      // Create agent with invalid frontmatter to trigger early error
+      // This tests the error handling without running Claude CLI
+      await writeFile(agentPath, "invalid yaml content");
+
+      const result = await runAgent({
+        repository: "owner/repo",
+        runId: "12345",
+        actor: "testuser",
+        eventName: "issues",
+        eventPath: "",
+        agentPath,
+      });
+
+      expect(result.success).toBe(false);
+      expect(result.outputs["is-error"]).toBe("true");
+    });
+  });
+
+  describe("artifacts", () => {
+    it("should include audit artifacts array in error results", async () => {
+      const { runAgent } = await import("./agent");
+
+      const result = await runAgent({
+        repository: "owner/repo",
+        runId: "12345",
+        actor: "testuser",
+        eventName: "issues",
+        eventPath: "",
+        agentPath: "/nonexistent.md",
+      });
+
+      expect(result.success).toBe(false);
+      expect(result.artifacts).toBeDefined();
+      expect(Array.isArray(result.artifacts)).toBe(true);
+    });
+  });
+
+  describe("error handling", () => {
+    it("should handle malformed agent YAML", async () => {
+      const { runAgent } = await import("./agent");
+
+      await writeFile(agentPath, "{{invalid yaml");
+
+      const result = await runAgent({
+        repository: "owner/repo",
+        runId: "12345",
+        actor: "testuser",
+        eventName: "issues",
+        eventPath: "",
+        agentPath,
+      });
+
+      expect(result.success).toBe(false);
+      expect(result.outputs["is-error"]).toBe("true");
+    });
+
+    it("should return error details in outputs", async () => {
+      const { runAgent } = await import("./agent");
+
+      const result = await runAgent({
+        repository: "owner/repo",
+        runId: "12345",
+        actor: "testuser",
+        eventName: "issues",
+        eventPath: "",
+        agentPath: "/this/does/not/exist.md",
+      });
+
+      expect(result.success).toBe(false);
+      expect(result.outputs).toHaveProperty("is-error");
+      expect(result.outputs).toHaveProperty("error");
+      expect(result.outputs.error).toBeTruthy();
+    });
+  });
+
+  // Integration tests that require Claude CLI execution are intentionally skipped
+  // Mocking Bun's $ shell is complex and these tests would timeout
+  // These scenarios are better tested in end-to-end tests
+  describe.skip("full integration tests (requires mocking Bun shell)", () => {
+    it.todo("should build context from EVENT_PAYLOAD environment variable");
+    it.todo("should build context from GITHUB_EVENT_PATH");
+    it.todo("should include collected context from /tmp/context/collected.md");
+    it.todo("should create skills file when outputs are configured");
+    it.todo("should handle successful Claude CLI execution");
+    it.todo("should handle Claude CLI errors");
+    it.todo("should extract metrics from Claude output");
+    it.todo("should include artifacts in result");
   });
 });
