@@ -483,3 +483,169 @@ export interface ProgressCommentState {
   error?: string;
   finalComment?: string; // Claude's add-comment output replaces progress
 }
+
+// Audit Manifest Types
+export interface AuditManifest {
+  schema_version: "1.0.0";
+  audit_id: string;
+  generated_at: string;
+  metadata: AuditMetadata;
+  validation: AuditValidationPhase;
+  execution: AuditExecutionPhase;
+  outputs: AuditOutputsPhase;
+  failures: AuditFailureSummary;
+  issues: AuditIssue[];
+}
+
+export interface AuditMetadata {
+  agent_name: string;
+  agent_path: string;
+  agent_version?: string;
+  workflow: {
+    run_id: string;
+    run_number: number;
+    run_attempt: number;
+    workflow_name: string;
+    workflow_url: string;
+    job_name: string;
+  };
+  trigger: {
+    event_name: string;
+    event_action?: string;
+    actor: string;
+    repository: string;
+    ref?: string;
+    sha?: string;
+  };
+  timing: {
+    workflow_started_at: string;
+    agent_started_at?: string;
+    agent_completed_at?: string;
+    total_duration_ms: number;
+  };
+}
+
+export interface AuditValidationPhase {
+  passed: boolean;
+  checks: {
+    secrets_check: AuditValidationCheck;
+    user_authorization: AuditValidationCheck;
+    trigger_labels: AuditValidationCheck;
+    rate_limit: AuditValidationCheck;
+    max_open_prs: AuditValidationCheck;
+    blocking_issues: AuditValidationCheck;
+  };
+  skip_reason?: string;
+}
+
+export interface AuditValidationCheck {
+  passed: boolean;
+  reason?: string;
+  details?: Record<string, unknown>;
+}
+
+export interface AuditExecutionPhase {
+  success: boolean;
+  session_id?: string;
+  metrics: {
+    total_cost_usd: number;
+    num_turns: number;
+    duration_ms: number;
+    duration_api_ms: number;
+    model?: string;
+    input_tokens?: number;
+    output_tokens?: number;
+  };
+  conversation_file?: string;
+  tool_usage: AuditToolUsageSummary;
+  result?: string;
+  error?: {
+    type: string;
+    message: string;
+    stack?: string;
+  };
+}
+
+export interface AuditToolUsageSummary {
+  total_calls: number;
+  by_tool: Record<
+    string,
+    {
+      calls: number;
+      successes: number;
+      failures: number;
+    }
+  >;
+  permission_issues: AuditToolPermissionIssue[];
+}
+
+export interface AuditToolPermissionIssue {
+  tool: string;
+  issue_type: "denied" | "restricted" | "not_allowed";
+  message: string;
+  timestamp: string;
+}
+
+export interface AuditOutputsPhase {
+  configured_count: number;
+  executed_count: number;
+  results: AuditOutputResult[];
+}
+
+export interface AuditOutputResult {
+  type: string;
+  file: string;
+  validation_passed: boolean;
+  execution_succeeded: boolean;
+  validation_errors?: string[];
+  execution_error?: string;
+  data?: Record<string, unknown>;
+  result?: Record<string, unknown>;
+}
+
+export interface AuditFailureSummary {
+  has_failures: boolean;
+  failure_count: number;
+  reasons: AuditFailureReason[];
+  severity: "none" | "warning" | "error" | "critical";
+}
+
+export interface AuditFailureReason {
+  category: "validation" | "execution" | "output" | "permission" | "configuration";
+  message: string;
+  severity: "warning" | "error" | "critical";
+  details?: Record<string, unknown>;
+}
+
+export interface AuditIssue {
+  id: string;
+  type:
+    | "missing_permission"
+    | "path_restriction"
+    | "rate_limit"
+    | "validation_error"
+    | "configuration_error"
+    | "tool_not_allowed"
+    | "secret_missing"
+    | "agent_definition_error";
+  severity: "warning" | "error" | "critical";
+  message: string;
+  timestamp: string;
+  context?: Record<string, unknown>;
+  remediation?: string;
+}
+
+export interface CombinedAuditManifest {
+  schema_version: "1.0.0";
+  generated_at: string;
+  workflow_run_id: string;
+  workflow_run_url: string;
+  agents: AuditManifest[];
+  summary: {
+    total_agents: number;
+    successful_agents: number;
+    failed_agents: number;
+    total_cost_usd: number;
+    total_duration_ms: number;
+  };
+}

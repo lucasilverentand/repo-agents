@@ -42,7 +42,8 @@ describe("UnifiedWorkflowGenerator", () => {
     expect(workflow).toContain("name: AI Agents");
     expect(workflow).toContain("dispatcher:");
     expect(workflow).toContain("agent-test-agent:");
-    expect(workflow).toContain("agent-test-agent-audit:");
+    expect(workflow).toContain("audit-report:");
+    expect(workflow).toContain("audit-issues:");
   });
 
   it("should generate consistent workflow output (snapshot)", () => {
@@ -180,7 +181,9 @@ describe("UnifiedWorkflowGenerator", () => {
 
     expect(parsed.jobs.dispatcher).toBeDefined();
     expect(parsed.jobs["agent-test-agent"]).toBeDefined();
-    expect(parsed.jobs["agent-test-agent-audit"]).toBeDefined();
+    // New audit architecture uses unified audit-report and audit-issues jobs
+    expect(parsed.jobs["audit-report"]).toBeDefined();
+    expect(parsed.jobs["audit-issues"]).toBeDefined();
   });
 
   it("should generate dispatcher outputs for each agent", () => {

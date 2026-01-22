@@ -6,6 +6,8 @@ import { Command } from "commander";
 import {
   runAgent,
   runAudit,
+  runAuditIssues,
+  runAuditReport,
   runContext,
   runDispatcher,
   runOutputs,
@@ -33,6 +35,8 @@ const stages = {
   agent: runAgent,
   outputs: runOutputs,
   audit: runAudit,
+  "audit-report": runAuditReport,
+  "audit-issues": runAuditIssues,
   progress: runProgress,
 } as const;
 
@@ -172,6 +176,64 @@ program
         `Available stages: ${[...Object.keys(stages), ...Object.keys(unifiedStages)].join(", ")}`,
       );
       process.exit(1);
+    }
+
+    // audit-report doesn't require --agent flag
+    if (stage === "audit-report") {
+      const ctx: StageContext = {
+        repository: process.env.GITHUB_REPOSITORY ?? "",
+        runId: process.env.GITHUB_RUN_ID ?? "",
+        actor: process.env.GITHUB_ACTOR ?? "",
+        eventName: process.env.GITHUB_EVENT_NAME ?? "",
+        eventPath: process.env.GITHUB_EVENT_PATH ?? "",
+        agentPath: "", // Not needed for audit-report
+      };
+
+      const result = await runAuditReport(ctx);
+
+      // Write outputs to GITHUB_OUTPUT if available
+      const outputFile = process.env.GITHUB_OUTPUT;
+      if (outputFile && Object.keys(result.outputs).length > 0) {
+        const { appendFileSync } = await import("node:fs");
+        for (const [key, value] of Object.entries(result.outputs)) {
+          appendFileSync(outputFile, `${key}=${value}\n`);
+        }
+      }
+
+      process.exit(result.success ? 0 : 1);
+    }
+
+    // audit-issues uses --agent for the agent name (from matrix)
+    if (stage === "audit-issues") {
+      const agentName = options.agent || process.env.MATRIX_AGENT;
+      if (!agentName) {
+        console.error(
+          "Error: --agent or MATRIX_AGENT environment variable is required for audit-issues stage",
+        );
+        process.exit(1);
+      }
+
+      const ctx: StageContext = {
+        repository: process.env.GITHUB_REPOSITORY ?? "",
+        runId: process.env.GITHUB_RUN_ID ?? "",
+        actor: process.env.GITHUB_ACTOR ?? "",
+        eventName: process.env.GITHUB_EVENT_NAME ?? "",
+        eventPath: process.env.GITHUB_EVENT_PATH ?? "",
+        agentPath: agentName, // Use agent name directly (not a path)
+      };
+
+      const result = await runAuditIssues(ctx);
+
+      // Write outputs to GITHUB_OUTPUT if available
+      const outputFile = process.env.GITHUB_OUTPUT;
+      if (outputFile && Object.keys(result.outputs).length > 0) {
+        const { appendFileSync } = await import("node:fs");
+        for (const [key, value] of Object.entries(result.outputs)) {
+          appendFileSync(outputFile, `${key}=${value}\n`);
+        }
+      }
+
+      process.exit(result.success ? 0 : 1);
     }
 
     if (!options.agent) {

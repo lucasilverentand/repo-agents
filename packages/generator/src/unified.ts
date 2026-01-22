@@ -39,7 +39,8 @@ interface UnifiedWorkflow {
  * 1. dispatcher: Validates Claude auth, discovers agents, routes events, validates per-agent
  * 2. agent-execution: Runs Claude for validated agents (one job per agent)
  * 3. agent-outputs: Executes outputs (one job per agent with outputs)
- * 4. agent-audit: Generates audit reports (one job per agent)
+ * 4. audit-report: Generates combined audit manifest and GitHub step summary (single job)
+ * 5. audit-issues: Creates GitHub issues for failures (matrix job per failed agent)
  */
 export class UnifiedWorkflowGenerator {
   /**
@@ -70,10 +71,11 @@ export class UnifiedWorkflowGenerator {
       if (agent.outputs && Object.keys(agent.outputs).length > 0) {
         jobs[`agent-${agentSlug}-outputs`] = this.generateAgentOutputsJob(agent, agentSlug);
       }
-
-      // Agent audit job (always runs)
-      jobs[`agent-${agentSlug}-audit`] = this.generateAgentAuditJob(agent, agentSlug);
     }
+
+    // Add unified audit jobs (replaces per-agent audit jobs)
+    jobs["audit-report"] = this.generateAuditReportJob(agents);
+    jobs["audit-issues"] = this.generateAuditIssuesJob(agents);
 
     const workflow: UnifiedWorkflow = {
       name: "AI Agents",
@@ -431,16 +433,90 @@ export class UnifiedWorkflowGenerator {
   }
 
   /**
-   * Generate audit job for a specific agent
-   * Generates audit report and creates issue if configured
+   * Generate audit report job - single job that processes all agents
+   * Downloads all audit artifacts, builds manifests, writes to GITHUB_STEP_SUMMARY
    */
-  private generateAgentAuditJob(agent: AgentDefinition, agentSlug: string): GitHubWorkflowJob {
+  private generateAuditReportJob(agents: AgentDefinition[]): GitHubWorkflowJob {
+    const ghExpr = (expr: string) => `\${{ ${expr} }}`;
+
+    // Build needs array with all agent execution jobs
+    const agentJobNames = agents.map((a) => `agent-${this.slugifyAgentName(a.name)}`);
+    const needs = ["dispatcher", ...agentJobNames];
+
+    return {
+      "runs-on": "ubuntu-latest",
+      needs,
+      if: "always()",
+      outputs: {
+        "has-failures": ghExpr("steps.report.outputs.has-failures"),
+        "failed-agents": ghExpr("steps.report.outputs.failed-agents"),
+      },
+      steps: [
+        {
+          uses: "actions/checkout@v4",
+        },
+        {
+          uses: "oven-sh/setup-bun@v2",
+        },
+        {
+          name: "Install dependencies",
+          run: "bun install --frozen-lockfile",
+        },
+        {
+          name: "Download all audit artifacts",
+          uses: "actions/download-artifact@v4",
+          with: {
+            pattern: "agent-*-audit-*",
+            path: "/tmp/all-audits/",
+          },
+          "continue-on-error": true,
+        },
+        {
+          name: "Generate audit report",
+          id: "report",
+          run: "bun run repo-agent run audit-report",
+          env: {
+            GITHUB_TOKEN: ghExpr("secrets.GITHUB_TOKEN"),
+            JOB_RESULTS: ghExpr("toJSON(needs)"),
+          },
+        },
+        {
+          name: "Write job summary",
+          run: "cat /tmp/audit/summary.md >> $GITHUB_STEP_SUMMARY",
+          if: "always()",
+          "continue-on-error": true,
+        },
+        {
+          name: "Upload audit manifest",
+          uses: "actions/upload-artifact@v4",
+          with: {
+            name: `audit-manifest-${ghExpr("github.run_id")}`,
+            path: "/tmp/audit/",
+            "retention-days": "30",
+          },
+          if: "always()",
+        },
+      ],
+    };
+  }
+
+  /**
+   * Generate audit issues job - matrix job for each failed agent
+   * Creates or updates GitHub issues for failures
+   */
+  private generateAuditIssuesJob(_agents: AgentDefinition[]): GitHubWorkflowJob {
     const ghExpr = (expr: string) => `\${{ ${expr} }}`;
 
     return {
       "runs-on": "ubuntu-latest",
-      needs: ["dispatcher", `agent-${agentSlug}`],
-      if: `always() && needs.dispatcher.outputs.agent-${agentSlug}-should-run == 'true'`,
+      needs: ["audit-report"],
+      if: `always() && needs.audit-report.outputs.has-failures == 'true'`,
+      strategy: {
+        matrix: {
+          agent: ghExpr("fromJSON(needs.audit-report.outputs.failed-agents)"),
+        },
+        "fail-fast": false,
+      },
       steps: [
         {
           uses: "actions/checkout@v4",
@@ -462,20 +538,19 @@ export class UnifiedWorkflowGenerator {
           "continue-on-error": true,
         },
         {
-          name: "Download audit metrics",
+          name: "Download audit manifest",
           uses: "actions/download-artifact@v4",
           with: {
-            name: `agent-${agentSlug}-audit-${ghExpr("github.run_id")}`,
-            path: "/tmp/artifacts/",
+            name: `audit-manifest-${ghExpr("github.run_id")}`,
+            path: "/tmp/audit/",
           },
-          "continue-on-error": true,
         },
         {
-          name: "Generate audit report",
-          run: `bun run repo-agent run audit --agent "${agent.name}"`,
+          name: "Create failure issue",
+          run: `bun run repo-agent run audit-issues --agent "${ghExpr("matrix.agent")}"`,
           env: {
             GH_TOKEN: ghExpr("steps.app-token.outputs.token || secrets.GITHUB_TOKEN"),
-            AGENT_RESULT: ghExpr(`needs.agent-${agentSlug}.result`),
+            MATRIX_AGENT: ghExpr("matrix.agent"),
           },
         },
       ],

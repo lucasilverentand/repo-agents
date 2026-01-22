@@ -4,6 +4,8 @@
 
 export { runAgent } from "./agent";
 export { runAudit } from "./audit";
+export { runAuditIssues } from "./audit-issues";
+export { runAuditReport } from "./audit-report";
 export { runContext } from "./context";
 export { runDispatcher } from "./dispatcher";
 export { runOutputs } from "./outputs";

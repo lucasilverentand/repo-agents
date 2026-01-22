@@ -90,7 +90,9 @@ describe("Compile Command", () => {
     expect(workflowContent).toContain("dispatcher:");
     expect(workflowContent).toContain("agent-issue-analyzer:");
     expect(workflowContent).toContain("agent-issue-analyzer-outputs:");
-    expect(workflowContent).toContain("agent-issue-analyzer-audit:");
+    // New audit architecture uses unified audit-report and audit-issues jobs
+    expect(workflowContent).toContain("audit-report:");
+    expect(workflowContent).toContain("audit-issues:");
     expect(workflowContent).toContain("workflow_dispatch");
   });
 

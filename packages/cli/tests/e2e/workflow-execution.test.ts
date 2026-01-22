@@ -116,7 +116,9 @@ You are a triage agent that analyzes new issues. Read the issue and provide anal
     // Validate all expected jobs are present
     expect(workflow.jobs.dispatcher).toBeDefined();
     expect(workflow.jobs["agent-simple-triage-agent"]).toBeDefined();
-    expect(workflow.jobs["agent-simple-triage-agent-audit"]).toBeDefined();
+    // New audit architecture uses unified audit-report and audit-issues jobs
+    expect(workflow.jobs["audit-report"]).toBeDefined();
+    expect(workflow.jobs["audit-issues"]).toBeDefined();
 
     // Outputs job should NOT exist (no outputs configured)
     expect(workflow.jobs["agent-simple-triage-agent-outputs"]).toBeUndefined();
@@ -138,13 +140,11 @@ You are a triage agent that analyzes new issues. Read the issue and provide anal
     expect(agentSteps.some((step) => step.includes("setup-bun"))).toBe(true);
     expect(agentSteps.some((step) => step.includes("Simple Triage Agent"))).toBe(true);
 
-    // Validate audit job structure
-    const auditJob = workflow.jobs["agent-simple-triage-agent-audit"];
-    expect(auditJob.needs).toContain("dispatcher");
-    expect(auditJob.needs).toContain("agent-simple-triage-agent");
-    expect(auditJob.if).toBe(
-      "always() && needs.dispatcher.outputs.agent-simple-triage-agent-should-run == 'true'",
-    );
+    // Validate unified audit-report job structure
+    const auditReportJob = workflow.jobs["audit-report"];
+    expect(auditReportJob.needs).toContain("dispatcher");
+    expect(auditReportJob.needs).toContain("agent-simple-triage-agent");
+    expect(auditReportJob.if).toBe("always()");
   });
 
   test("generates workflow for agent with multiple outputs", async () => {
@@ -189,7 +189,9 @@ Analyze the issue and add appropriate comments and labels.
     // Verify agent jobs exist
     expect(workflow.jobs["agent-comment-and-label-agent"]).toBeDefined();
     expect(workflow.jobs["agent-comment-and-label-agent-outputs"]).toBeDefined();
-    expect(workflow.jobs["agent-comment-and-label-agent-audit"]).toBeDefined();
+    // New audit architecture uses unified audit-report and audit-issues jobs
+    expect(workflow.jobs["audit-report"]).toBeDefined();
+    expect(workflow.jobs["audit-issues"]).toBeDefined();
 
     // Validate outputs job exists and has correct structure
     const outputsJob = workflow.jobs["agent-comment-and-label-agent-outputs"];
@@ -330,13 +332,10 @@ Analyze recent activity and create a summary issue.
       expect(outputsJob.needs).toContain("agent-comment-and-label-agent");
     }
 
-    // Audit job should depend on agent job and run always (when agent should run)
-    const auditJob = workflow.jobs["agent-simple-triage-agent-audit"];
-    expect(auditJob.needs).toContain("dispatcher");
-    expect(auditJob.needs).toContain("agent-simple-triage-agent");
-    expect(auditJob.if).toBe(
-      "always() && needs.dispatcher.outputs.agent-simple-triage-agent-should-run == 'true'",
-    );
+    // Unified audit-report job should depend on dispatcher and all agent jobs, run always
+    const auditReportJob = workflow.jobs["audit-report"];
+    expect(auditReportJob.needs).toContain("dispatcher");
+    expect(auditReportJob.if).toBe("always()");
   });
 
   test("workflow includes required environment variables", async () => {
@@ -388,9 +387,9 @@ Analyze recent activity and create a summary issue.
       expect(downloadStep).toBeDefined();
     }
 
-    // Audit job should download artifacts
-    const auditJob = workflow.jobs["agent-comment-and-label-agent-audit"];
-    const auditDownloadStep = auditJob.steps.find((step) =>
+    // Unified audit-report job should download all audit artifacts
+    const auditReportJob = workflow.jobs["audit-report"];
+    const auditDownloadStep = auditReportJob.steps.find((step) =>
       step.uses?.includes("download-artifact"),
     );
     expect(auditDownloadStep).toBeDefined();

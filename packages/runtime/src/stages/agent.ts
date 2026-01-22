@@ -1,7 +1,9 @@
 import { existsSync } from "node:fs";
-import { mkdir, readFile, writeFile } from "node:fs/promises";
+import { copyFile, mkdir, readdir, readFile, stat, writeFile } from "node:fs/promises";
+import { join } from "node:path";
 import { generateSkillsSection } from "@repo-agents/generator/skills";
 import { agentParser } from "@repo-agents/parser";
+import type { AuditToolPermissionIssue, AuditToolUsageSummary } from "@repo-agents/types";
 import { $ } from "bun";
 import type { Stage, StageContext, StageResult } from "../types";
 
@@ -72,6 +74,18 @@ export const runAgent: Stage = async (ctx: StageContext): Promise<StageResult> =
 
     // 7. Save metrics artifact
     await writeFile("/tmp/audit/metrics.json", JSON.stringify(metrics, null, 2));
+
+    // 8. Capture conversation history from Claude Code session
+    const conversationPath = await captureConversationHistory(metrics.session_id);
+    if (conversationPath) {
+      outputs["conversation-file"] = "conversation.jsonl";
+    }
+
+    // 9. Extract tool usage from conversation
+    const toolUsage = conversationPath
+      ? await extractToolUsage(conversationPath)
+      : { total_calls: 0, by_tool: {}, permission_issues: [] };
+    await writeFile("/tmp/audit/tool-usage.json", JSON.stringify(toolUsage, null, 2));
 
     artifacts.push({ name: "audit-metrics", path: "/tmp/audit/" });
 
@@ -340,4 +354,173 @@ async function extractMetrics(): Promise<{
   } catch {
     return { is_error: true };
   }
+}
+
+/**
+ * Captures the conversation history from Claude Code's session storage.
+ * Claude Code stores sessions in ~/.claude/projects/[encoded-path]/[session-id].jsonl
+ */
+async function captureConversationHistory(sessionId?: string): Promise<string | undefined> {
+  const homeDir = process.env.HOME || "/root";
+  const workDir = process.cwd();
+
+  // Claude Code encodes project paths by replacing / with - and prefixing with -
+  const encodedPath = workDir.replace(/\//g, "-").replace(/^-/, "");
+  const claudeProjectDir = join(homeDir, ".claude", "projects", encodedPath);
+
+  try {
+    // Try to find session file by session_id first
+    if (sessionId) {
+      const sessionFile = join(claudeProjectDir, `${sessionId}.jsonl`);
+      if (existsSync(sessionFile)) {
+        await copyFile(sessionFile, "/tmp/audit/conversation.jsonl");
+        return "/tmp/audit/conversation.jsonl";
+      }
+    }
+
+    // Fallback: find most recent .jsonl file in the project directory
+    if (!existsSync(claudeProjectDir)) {
+      return undefined;
+    }
+
+    const files = await readdir(claudeProjectDir);
+    const jsonlFiles = files.filter((f) => f.endsWith(".jsonl"));
+
+    if (jsonlFiles.length === 0) {
+      return undefined;
+    }
+
+    // Sort by modification time and get most recent
+    const filesWithStats = await Promise.all(
+      jsonlFiles.map(async (f) => ({
+        name: f,
+        mtime: (await stat(join(claudeProjectDir, f))).mtime,
+      })),
+    );
+    filesWithStats.sort((a, b) => b.mtime.getTime() - a.mtime.getTime());
+
+    const mostRecentFile = join(claudeProjectDir, filesWithStats[0].name);
+    await copyFile(mostRecentFile, "/tmp/audit/conversation.jsonl");
+    return "/tmp/audit/conversation.jsonl";
+  } catch (error) {
+    console.warn("Failed to capture conversation history:", error);
+    return undefined;
+  }
+}
+
+/**
+ * Extracts tool usage statistics from the conversation history JSONL file.
+ * Parses tool_use and tool_result blocks to track calls, successes, and failures.
+ */
+async function extractToolUsage(conversationPath: string): Promise<AuditToolUsageSummary> {
+  const summary: AuditToolUsageSummary = {
+    total_calls: 0,
+    by_tool: {},
+    permission_issues: [],
+  };
+
+  if (!existsSync(conversationPath)) {
+    return summary;
+  }
+
+  try {
+    const content = await readFile(conversationPath, "utf-8");
+    const lines = content.split("\n").filter(Boolean);
+
+    // Track tool calls and their results
+    const toolCallResults = new Map<string, { tool: string; success: boolean }>();
+
+    for (const line of lines) {
+      try {
+        const msg = JSON.parse(line);
+
+        // Handle messages with content array (Claude API format)
+        if (msg.content && Array.isArray(msg.content)) {
+          for (const block of msg.content) {
+            // Track tool_use blocks
+            if (block.type === "tool_use") {
+              const toolName = block.name;
+              summary.total_calls++;
+
+              if (!summary.by_tool[toolName]) {
+                summary.by_tool[toolName] = { calls: 0, successes: 0, failures: 0 };
+              }
+              summary.by_tool[toolName].calls++;
+
+              // Store the tool call ID for matching with results
+              if (block.id) {
+                toolCallResults.set(block.id, { tool: toolName, success: true });
+              }
+            }
+
+            // Track tool_result blocks
+            if (block.type === "tool_result" && block.tool_use_id) {
+              const callInfo = toolCallResults.get(block.tool_use_id);
+              if (callInfo) {
+                const isError = block.is_error === true;
+                callInfo.success = !isError;
+
+                if (isError && summary.by_tool[callInfo.tool]) {
+                  summary.by_tool[callInfo.tool].failures++;
+                } else if (summary.by_tool[callInfo.tool]) {
+                  summary.by_tool[callInfo.tool].successes++;
+                }
+
+                // Check for permission-related errors
+                const resultContent =
+                  typeof block.content === "string" ? block.content : JSON.stringify(block.content);
+
+                if (isError && isPermissionError(resultContent)) {
+                  const issue: AuditToolPermissionIssue = {
+                    tool: callInfo.tool,
+                    issue_type: categorizePermissionError(resultContent),
+                    message: resultContent.slice(0, 500),
+                    timestamp: new Date().toISOString(),
+                  };
+                  summary.permission_issues.push(issue);
+                }
+              }
+            }
+          }
+        }
+      } catch {
+        // Skip malformed lines
+      }
+    }
+  } catch (error) {
+    console.warn("Failed to extract tool usage:", error);
+  }
+
+  return summary;
+}
+
+/**
+ * Check if an error message indicates a permission issue.
+ */
+function isPermissionError(message: string): boolean {
+  const permissionPatterns = [
+    /permission denied/i,
+    /not allowed/i,
+    /access denied/i,
+    /unauthorized/i,
+    /forbidden/i,
+    /restricted/i,
+    /tool.*blocked/i,
+    /cannot.*write/i,
+    /path.*restriction/i,
+  ];
+  return permissionPatterns.some((pattern) => pattern.test(message));
+}
+
+/**
+ * Categorize the type of permission error.
+ */
+function categorizePermissionError(message: string): "denied" | "restricted" | "not_allowed" {
+  if (/not allowed/i.test(message) || /tool.*blocked/i.test(message)) {
+    return "not_allowed";
+  }
+  if (/restricted/i.test(message) || /path.*restriction/i.test(message)) {
+    return "restricted";
+  }
+  return "denied";
 }
