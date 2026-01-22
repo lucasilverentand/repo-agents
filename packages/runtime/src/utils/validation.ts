@@ -157,12 +157,12 @@ export async function checkTriggerLabels(
     return { valid: false, reason: "Failed to read event labels" };
   }
 
-  // Check if all required labels are present
-  const missingLabels = agent.trigger_labels.filter((label) => !labels.includes(label));
-  if (missingLabels.length > 0) {
+  // Check if at least one trigger label is present (OR logic)
+  const hasAnyTriggerLabel = agent.trigger_labels.some((label) => labels.includes(label));
+  if (!hasAnyTriggerLabel) {
     return {
       valid: false,
-      reason: `Missing required labels: ${missingLabels.join(", ")}`,
+      reason: `Missing any of the required labels: ${agent.trigger_labels.join(", ")}`,
       presentLabels: labels,
     };
   }
