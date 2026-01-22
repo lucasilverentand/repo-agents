@@ -101,6 +101,7 @@ jobs:
   agent-test-agent-outputs:
     runs-on: ubuntu-latest
     needs:
+      - dispatcher
       - agent-test-agent
     if: needs.agent-test-agent.result == 'success'
     steps:
