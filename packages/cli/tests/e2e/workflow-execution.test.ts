@@ -114,7 +114,6 @@ You are a triage agent that analyzes new issues. Read the issue and provide anal
     expect(workflow.permissions).toBeDefined();
 
     // Validate all expected jobs are present
-    expect(workflow.jobs["global-preflight"]).toBeDefined();
     expect(workflow.jobs.dispatcher).toBeDefined();
     expect(workflow.jobs["agent-simple-triage-agent"]).toBeDefined();
     expect(workflow.jobs["agent-simple-triage-agent-audit"]).toBeDefined();
@@ -122,23 +121,15 @@ You are a triage agent that analyzes new issues. Read the issue and provide anal
     // Outputs job should NOT exist (no outputs configured)
     expect(workflow.jobs["agent-simple-triage-agent-outputs"]).toBeUndefined();
 
-    // Validate global-preflight job structure
-    const preflightJob = workflow.jobs["global-preflight"];
-    expect(preflightJob["runs-on"]).toBe("ubuntu-latest");
-    expect(preflightJob.outputs).toBeDefined();
-    expect(preflightJob.outputs?.["should-continue"]).toContain("validate.outputs.should-continue");
-    expect(preflightJob.steps.length).toBeGreaterThan(0);
-
-    // Validate dispatcher job structure
+    // Validate dispatcher job structure (now includes preflight checks)
     const dispatcherJob = workflow.jobs.dispatcher;
-    expect(dispatcherJob.needs).toBe("global-preflight");
-    expect(dispatcherJob.if).toContain("global-preflight.outputs.should-continue");
+    expect(dispatcherJob["runs-on"]).toBe("ubuntu-latest");
+    expect(dispatcherJob.outputs).toBeDefined();
     expect(dispatcherJob.steps.length).toBeGreaterThan(0);
 
     // Validate agent execution job structure
     const agentJob = workflow.jobs["agent-simple-triage-agent"];
-    expect(agentJob.needs).toContain("global-preflight");
-    expect(agentJob.needs).toContain("dispatcher");
+    expect(agentJob.needs).toBe("dispatcher");
     expect(agentJob.if).toContain("dispatcher.outputs.agent-simple-triage-agent-should-run");
 
     // Check for required steps
@@ -331,7 +322,7 @@ Analyze recent activity and create a summary issue.
 
     // Check dependency chain for an agent
     const agentJob = workflow.jobs["agent-simple-triage-agent"];
-    expect(agentJob.needs).toEqual(expect.arrayContaining(["global-preflight", "dispatcher"]));
+    expect(agentJob.needs).toBe("dispatcher");
 
     // Outputs job should depend on agent job
     const outputsJob = workflow.jobs["agent-comment-and-label-agent-outputs"];
@@ -353,16 +344,16 @@ Analyze recent activity and create a summary issue.
     const workflowContent = await Bun.file(workflowPath).text();
     const workflow = yaml.load(workflowContent) as WorkflowStructure;
 
-    // Check preflight job has Claude auth env vars
-    const preflightJob = workflow.jobs["global-preflight"];
-    const preflightEnvStep = preflightJob.steps.find(
-      (step) => step.name?.includes("Validate Claude") || step.run?.includes("preflight"),
+    // Check dispatcher job has Claude auth env vars (merged from preflight)
+    const dispatcherJob = workflow.jobs.dispatcher;
+    const dispatcherStep = dispatcherJob.steps.find(
+      (step) => step.name?.includes("Dispatch") || step.run?.includes("dispatcher"),
     );
-    expect(preflightEnvStep).toBeDefined();
+    expect(dispatcherStep).toBeDefined();
 
     // Note: When no secrets are detected during compilation, env may be empty object
     // The test workflow doesn't have secrets configured, so we just verify the structure exists
-    expect(preflightEnvStep?.env).toBeDefined();
+    expect(dispatcherStep?.env).toBeDefined();
 
     // Check agent job has required env vars
     const agentJob = workflow.jobs["agent-simple-triage-agent"];

@@ -195,7 +195,6 @@ describe("Compile Performance Benchmarks", () => {
 
     // Verify workflow was generated
     expect(workflow).toContain("name: AI Agents");
-    expect(workflow).toContain("global-preflight:");
     expect(workflow).toContain("dispatcher:");
 
     // Assert performance threshold
@@ -230,7 +229,6 @@ describe("Compile Performance Benchmarks", () => {
 
     // Verify workflow was generated
     expect(workflow).toContain("name: AI Agents");
-    expect(workflow).toContain("global-preflight:");
     expect(workflow).toContain("dispatcher:");
 
     // Assert performance threshold

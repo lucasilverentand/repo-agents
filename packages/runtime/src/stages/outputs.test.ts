@@ -88,13 +88,16 @@ describe("runOutputs", () => {
       expect(typeof outputsModule.runOutputs).toBe("function");
     });
 
-    it("should return error when no output type is specified", async () => {
+    it("should process all outputs when no output type is specified", async () => {
       const { runOutputs } = await import("./outputs");
+
+      // Agent with no outputs configured should skip gracefully
+      await writeFile(agentPath, createAgentMd());
 
       const result = await runOutputs(createContext({ outputType: undefined }));
 
-      expect(result.success).toBe(false);
-      expect(result.outputs.error).toBe("No output type specified");
+      expect(result.success).toBe(true);
+      expect(result.skipReason).toBe("No outputs configured for this agent");
     });
 
     it("should return error when agent file does not exist", async () => {
