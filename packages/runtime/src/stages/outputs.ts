@@ -139,10 +139,7 @@ async function processSingleOutput(
 /**
  * Process all configured output types
  */
-async function processAllOutputs(
-  ctx: StageContext,
-  agent: AgentDefinition,
-): Promise<StageResult> {
+async function processAllOutputs(ctx: StageContext, agent: AgentDefinition): Promise<StageResult> {
   if (!agent.outputs || Object.keys(agent.outputs).length === 0) {
     return {
       success: true,

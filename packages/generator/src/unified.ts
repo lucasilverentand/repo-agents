@@ -35,13 +35,11 @@ interface UnifiedWorkflow {
  * Unified Workflow Generator
  *
  * Generates a single workflow file that replaces the dispatcher + per-agent workflows.
- * The unified workflow has 6 jobs:
- * 1. global-preflight: Validates Claude auth
- * 2. route-event: Discovers agents and matches to current event
- * 3. agent-validation: Per-agent validation (matrix)
- * 4. agent-execution: Runs Claude for validated agents (matrix)
- * 5. execute-outputs: Executes outputs (matrix)
- * 6. audit-report: Generates audit reports (matrix)
+ * The unified workflow has 5 job types:
+ * 1. dispatcher: Validates Claude auth, discovers agents, routes events, validates per-agent
+ * 2. agent-execution: Runs Claude for validated agents (one job per agent)
+ * 3. agent-outputs: Executes outputs (one job per agent with outputs)
+ * 4. agent-audit: Generates audit reports (one job per agent)
  */
 export class UnifiedWorkflowGenerator {
   /**
@@ -58,7 +56,6 @@ export class UnifiedWorkflowGenerator {
 
     // Build jobs dynamically
     const jobs: Record<string, GitHubWorkflowJob> = {
-      "global-preflight": this.generateGlobalPreflightJob(),
       dispatcher: this.generateDispatcherJob(agents),
     };
 
@@ -230,48 +227,8 @@ export class UnifiedWorkflowGenerator {
   }
 
   /**
-   * Job 1: Global preflight - validates Claude auth
-   */
-  private generateGlobalPreflightJob(): GitHubWorkflowJob {
-    const ghExpr = (expr: string) => `\${{ ${expr} }}`;
-
-    // Build env object with only configured secrets
-    const env: Record<string, string> = {};
-    if (this.secrets.hasApiKey) {
-      env.ANTHROPIC_API_KEY = ghExpr("secrets.ANTHROPIC_API_KEY");
-    }
-    if (this.secrets.hasAccessToken) {
-      env.CLAUDE_CODE_OAUTH_TOKEN = ghExpr("secrets.CLAUDE_CODE_OAUTH_TOKEN");
-    }
-
-    return {
-      "runs-on": "ubuntu-latest",
-      outputs: {
-        "should-continue": ghExpr("steps.validate.outputs.should-continue"),
-      },
-      steps: [
-        {
-          uses: "actions/checkout@v4",
-        },
-        {
-          uses: "oven-sh/setup-bun@v2",
-        },
-        {
-          name: "Install dependencies",
-          run: "bun install --frozen-lockfile",
-        },
-        {
-          name: "Validate Claude authentication",
-          id: "validate",
-          run: "bun run repo-agent run setup:preflight",
-          env,
-        },
-      ],
-    };
-  }
-
-  /**
-   * Job 2: Dispatcher - discovers, routes, and validates all agents
+   * Job 1: Dispatcher - discovers, routes, and validates all agents
+   * Includes global preflight check (Claude authentication) before proceeding.
    * Outputs per-agent decisions: agent-{slug}-should-run, agent-{slug}-skip-reason, etc.
    */
   private generateDispatcherJob(agents: AgentDefinition[]): GitHubWorkflowJob {
@@ -292,10 +249,20 @@ export class UnifiedWorkflowGenerator {
       );
     }
 
+    // Build env object with configured secrets
+    const env: Record<string, string> = {
+      GITHUB_TOKEN: ghExpr("secrets.GITHUB_TOKEN"),
+      WORKFLOW_DISPATCH_AGENT: ghExpr("inputs.agent"),
+    };
+    if (this.secrets.hasApiKey) {
+      env.ANTHROPIC_API_KEY = ghExpr("secrets.ANTHROPIC_API_KEY");
+    }
+    if (this.secrets.hasAccessToken) {
+      env.CLAUDE_CODE_OAUTH_TOKEN = ghExpr("secrets.CLAUDE_CODE_OAUTH_TOKEN");
+    }
+
     return {
       "runs-on": "ubuntu-latest",
-      needs: "global-preflight",
-      if: `needs.global-preflight.outputs.should-continue == 'true'`,
       outputs,
       steps: [
         {
@@ -312,10 +279,7 @@ export class UnifiedWorkflowGenerator {
           name: "Dispatch agents",
           id: "dispatcher",
           run: "bun run repo-agent run dispatcher",
-          env: {
-            GITHUB_TOKEN: ghExpr("secrets.GITHUB_TOKEN"),
-            WORKFLOW_DISPATCH_AGENT: ghExpr("inputs.agent"),
-          },
+          env,
         },
       ],
     };
@@ -408,7 +372,7 @@ export class UnifiedWorkflowGenerator {
 
     return {
       "runs-on": "ubuntu-latest",
-      needs: ["global-preflight", "dispatcher"],
+      needs: "dispatcher",
       if: `needs.dispatcher.outputs.agent-${agentSlug}-should-run == 'true'`,
       steps,
     };

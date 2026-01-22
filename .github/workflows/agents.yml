@@ -20,25 +20,8 @@ permissions:
   pull-requests: write
   discussions: write
 jobs:
-  global-preflight:
-    runs-on: ubuntu-latest
-    outputs:
-      should-continue: ${{ steps.validate.outputs.should-continue }}
-    steps:
-      - uses: actions/checkout@v4
-      - uses: oven-sh/setup-bun@v2
-      - name: Install dependencies
-        run: bun install --frozen-lockfile
-      - name: Validate Claude authentication
-        id: validate
-        run: bun run repo-agent run setup:preflight
-        env:
-          CLAUDE_CODE_OAUTH_TOKEN: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
-
   dispatcher:
     runs-on: ubuntu-latest
-    needs: global-preflight
-    if: needs.global-preflight.outputs.should-continue == 'true'
     outputs:
       agent-issue-analyzer-should-run: ${{ steps.dispatcher.outputs.agent-issue-analyzer-should-run }}
       agent-issue-analyzer-skip-reason: ${{ steps.dispatcher.outputs.agent-issue-analyzer-skip-reason }}
@@ -66,12 +49,11 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           WORKFLOW_DISPATCH_AGENT: ${{ inputs.agent }}
+          CLAUDE_CODE_OAUTH_TOKEN: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
 
   agent-issue-analyzer:
     runs-on: ubuntu-latest
-    needs:
-      - global-preflight
-      - dispatcher
+    needs: dispatcher
     if: needs.dispatcher.outputs.agent-issue-analyzer-should-run == 'true'
     steps:
       - uses: actions/checkout@v4
@@ -168,9 +150,7 @@ jobs:
 
   agent-issue-formatter:
     runs-on: ubuntu-latest
-    needs:
-      - global-preflight
-      - dispatcher
+    needs: dispatcher
     if: needs.dispatcher.outputs.agent-issue-formatter-should-run == 'true'
     steps:
       - uses: actions/checkout@v4
@@ -267,9 +247,7 @@ jobs:
 
   agent-issue-implementer:
     runs-on: ubuntu-latest
-    needs:
-      - global-preflight
-      - dispatcher
+    needs: dispatcher
     if: needs.dispatcher.outputs.agent-issue-implementer-should-run == 'true'
     steps:
       - uses: actions/checkout@v4
@@ -366,9 +344,7 @@ jobs:
 
   agent-issue-triage:
     runs-on: ubuntu-latest
-    needs:
-      - global-preflight
-      - dispatcher
+    needs: dispatcher
     if: needs.dispatcher.outputs.agent-issue-triage-should-run == 'true'
     steps:
       - uses: actions/checkout@v4
@@ -465,9 +441,7 @@ jobs:
 
   agent-test-agent:
     runs-on: ubuntu-latest
-    needs:
-      - global-preflight
-      - dispatcher
+    needs: dispatcher
     if: needs.dispatcher.outputs.agent-test-agent-should-run == 'true'
     steps:
       - uses: actions/checkout@v4

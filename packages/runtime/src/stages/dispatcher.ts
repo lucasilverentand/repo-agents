@@ -19,6 +19,8 @@ import {
  * This replaces the old route-event + agent-validation jobs with a single dispatcher
  * that outputs per-agent decisions for the workflow to use.
  *
+ * Includes global preflight check (Claude authentication) before proceeding.
+ *
  * Outputs (per agent):
  * - agent-{slug}-should-run: "true" | "false"
  * - agent-{slug}-skip-reason: Reason for skipping
@@ -38,10 +40,24 @@ export async function runDispatcher(ctx: {
     agentsDir?: string;
   };
 }): Promise<StageResult> {
+  // Step 1: Check Claude authentication (global preflight)
+  const secretsResult = checkSecrets();
+  if (!secretsResult.valid) {
+    console.error("❌ Claude authentication check failed");
+    console.error(secretsResult.error);
+    return {
+      success: false,
+      outputs: {
+        error: secretsResult.error ?? "No Claude authentication configured",
+      },
+    };
+  }
+  console.log("✓ Claude authentication validated");
+
   const agentsDir = ctx.options?.agentsDir ?? ".github/agents";
   const workflowDispatchAgent = process.env.WORKFLOW_DISPATCH_AGENT;
 
-  // Discover all agents
+  // Step 2: Discover all agents
   const allAgents = await discoverAgents(agentsDir);
 
   if (allAgents.length === 0) {
@@ -255,4 +271,29 @@ function slugifyAgentName(name: string): string {
     .toLowerCase()
     .replace(/[^a-z0-9]+/g, "-")
     .replace(/^-|-$/g, "");
+}
+
+/**
+ * Check that required Claude authentication secrets are available.
+ */
+function checkSecrets(): { valid: boolean; error?: string } {
+  const anthropicKey = process.env.ANTHROPIC_API_KEY;
+  const oauthToken = process.env.CLAUDE_CODE_OAUTH_TOKEN;
+
+  if (!anthropicKey && !oauthToken) {
+    return {
+      valid: false,
+      error:
+        "No Claude authentication found. Please set either ANTHROPIC_API_KEY or CLAUDE_CODE_OAUTH_TOKEN.",
+    };
+  }
+
+  if (anthropicKey) {
+    console.log("ANTHROPIC_API_KEY is configured");
+  }
+  if (oauthToken) {
+    console.log("CLAUDE_CODE_OAUTH_TOKEN is configured");
+  }
+
+  return { valid: true };
 }

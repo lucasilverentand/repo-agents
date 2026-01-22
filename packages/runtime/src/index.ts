@@ -37,7 +37,6 @@ const stages = {
 } as const;
 
 const unifiedStages = {
-  "setup:preflight": runPreFlight,
   "unified:route": runUnifiedRoute,
   "unified:validate": runUnifiedValidate,
   dispatcher: runDispatcher,
@@ -96,7 +95,6 @@ program
     if (
       stage === "unified:route" ||
       stage === "unified:validate" ||
-      stage === "setup:preflight" ||
       stage === "dispatcher"
     ) {
       // Extract event action from event payload
@@ -144,7 +142,8 @@ program
             agentsDir: options.agentsDir,
           },
         });
-      } else if (stage === "unified:validate") {
+      } else {
+        // unified:validate
         result = await runUnifiedValidate({
           github: {
             repository: process.env.GITHUB_REPOSITORY ?? "",
@@ -157,16 +156,6 @@ program
           options: {
             agentPath: options.agent,
           },
-        });
-      } else {
-        // setup:preflight
-        result = await runPreFlight({
-          repository: process.env.GITHUB_REPOSITORY ?? "",
-          runId: process.env.GITHUB_RUN_ID ?? "",
-          actor: process.env.GITHUB_ACTOR ?? "",
-          eventName: process.env.GITHUB_EVENT_NAME ?? "",
-          eventPath: process.env.GITHUB_EVENT_PATH ?? "",
-          agentPath: options.agent ?? "",
         });
       }
 
