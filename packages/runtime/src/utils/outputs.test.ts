@@ -142,7 +142,10 @@ describe("outputs", () => {
 
       const { readFile } = await import("node:fs/promises");
       const content = await readFile(testOutputFile, "utf-8");
-      expect(content).toBe(`long=${longValue}\n`);
+      // Long values (>1000 chars) should use heredoc format to avoid GitHub Actions truncation
+      expect(content).toMatch(/^long<<ghadelimiter_[a-zA-Z0-9]+\n/);
+      expect(content).toContain(longValue);
+      expect(content).toMatch(/\nghadelimiter_[a-zA-Z0-9]+\n$/);
     });
 
     test("handles multiline with empty lines", async () => {
