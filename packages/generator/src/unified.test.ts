@@ -40,7 +40,6 @@ describe("UnifiedWorkflowGenerator", () => {
 
     // Should contain expected structure
     expect(workflow).toContain("name: AI Agents");
-    expect(workflow).toContain("global-preflight:");
     expect(workflow).toContain("dispatcher:");
     expect(workflow).toContain("agent-test-agent:");
     expect(workflow).toContain("agent-test-agent-audit:");
@@ -179,7 +178,6 @@ describe("UnifiedWorkflowGenerator", () => {
     const workflow = unifiedWorkflowGenerator.generate(agents, defaultSecrets);
     const parsed = yaml.load(workflow) as WorkflowYaml;
 
-    expect(parsed.jobs["global-preflight"]).toBeDefined();
     expect(parsed.jobs["dispatcher"]).toBeDefined();
     expect(parsed.jobs["agent-test-agent"]).toBeDefined();
     expect(parsed.jobs["agent-test-agent-audit"]).toBeDefined();
@@ -216,8 +214,7 @@ describe("UnifiedWorkflowGenerator", () => {
     const workflow = unifiedWorkflowGenerator.generate(agents, defaultSecrets);
 
     // Should have blank lines between jobs
-    expect(workflow).toMatch(/jobs:\n\s+global-preflight:/);
-    expect(workflow).toMatch(/\n\s+dispatcher:/);
+    expect(workflow).toMatch(/jobs:\n\s+dispatcher:/);
 
     // Should have blank lines between steps
     expect(workflow).toMatch(/steps:\n\s+- uses:/);

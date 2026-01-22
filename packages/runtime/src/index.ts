@@ -92,11 +92,7 @@ program
   )
   .action(async (stage: string, options: RunOptions) => {
     // Check if this is a unified workflow stage
-    if (
-      stage === "unified:route" ||
-      stage === "unified:validate" ||
-      stage === "dispatcher"
-    ) {
+    if (stage === "unified:route" || stage === "unified:validate" || stage === "dispatcher") {
       // Extract event action from event payload
       let eventAction = "";
       const eventPath = process.env.GITHUB_EVENT_PATH;

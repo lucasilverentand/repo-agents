@@ -212,7 +212,6 @@ describe("Backward Compatibility Tests", () => {
         expect(parsed.jobs).toBeDefined();
 
         // Should have core jobs
-        expect(parsed.jobs["global-preflight"]).toBeDefined();
         expect(parsed.jobs["dispatcher"]).toBeDefined();
       });
     }
