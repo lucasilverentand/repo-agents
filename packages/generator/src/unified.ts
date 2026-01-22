@@ -423,7 +423,7 @@ export class UnifiedWorkflowGenerator {
 
     return {
       "runs-on": "ubuntu-latest",
-      needs: [`agent-${agentSlug}`],
+      needs: ["dispatcher", `agent-${agentSlug}`],
       if: `needs.agent-${agentSlug}.result == 'success'`,
       steps: [
         {

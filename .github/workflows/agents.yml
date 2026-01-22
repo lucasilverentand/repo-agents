@@ -111,6 +111,7 @@ jobs:
   agent-issue-analyzer-outputs:
     runs-on: ubuntu-latest
     needs:
+      - dispatcher
       - agent-issue-analyzer
     if: needs.agent-issue-analyzer.result == 'success'
     steps:
@@ -209,6 +210,7 @@ jobs:
   agent-issue-formatter-outputs:
     runs-on: ubuntu-latest
     needs:
+      - dispatcher
       - agent-issue-formatter
     if: needs.agent-issue-formatter.result == 'success'
     steps:
@@ -307,6 +309,7 @@ jobs:
   agent-issue-implementer-outputs:
     runs-on: ubuntu-latest
     needs:
+      - dispatcher
       - agent-issue-implementer
     if: needs.agent-issue-implementer.result == 'success'
     steps:
@@ -405,6 +408,7 @@ jobs:
   agent-issue-triage-outputs:
     runs-on: ubuntu-latest
     needs:
+      - dispatcher
       - agent-issue-triage
     if: needs.agent-issue-triage.result == 'success'
     steps:
@@ -503,6 +507,7 @@ jobs:
   agent-test-agent-outputs:
     runs-on: ubuntu-latest
     needs:
+      - dispatcher
       - agent-test-agent
     if: needs.agent-test-agent.result == 'success'
     steps:
