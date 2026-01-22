@@ -34,21 +34,12 @@ interface ExecutionResult {
  *
  * This stage:
  * 1. Loads the agent definition to get output constraints
- * 2. Finds output files matching the specified output type
+ * 2. Finds output files matching the specified output type (or all if not specified)
  * 3. Validates each file against the output type's schema and constraints
  * 4. Executes valid outputs using the gh CLI
  * 5. Writes validation errors for reporting
  */
 export async function runOutputs(ctx: StageContext): Promise<StageResult> {
-  const outputType = ctx.outputType;
-
-  if (!outputType) {
-    return {
-      success: false,
-      outputs: { error: "No output type specified" },
-    };
-  }
-
   // Load agent definition
   const parser = new AgentParser();
   const { agent, errors: parseErrors } = await parser.parseFile(ctx.agentPath);
@@ -65,6 +56,23 @@ export async function runOutputs(ctx: StageContext): Promise<StageResult> {
   // Ensure validation errors directory exists
   await mkdir(VALIDATION_ERRORS_DIR, { recursive: true });
 
+  // If no output type specified, process all configured outputs
+  if (!ctx.outputType) {
+    return await processAllOutputs(ctx, agent);
+  }
+
+  // Process single output type
+  return await processSingleOutput(ctx, agent, ctx.outputType);
+}
+
+/**
+ * Process a single output type
+ */
+async function processSingleOutput(
+  ctx: StageContext,
+  agent: AgentDefinition,
+  outputType: string,
+): Promise<StageResult> {
   // Get output config for this type
   const outputConfig = getOutputConfig(agent, outputType as Output);
 
@@ -124,6 +132,50 @@ export async function runOutputs(ctx: StageContext): Promise<StageResult> {
     outputs: {
       executed: String(executionResult.executed),
       errors: String(executionResult.errors.length),
+    },
+  };
+}
+
+/**
+ * Process all configured output types
+ */
+async function processAllOutputs(
+  ctx: StageContext,
+  agent: AgentDefinition,
+): Promise<StageResult> {
+  if (!agent.outputs || Object.keys(agent.outputs).length === 0) {
+    return {
+      success: true,
+      outputs: { executed: "0", skipped: "true" },
+      skipReason: "No outputs configured for this agent",
+    };
+  }
+
+  let totalExecuted = 0;
+  let totalErrors = 0;
+  const allErrors: string[] = [];
+
+  // Process each configured output type
+  for (const outputType of Object.keys(agent.outputs)) {
+    console.log(`\nProcessing ${outputType} outputs...`);
+    const result = await processSingleOutput(ctx, agent, outputType);
+
+    if (result.outputs.executed) {
+      totalExecuted += Number(result.outputs.executed);
+    }
+    if (result.outputs.errors) {
+      totalErrors += Number(result.outputs.errors);
+    }
+    if (result.outputs.error) {
+      allErrors.push(`${outputType}: ${result.outputs.error}`);
+    }
+  }
+
+  return {
+    success: totalErrors === 0 && allErrors.length === 0,
+    outputs: {
+      executed: String(totalExecuted),
+      errors: String(totalErrors),
     },
   };
 }
