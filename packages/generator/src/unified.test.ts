@@ -178,7 +178,7 @@ describe("UnifiedWorkflowGenerator", () => {
     const workflow = unifiedWorkflowGenerator.generate(agents, defaultSecrets);
     const parsed = yaml.load(workflow) as WorkflowYaml;
 
-    expect(parsed.jobs["dispatcher"]).toBeDefined();
+    expect(parsed.jobs.dispatcher).toBeDefined();
     expect(parsed.jobs["agent-test-agent"]).toBeDefined();
     expect(parsed.jobs["agent-test-agent-audit"]).toBeDefined();
   });
