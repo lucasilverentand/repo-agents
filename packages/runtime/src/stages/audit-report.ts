@@ -10,7 +10,7 @@
  */
 
 import { existsSync } from "node:fs";
-import { appendFile, mkdir, readdir, readFile, writeFile } from "node:fs/promises";
+import { mkdir, readdir, readFile, writeFile } from "node:fs/promises";
 import { join } from "node:path";
 
 import type {
@@ -103,15 +103,9 @@ export const runAuditReport: Stage = async (ctx: StageContext): Promise<StageRes
   // 4. Generate combined summary markdown
   const summary = generateSummaryMarkdown(manifests, ctx);
   await writeFile("/tmp/audit/summary.md", summary);
+  console.log("Generated summary.md for workflow step to write");
 
-  // 5. Write to GITHUB_STEP_SUMMARY
-  const stepSummaryPath = process.env.GITHUB_STEP_SUMMARY;
-  if (stepSummaryPath) {
-    await appendFile(stepSummaryPath, summary);
-    console.log("Wrote summary to GITHUB_STEP_SUMMARY");
-  }
-
-  // 6. Save combined manifest
+  // 5. Save combined manifest
   const serverUrl = process.env.GITHUB_SERVER_URL ?? "https://github.com";
   const combinedManifest: CombinedAuditManifest = {
     schema_version: "1.0.0",
