@@ -725,7 +725,7 @@ async function executeAddLabel(
   // Merge labels
   const mergedLabels = [...new Set([...currentLabels, ...labels])];
 
-  // Update labels via API
+  // Update labels via API - use heredoc to pass JSON to gh api
   const labelsJson = JSON.stringify(mergedLabels);
   await $`gh api repos/${repository}/issues/${issueOrPrNumber}/labels -X PUT --input - <<'EOF'
 ${labelsJson}
@@ -758,7 +758,7 @@ async function executeRemoveLabel(
   // Filter out labels to remove
   const remainingLabels = currentLabels.filter((l) => !labelsToRemove.includes(l));
 
-  // Update labels via API
+  // Update labels via API - use heredoc to pass JSON to gh api
   const remainingJson = JSON.stringify(remainingLabels);
   await $`gh api repos/${repository}/issues/${issueOrPrNumber}/labels -X PUT --input - <<'EOF'
 ${remainingJson}
