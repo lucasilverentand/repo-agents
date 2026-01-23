@@ -188,21 +188,17 @@ Analyze the issue and add appropriate comments and labels.
 
     // Verify agent jobs exist
     expect(workflow.jobs["agent-comment-and-label-agent"]).toBeDefined();
-    expect(workflow.jobs["agent-comment-and-label-agent-outputs"]).toBeDefined();
     // New audit architecture uses unified audit-report and audit-issues jobs
     expect(workflow.jobs["audit-report"]).toBeDefined();
     expect(workflow.jobs["audit-issues"]).toBeDefined();
 
-    // Validate outputs job exists and has correct structure
-    const outputsJob = workflow.jobs["agent-comment-and-label-agent-outputs"];
-    expect(outputsJob).toBeDefined();
-    expect(outputsJob.needs).toContain("agent-comment-and-label-agent");
-    expect(outputsJob.if).toContain("agent-comment-and-label-agent.result");
+    // Outputs are now executed inline in the agent job (no separate outputs job)
+    const agentJob = workflow.jobs["agent-comment-and-label-agent"];
+    expect(agentJob).toBeDefined();
 
-    // Check for output execution steps
-    const outputSteps = outputsJob.steps.map((step) => step.name || "");
-    expect(outputSteps.some((step) => step.includes("Download outputs"))).toBe(true);
-    expect(outputSteps.some((step) => step.includes("Execute outputs"))).toBe(true);
+    // Check for output execution step within agent job
+    const agentSteps = agentJob.steps.map((step) => step.name || "");
+    expect(agentSteps.some((step) => step.includes("Execute outputs"))).toBe(true);
 
     // Validate permissions include write access
     expect(workflow.permissions.issues).toBe("write");

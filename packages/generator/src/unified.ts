@@ -69,16 +69,10 @@ export class UnifiedWorkflowGenerator {
     };
 
     // Generate individual jobs for each agent
+    // Outputs are executed inline within the agent job (no separate outputs job)
     for (const agent of agents) {
       const agentSlug = this.slugifyAgentName(agent.name);
-
-      // Agent execution job
       jobs[`agent-${agentSlug}`] = this.generateAgentExecutionJob(agent, agentSlug);
-
-      // Agent outputs job (if agent has outputs)
-      if (agent.outputs && Object.keys(agent.outputs).length > 0) {
-        jobs[`agent-${agentSlug}-outputs`] = this.generateAgentOutputsJob(agent, agentSlug);
-      }
     }
 
     // Add unified audit jobs (replaces per-agent audit jobs)
@@ -392,15 +386,14 @@ export class UnifiedWorkflowGenerator {
       },
     );
 
-    // Upload outputs if agent has them
+    // Execute outputs inline if agent has them (no separate job needed)
     if (agent.outputs && Object.keys(agent.outputs).length > 0) {
       steps.push({
-        name: "Upload outputs",
-        uses: "actions/upload-artifact@v4",
-        with: {
-          name: `agent-${agentSlug}-outputs-${ghExpr("github.run_id")}`,
-          path: "/tmp/outputs/",
-          "retention-days": "7",
+        name: "Execute outputs",
+        run: `bun run repo-agent run outputs --agent "${agent.name}"`,
+        env: {
+          GH_TOKEN: ghExpr("steps.app-token.outputs.token || secrets.GITHUB_TOKEN"),
+          EVENT_PAYLOAD: ghExpr(`needs.dispatcher.outputs.agent-${agentSlug}-event-payload`),
         },
       });
     }
@@ -422,62 +415,6 @@ export class UnifiedWorkflowGenerator {
       needs: "dispatcher",
       if: `needs.dispatcher.outputs.agent-${agentSlug}-should-run == 'true'`,
       steps,
-    };
-  }
-
-  // NOTE: Job-level concurrency was removed in favor of workflow-level concurrency.
-  // Workflow-level is more effective for the unified workflow because each trigger
-  // starts a new workflow run. See generateWorkflowConcurrency() for implementation.
-
-  /**
-   * Generate outputs execution job for a specific agent
-   * Executes all configured outputs for the agent
-   */
-  private generateAgentOutputsJob(agent: AgentDefinition, agentSlug: string): GitHubWorkflowJob {
-    const ghExpr = (expr: string) => `\${{ ${expr} }}`;
-
-    return {
-      "runs-on": "ubuntu-latest",
-      needs: ["dispatcher", `agent-${agentSlug}`],
-      if: `needs.agent-${agentSlug}.result == 'success'`,
-      steps: [
-        {
-          uses: "actions/checkout@v4",
-        },
-        {
-          uses: "oven-sh/setup-bun@v2",
-        },
-        {
-          name: "Install dependencies",
-          run: "bun install --frozen-lockfile",
-        },
-        {
-          uses: "actions/create-github-app-token@v1",
-          id: "app-token",
-          with: {
-            "app-id": ghExpr("secrets.GH_APP_ID"),
-            "private-key": ghExpr("secrets.GH_APP_PRIVATE_KEY"),
-          },
-          "continue-on-error": true,
-        },
-        {
-          name: "Download outputs",
-          uses: "actions/download-artifact@v4",
-          with: {
-            name: `agent-${agentSlug}-outputs-${ghExpr("github.run_id")}`,
-            path: "/tmp/outputs/",
-          },
-          "continue-on-error": true,
-        },
-        {
-          name: "Execute outputs",
-          run: `bun run repo-agent run outputs --agent "${agent.name}"`,
-          env: {
-            GH_TOKEN: ghExpr("steps.app-token.outputs.token || secrets.GITHUB_TOKEN"),
-            EVENT_PAYLOAD: ghExpr(`needs.dispatcher.outputs.agent-${agentSlug}-event-payload`),
-          },
-        },
-      ],
     };
   }
 

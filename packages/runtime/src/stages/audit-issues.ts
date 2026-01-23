@@ -271,7 +271,10 @@ function extractRemediation(manifest: AuditManifest): string | undefined {
   // Check for common errors and provide remediation
   const errorMessage = extractErrorMessage(manifest);
 
-  if (errorMessage.toLowerCase().includes("oauth") || errorMessage.toLowerCase().includes("token")) {
+  if (
+    errorMessage.toLowerCase().includes("oauth") ||
+    errorMessage.toLowerCase().includes("token")
+  ) {
     return "Refresh the CLAUDE_CODE_OAUTH_TOKEN secret or configure ANTHROPIC_API_KEY.";
   }
 

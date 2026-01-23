@@ -89,8 +89,8 @@ describe("Compile Command", () => {
     expect(workflowContent).toContain("name: AI Agents");
     expect(workflowContent).toContain("dispatcher:");
     expect(workflowContent).toContain("agent-issue-quality:");
-    expect(workflowContent).toContain("agent-issue-quality-outputs:");
-    // New audit architecture uses unified audit-report and audit-issues jobs
+    // Outputs are now executed inline within the agent job (no separate outputs job)
+    expect(workflowContent).toContain("Execute outputs");
     expect(workflowContent).toContain("audit-report:");
     expect(workflowContent).toContain("audit-issues:");
     expect(workflowContent).toContain("workflow_dispatch");
