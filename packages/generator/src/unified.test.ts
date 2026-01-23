@@ -320,6 +320,8 @@ describe("UnifiedWorkflowGenerator", () => {
       // Concurrency should be at workflow level, not job level
       expect(parsed.concurrency).toBeDefined();
       expect(parsed.concurrency?.group).toContain("agents-");
+      // Should include event_name to avoid collisions (issue #100 vs discussion #100)
+      expect(parsed.concurrency?.group).toContain("github.event_name");
       expect(parsed.concurrency?.group).toContain("github.event.issue.number");
       expect(parsed.concurrency?.group).toContain("github.event.pull_request.number");
       expect(parsed.concurrency?.["cancel-in-progress"]).toBe(true);

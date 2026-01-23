@@ -240,11 +240,15 @@ export class UnifiedWorkflowGenerator {
   /**
    * Generate workflow-level concurrency configuration.
    *
-   * Groups workflow runs by issue/PR/discussion number to debounce rapid events.
-   * When a new event occurs for the same issue/PR, any in-progress run is cancelled.
+   * Groups workflow runs by event type AND issue/PR/discussion number to debounce
+   * rapid events. When a new event occurs for the same entity, any in-progress run
+   * is cancelled.
    *
-   * This is more effective than job-level concurrency for the unified workflow
-   * because each trigger starts a new workflow run.
+   * The group includes event_name to prevent collisions between different entity types
+   * (e.g., issue #100 and discussion #100 are separate number sequences in GitHub).
+   *
+   * For schedule/dispatch triggers, falls back to run_id so each run is independent
+   * (no automatic debouncing for scheduled runs).
    */
   private generateWorkflowConcurrency(
     agents: AgentDefinition[],
@@ -255,10 +259,13 @@ export class UnifiedWorkflowGenerator {
       return undefined;
     }
 
-    // Build a dynamic group that works for all event types
-    // Uses the first available identifier, falls back to run_id for unique groups
+    // Build a dynamic group that includes event type to avoid collisions
+    // Issue #100 and Discussion #100 are different entities with separate number sequences
     const ghExpr = (expr: string) => `\${{ ${expr} }}`;
-    const group = `agents-${ghExpr("github.event.issue.number || github.event.pull_request.number || github.event.discussion.number || github.run_id")}`;
+    const entityId = ghExpr(
+      "github.event.issue.number || github.event.pull_request.number || github.event.discussion.number || github.run_id",
+    );
+    const group = `agents-${ghExpr("github.event_name")}-${entityId}`;
 
     return {
       group,

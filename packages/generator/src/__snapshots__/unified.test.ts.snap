@@ -17,7 +17,7 @@ exports[`UnifiedWorkflowGenerator should generate consistent workflow output (sn
         required: false
         type: string
 concurrency:
-  group: agents-\${{ github.event.issue.number || github.event.pull_request.number || github.event.discussion.number || github.run_id }}
+  group: agents-\${{ github.event_name }}-\${{ github.event.issue.number || github.event.pull_request.number || github.event.discussion.number || github.run_id }}
   cancel-in-progress: true
 permissions:
   actions: write
