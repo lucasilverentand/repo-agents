@@ -470,64 +470,230 @@ function buildIssuesList(
 }
 
 /**
+ * Format duration in human-readable form.
+ */
+function formatDuration(ms: number): string {
+  if (ms < 1000) return `${ms}ms`;
+  if (ms < 60000) return `${(ms / 1000).toFixed(1)}s`;
+  const minutes = Math.floor(ms / 60000);
+  const seconds = Math.round((ms % 60000) / 1000);
+  return `${minutes}m ${seconds}s`;
+}
+
+/**
+ * Get status indicator for display.
+ */
+function getStatusIndicator(success: boolean, hasWarnings = false): string {
+  if (!success) return ":x:";
+  if (hasWarnings) return ":warning:";
+  return ":white_check_mark:";
+}
+
+/**
+ * Generate tool usage table for an agent.
+ */
+function generateToolUsageTable(toolUsage: AuditToolUsageSummary): string[] {
+  const lines: string[] = [];
+
+  if (toolUsage.total_calls === 0) {
+    return ["_No tool calls recorded_"];
+  }
+
+  lines.push("| Tool | Calls | Success | Failed |");
+  lines.push("|------|-------|---------|--------|");
+
+  const tools = Object.entries(toolUsage.by_tool).sort((a, b) => b[1].calls - a[1].calls);
+  for (const [tool, stats] of tools) {
+    lines.push(`| \`${tool}\` | ${stats.calls} | ${stats.successes} | ${stats.failures} |`);
+  }
+
+  return lines;
+}
+
+/**
+ * Generate per-agent detail section.
+ */
+function generateAgentDetailSection(manifest: AuditManifest): string[] {
+  const lines: string[] = [];
+  const status = manifest.failures.has_failures ? ":x: Failed" : ":white_check_mark: Success";
+
+  // Agent header with status
+  lines.push(`### ${manifest.metadata.agent_name} ${status}`);
+  lines.push("");
+
+  // Metrics summary
+  const { metrics } = manifest.execution;
+  lines.push("**Execution Metrics**");
+  lines.push("");
+  lines.push("| Metric | Value |");
+  lines.push("|--------|-------|");
+  lines.push(`| Cost | $${metrics.total_cost_usd.toFixed(4)} |`);
+  lines.push(`| Turns | ${metrics.num_turns} |`);
+  lines.push(`| Duration | ${formatDuration(metrics.duration_ms)} |`);
+  if (metrics.input_tokens) {
+    lines.push(`| Input Tokens | ${metrics.input_tokens.toLocaleString()} |`);
+  }
+  if (metrics.output_tokens) {
+    lines.push(`| Output Tokens | ${metrics.output_tokens.toLocaleString()} |`);
+  }
+  if (manifest.execution.session_id) {
+    lines.push(`| Session ID | \`${manifest.execution.session_id}\` |`);
+  }
+  lines.push("");
+
+  // Tool usage (collapsible)
+  if (manifest.execution.tool_usage.total_calls > 0) {
+    lines.push("<details>");
+    lines.push(
+      `<summary><strong>Tool Usage</strong> (${manifest.execution.tool_usage.total_calls} calls)</summary>`,
+    );
+    lines.push("");
+    lines.push(...generateToolUsageTable(manifest.execution.tool_usage));
+    lines.push("");
+    lines.push("</details>");
+    lines.push("");
+  }
+
+  // Permission issues
+  if (manifest.execution.tool_usage.permission_issues.length > 0) {
+    lines.push(":warning: **Permission Issues**");
+    lines.push("");
+    for (const issue of manifest.execution.tool_usage.permission_issues) {
+      lines.push(`- \`${issue.tool}\`: ${issue.message}`);
+    }
+    lines.push("");
+  }
+
+  // Output results
+  if (manifest.outputs.results.length > 0) {
+    lines.push("**Output Execution**");
+    lines.push("");
+    lines.push("| Output | Validation | Execution |");
+    lines.push("|--------|------------|-----------|");
+    for (const output of manifest.outputs.results) {
+      const validIcon = output.validation_passed ? ":white_check_mark:" : ":x:";
+      const execIcon = output.execution_succeeded ? ":white_check_mark:" : ":x:";
+      lines.push(`| \`${output.type}\` | ${validIcon} | ${execIcon} |`);
+    }
+    lines.push("");
+  }
+
+  // Failures
+  if (manifest.failures.has_failures) {
+    lines.push(":x: **Failure Details**");
+    lines.push("");
+    for (const reason of manifest.failures.reasons) {
+      const severityIcon =
+        reason.severity === "critical"
+          ? ":rotating_light:"
+          : reason.severity === "error"
+            ? ":x:"
+            : ":warning:";
+      lines.push(`- ${severityIcon} **${reason.category}**: ${reason.message}`);
+    }
+    lines.push("");
+  }
+
+  // Issues (collapsible if any)
+  if (manifest.issues.length > 0) {
+    lines.push("<details>");
+    lines.push(`<summary><strong>Audit Issues</strong> (${manifest.issues.length})</summary>`);
+    lines.push("");
+    for (const issue of manifest.issues) {
+      lines.push(`- **[${issue.severity.toUpperCase()}]** ${issue.type}: ${issue.message}`);
+      if (issue.remediation) {
+        lines.push(`  - _Remediation_: ${issue.remediation}`);
+      }
+    }
+    lines.push("");
+    lines.push("</details>");
+    lines.push("");
+  }
+
+  return lines;
+}
+
+/**
  * Generate markdown summary for GitHub Step Summary.
  */
 function generateSummaryMarkdown(manifests: AuditManifest[], ctx: StageContext): string {
   const serverUrl = process.env.GITHUB_SERVER_URL ?? "https://github.com";
   const workflowUrl = `${serverUrl}/${ctx.repository}/actions/runs/${ctx.runId}`;
 
+  // Calculate totals
   const totalCost = manifests.reduce((sum, m) => sum + m.execution.metrics.total_cost_usd, 0);
+  const totalDuration = manifests.reduce((sum, m) => sum + m.execution.metrics.duration_ms, 0);
+  const totalTurns = manifests.reduce((sum, m) => sum + m.execution.metrics.num_turns, 0);
+  const totalToolCalls = manifests.reduce((sum, m) => sum + m.execution.tool_usage.total_calls, 0);
   const failedCount = manifests.filter((m) => m.failures.has_failures).length;
+  const successCount = manifests.length - failedCount;
+  const hasWarnings = manifests.some((m) => m.execution.tool_usage.permission_issues.length > 0);
+
+  // Overall status
+  const overallStatus =
+    failedCount > 0
+      ? ":x: Some agents failed"
+      : hasWarnings
+        ? ":warning: Completed with warnings"
+        : ":white_check_mark: All agents succeeded";
 
   const lines: string[] = [
-    "# Agent Execution Summary",
+    "# :robot: Agent Execution Report",
+    "",
+    `> **Status**: ${overallStatus}`,
+    `> **Workflow Run**: [#${ctx.runId}](${workflowUrl})`,
+    `> **Triggered by**: @${ctx.actor} via \`${ctx.eventName}\``,
+    "",
+    "---",
+    "",
+    "## Summary",
     "",
     "| Metric | Value |",
     "|--------|-------|",
     `| Agents Executed | ${manifests.length} |`,
-    `| Total Cost | $${totalCost.toFixed(4)} |`,
-    `| Failures | ${failedCount} |`,
+    `| Successful | ${successCount} ${getStatusIndicator(successCount === manifests.length)} |`,
+    `| Failed | ${failedCount} ${failedCount > 0 ? ":x:" : ""} |`,
+    `| Total Cost | **$${totalCost.toFixed(4)}** |`,
+    `| Total Duration | ${formatDuration(totalDuration)} |`,
+    `| Total Turns | ${totalTurns} |`,
+    `| Total Tool Calls | ${totalToolCalls} |`,
     "",
-    "## Agent Results",
-    "",
-    "| Agent | Status | Cost | Turns | Duration |",
-    "|-------|--------|------|-------|----------|",
   ];
 
+  // Quick results table
+  lines.push("## Results Overview");
+  lines.push("");
+  lines.push("| Agent | Status | Cost | Turns | Duration | Tools |");
+  lines.push("|-------|--------|------|-------|----------|-------|");
+
   for (const manifest of manifests) {
-    const status = manifest.failures.has_failures ? "FAIL" : "OK";
+    const hasIssues = manifest.execution.tool_usage.permission_issues.length > 0;
+    const statusIcon = getStatusIndicator(!manifest.failures.has_failures, hasIssues);
     const cost = `$${manifest.execution.metrics.total_cost_usd.toFixed(4)}`;
     const turns = manifest.execution.metrics.num_turns;
-    const duration = `${Math.round(manifest.execution.metrics.duration_ms / 1000)}s`;
+    const duration = formatDuration(manifest.execution.metrics.duration_ms);
+    const tools = manifest.execution.tool_usage.total_calls;
 
     lines.push(
-      `| ${manifest.metadata.agent_name} | ${status} | ${cost} | ${turns} | ${duration} |`,
+      `| **${manifest.metadata.agent_name}** | ${statusIcon} | ${cost} | ${turns} | ${duration} | ${tools} |`,
     );
   }
+  lines.push("");
 
-  // Add failures section if any
-  const failedManifests = manifests.filter((m) => m.failures.has_failures);
-  if (failedManifests.length > 0) {
+  // Detailed sections for each agent
+  lines.push("---");
+  lines.push("");
+  lines.push("## Agent Details");
+  lines.push("");
+
+  for (const manifest of manifests) {
+    lines.push(...generateAgentDetailSection(manifest));
+    lines.push("---");
     lines.push("");
-    lines.push("## Failures");
-    lines.push("");
-
-    for (const manifest of failedManifests) {
-      lines.push(`### ${manifest.metadata.agent_name}`);
-      lines.push("");
-
-      for (const reason of manifest.failures.reasons) {
-        lines.push(`- **Category**: ${reason.category}`);
-        lines.push(`- **Message**: ${reason.message}`);
-        lines.push(`- **Severity**: ${reason.severity}`);
-        lines.push("");
-      }
-    }
   }
 
-  lines.push("");
-  lines.push("---");
-  lines.push(`[View Workflow Run](${workflowUrl})`);
+  // Footer
+  lines.push(`_Report generated at ${new Date().toISOString()}_`);
   lines.push("");
 
   return lines.join("\n");
