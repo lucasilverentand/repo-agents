@@ -161,87 +161,129 @@ async function findExistingIssue(agentName: string, labels: string[]): Promise<n
 
 /**
  * Build the issue body from the audit manifest.
+ * Designed to surface the actual error prominently.
  */
 function buildIssueBody(manifest: AuditManifest, ctx: StageContext): string {
   const serverUrl = process.env.GITHUB_SERVER_URL ?? "https://github.com";
   const workflowUrl = `${serverUrl}/${ctx.repository}/actions/runs/${ctx.runId}`;
 
-  const lines: string[] = [
-    "## Agent Failure Report",
-    "",
-    `The **${manifest.metadata.agent_name}** agent encountered failures during execution.`,
-    "",
-    "### Workflow Details",
-    "",
-    `- **Run ID:** [${ctx.runId}](${workflowUrl})`,
-    `- **Triggered by:** @${ctx.actor}`,
-    `- **Event:** ${ctx.eventName}`,
-    `- **Time:** ${manifest.generated_at}`,
-    "",
-    "### Execution Metrics",
-    "",
-    "| Metric | Value |",
-    "|--------|-------|",
-    `| Cost | $${manifest.execution.metrics.total_cost_usd.toFixed(4)} |`,
-    `| Turns | ${manifest.execution.metrics.num_turns} |`,
-    `| Duration | ${Math.round(manifest.execution.metrics.duration_ms / 1000)}s |`,
-    `| Session ID | \`${manifest.execution.session_id ?? "N/A"}\` |`,
-    "",
-  ];
+  const lines: string[] = [];
 
-  // Add failure summary
-  if (manifest.failures.reasons.length > 0) {
-    lines.push("### Failure Summary");
-    lines.push("");
+  // Extract the actual error message - this is what matters most
+  const errorMessage = extractErrorMessage(manifest);
 
-    for (const reason of manifest.failures.reasons) {
-      lines.push(`- **[${reason.severity.toUpperCase()}]** ${reason.category}: ${reason.message}`);
-    }
+  // Big prominent error callout at the top
+  lines.push("## Error");
+  lines.push("");
+  lines.push(`> **${errorMessage}**`);
+  lines.push("");
+
+  // Remediation if available
+  const remediation = extractRemediation(manifest);
+  if (remediation) {
+    lines.push(`**Fix:** ${remediation}`);
     lines.push("");
   }
 
-  // Add tool usage summary if there were issues
+  // Compact context line
+  lines.push(
+    `[View workflow run](${workflowUrl}) · Triggered by @${ctx.actor} via \`${ctx.eventName}\``,
+  );
+  lines.push("");
+
+  // Tool permission issues are actionable - show them
   if (manifest.execution.tool_usage.permission_issues.length > 0) {
     lines.push("### Tool Permission Issues");
     lines.push("");
 
     for (const issue of manifest.execution.tool_usage.permission_issues) {
-      lines.push(`- **${issue.tool}** (${issue.issue_type}): ${issue.message.slice(0, 200)}`);
+      lines.push(`- **${issue.tool}**: ${issue.message.slice(0, 200)}`);
     }
     lines.push("");
   }
 
-  // Add audit issues
-  if (manifest.issues.length > 0) {
-    lines.push("### Detected Issues");
-    lines.push("");
-
-    for (const issue of manifest.issues) {
-      lines.push(`- **[${issue.severity.toUpperCase()}]** ${issue.type}: ${issue.message}`);
-      if (issue.remediation) {
-        lines.push(`  - *Remediation:* ${issue.remediation}`);
-      }
-    }
-    lines.push("");
-  }
-
-  // Add full manifest in collapsed details
-  lines.push("---");
-  lines.push("");
+  // Collapsed debug info
   lines.push("<details>");
-  lines.push("<summary>Full Audit Manifest</summary>");
+  lines.push("<summary>Debug info</summary>");
   lines.push("");
-  lines.push("```json");
-  lines.push(JSON.stringify(manifest, null, 2));
+  lines.push("```");
+  lines.push(`Agent: ${manifest.metadata.agent_name}`);
+  lines.push(`Session: ${manifest.execution.session_id ?? "N/A"}`);
+  lines.push(`Cost: $${manifest.execution.metrics.total_cost_usd.toFixed(4)}`);
+  lines.push(`Duration: ${Math.round(manifest.execution.metrics.duration_ms / 1000)}s`);
+  lines.push(`Turns: ${manifest.execution.metrics.num_turns}`);
   lines.push("```");
   lines.push("");
   lines.push("</details>");
-  lines.push("");
-  lines.push("---");
-  lines.push("");
-  lines.push("*This issue was automatically created by the Repo Agents audit system.*");
 
   return lines.join("\n");
+}
+
+/**
+ * Extract the most relevant error message from the manifest.
+ * Prioritizes the actual Claude error result over generic messages.
+ */
+function extractErrorMessage(manifest: AuditManifest): string {
+  // 1. Check for Claude's actual result message (most specific)
+  if (manifest.execution.result && manifest.execution.result !== "unknown") {
+    return manifest.execution.result;
+  }
+
+  // 2. Check validation failures
+  if (!manifest.validation.passed) {
+    const failedChecks = Object.entries(manifest.validation.checks)
+      .filter(([, check]) => !check.passed)
+      .map(([name, check]) => check.reason || name);
+
+    if (failedChecks.length > 0) {
+      return failedChecks[0];
+    }
+  }
+
+  // 3. Check for specific error in execution
+  if (manifest.execution.error?.message) {
+    return manifest.execution.error.message;
+  }
+
+  // 4. Fall back to first failure reason
+  if (manifest.failures.reasons.length > 0) {
+    const reason = manifest.failures.reasons[0];
+    if (reason.message !== "Agent job failed") {
+      return reason.message;
+    }
+  }
+
+  // 5. Generic fallback
+  return "Agent execution failed";
+}
+
+/**
+ * Extract remediation advice from the manifest.
+ */
+function extractRemediation(manifest: AuditManifest): string | undefined {
+  // Check issues for remediation
+  for (const issue of manifest.issues) {
+    if (issue.remediation) {
+      return issue.remediation;
+    }
+  }
+
+  // Check for common errors and provide remediation
+  const errorMessage = extractErrorMessage(manifest);
+
+  if (errorMessage.toLowerCase().includes("oauth") || errorMessage.toLowerCase().includes("token")) {
+    return "Refresh the CLAUDE_CODE_OAUTH_TOKEN secret or configure ANTHROPIC_API_KEY.";
+  }
+
+  if (errorMessage.toLowerCase().includes("rate limit")) {
+    return "Wait for the rate limit to reset, or increase rate_limit_minutes in the agent config.";
+  }
+
+  if (errorMessage.toLowerCase().includes("permission")) {
+    return "Check the agent's permissions configuration and GitHub token scopes.";
+  }
+
+  return undefined;
 }
 
 /**
