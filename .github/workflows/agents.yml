@@ -2,6 +2,7 @@ name: AI Agents
 "on":
   issues:
     types:
+      - edited
       - labeled
       - opened
   pull_request:
@@ -13,27 +14,28 @@ name: AI Agents
         description: Specific agent to run (leave empty to auto-route)
         required: false
         type: string
+concurrency:
+  group: agents-${{ github.event_name }}-${{ github.event.issue.number || github.event.pull_request.number || github.event.discussion.number || github.run_id }}
+  cancel-in-progress: true
 permissions:
   actions: write
   contents: write
   issues: write
   pull-requests: write
+  discussions: write
 jobs:
   dispatcher:
     runs-on: ubuntu-latest
     outputs:
-      agent-issue-analyzer-should-run: ${{ steps.dispatcher.outputs.agent-issue-analyzer-should-run }}
-      agent-issue-analyzer-skip-reason: ${{ steps.dispatcher.outputs.agent-issue-analyzer-skip-reason }}
-      agent-issue-analyzer-event-payload: ${{ steps.dispatcher.outputs.agent-issue-analyzer-event-payload }}
-      agent-issue-formatter-should-run: ${{ steps.dispatcher.outputs.agent-issue-formatter-should-run }}
-      agent-issue-formatter-skip-reason: ${{ steps.dispatcher.outputs.agent-issue-formatter-skip-reason }}
-      agent-issue-formatter-event-payload: ${{ steps.dispatcher.outputs.agent-issue-formatter-event-payload }}
       agent-issue-implementer-should-run: ${{ steps.dispatcher.outputs.agent-issue-implementer-should-run }}
       agent-issue-implementer-skip-reason: ${{ steps.dispatcher.outputs.agent-issue-implementer-skip-reason }}
       agent-issue-implementer-event-payload: ${{ steps.dispatcher.outputs.agent-issue-implementer-event-payload }}
-      agent-issue-triage-should-run: ${{ steps.dispatcher.outputs.agent-issue-triage-should-run }}
-      agent-issue-triage-skip-reason: ${{ steps.dispatcher.outputs.agent-issue-triage-skip-reason }}
-      agent-issue-triage-event-payload: ${{ steps.dispatcher.outputs.agent-issue-triage-event-payload }}
+      agent-issue-quality-should-run: ${{ steps.dispatcher.outputs.agent-issue-quality-should-run }}
+      agent-issue-quality-skip-reason: ${{ steps.dispatcher.outputs.agent-issue-quality-skip-reason }}
+      agent-issue-quality-event-payload: ${{ steps.dispatcher.outputs.agent-issue-quality-event-payload }}
+      agent-test-agent-should-run: ${{ steps.dispatcher.outputs.agent-test-agent-should-run }}
+      agent-test-agent-skip-reason: ${{ steps.dispatcher.outputs.agent-test-agent-skip-reason }}
+      agent-test-agent-event-payload: ${{ steps.dispatcher.outputs.agent-test-agent-event-payload }}
     steps:
       - uses: actions/checkout@v4
       - uses: oven-sh/setup-bun@v2
@@ -46,200 +48,6 @@ jobs:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           WORKFLOW_DISPATCH_AGENT: ${{ inputs.agent }}
           CLAUDE_CODE_OAUTH_TOKEN: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
-
-  agent-issue-analyzer:
-    runs-on: ubuntu-latest
-    needs: dispatcher
-    if: needs.dispatcher.outputs.agent-issue-analyzer-should-run == 'true'
-    steps:
-      - uses: actions/checkout@v4
-      - uses: oven-sh/setup-bun@v2
-      - name: Install dependencies
-        run: bun install --frozen-lockfile
-      - uses: actions/create-github-app-token@v1
-        id: app-token
-        with:
-          app-id: ${{ secrets.GH_APP_ID }}
-          private-key: ${{ secrets.GH_APP_PRIVATE_KEY }}
-        continue-on-error: true
-      - name: Configure git identity
-        run: |-
-          git config --global user.name "${{ steps.app-token.outputs.app-slug || 'github-actions[bot]' }}"
-          git config --global user.email "${{ steps.app-token.outputs.app-slug || 'github-actions[bot]' }}@users.noreply.github.com"
-      - name: Run Issue Analyzer
-        run: bun run repo-agent run agent --agent "Issue Analyzer"
-        env:
-          GH_TOKEN: ${{ steps.app-token.outputs.token || secrets.GITHUB_TOKEN }}
-          CLAUDE_CODE_OAUTH_TOKEN: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
-          EVENT_PAYLOAD: ${{ needs.dispatcher.outputs.agent-issue-analyzer-event-payload }}
-      - name: Upload outputs
-        uses: actions/upload-artifact@v4
-        with:
-          name: agent-issue-analyzer-outputs-${{ github.run_id }}
-          path: /tmp/outputs/
-          retention-days: "7"
-      - if: always()
-        name: Upload audit metrics
-        uses: actions/upload-artifact@v4
-        with:
-          name: agent-issue-analyzer-audit-${{ github.run_id }}
-          path: /tmp/audit/
-          retention-days: "7"
-
-  agent-issue-analyzer-outputs:
-    runs-on: ubuntu-latest
-    needs:
-      - dispatcher
-      - agent-issue-analyzer
-    if: needs.agent-issue-analyzer.result == 'success'
-    steps:
-      - uses: actions/checkout@v4
-      - uses: oven-sh/setup-bun@v2
-      - name: Install dependencies
-        run: bun install --frozen-lockfile
-      - uses: actions/create-github-app-token@v1
-        id: app-token
-        with:
-          app-id: ${{ secrets.GH_APP_ID }}
-          private-key: ${{ secrets.GH_APP_PRIVATE_KEY }}
-        continue-on-error: true
-      - name: Download outputs
-        uses: actions/download-artifact@v4
-        with:
-          name: agent-issue-analyzer-outputs-${{ github.run_id }}
-          path: /tmp/outputs/
-        continue-on-error: true
-      - name: Execute outputs
-        run: bun run repo-agent run outputs --agent "Issue Analyzer"
-        env:
-          GH_TOKEN: ${{ steps.app-token.outputs.token || secrets.GITHUB_TOKEN }}
-          EVENT_PAYLOAD: ${{ needs.dispatcher.outputs.agent-issue-analyzer-event-payload }}
-
-  agent-issue-analyzer-audit:
-    runs-on: ubuntu-latest
-    needs:
-      - dispatcher
-      - agent-issue-analyzer
-    if: always() && needs.dispatcher.outputs.agent-issue-analyzer-should-run == 'true'
-    steps:
-      - uses: actions/checkout@v4
-      - uses: oven-sh/setup-bun@v2
-      - name: Install dependencies
-        run: bun install --frozen-lockfile
-      - uses: actions/create-github-app-token@v1
-        id: app-token
-        with:
-          app-id: ${{ secrets.GH_APP_ID }}
-          private-key: ${{ secrets.GH_APP_PRIVATE_KEY }}
-        continue-on-error: true
-      - name: Download audit metrics
-        uses: actions/download-artifact@v4
-        with:
-          name: agent-issue-analyzer-audit-${{ github.run_id }}
-          path: /tmp/artifacts/
-        continue-on-error: true
-      - name: Generate audit report
-        run: bun run repo-agent run audit --agent "Issue Analyzer"
-        env:
-          GH_TOKEN: ${{ steps.app-token.outputs.token || secrets.GITHUB_TOKEN }}
-          AGENT_RESULT: ${{ needs.agent-issue-analyzer.result }}
-
-  agent-issue-formatter:
-    runs-on: ubuntu-latest
-    needs: dispatcher
-    if: needs.dispatcher.outputs.agent-issue-formatter-should-run == 'true'
-    steps:
-      - uses: actions/checkout@v4
-      - uses: oven-sh/setup-bun@v2
-      - name: Install dependencies
-        run: bun install --frozen-lockfile
-      - uses: actions/create-github-app-token@v1
-        id: app-token
-        with:
-          app-id: ${{ secrets.GH_APP_ID }}
-          private-key: ${{ secrets.GH_APP_PRIVATE_KEY }}
-        continue-on-error: true
-      - name: Configure git identity
-        run: |-
-          git config --global user.name "${{ steps.app-token.outputs.app-slug || 'github-actions[bot]' }}"
-          git config --global user.email "${{ steps.app-token.outputs.app-slug || 'github-actions[bot]' }}@users.noreply.github.com"
-      - name: Run Issue Formatter
-        run: bun run repo-agent run agent --agent "Issue Formatter"
-        env:
-          GH_TOKEN: ${{ steps.app-token.outputs.token || secrets.GITHUB_TOKEN }}
-          CLAUDE_CODE_OAUTH_TOKEN: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
-          EVENT_PAYLOAD: ${{ needs.dispatcher.outputs.agent-issue-formatter-event-payload }}
-      - name: Upload outputs
-        uses: actions/upload-artifact@v4
-        with:
-          name: agent-issue-formatter-outputs-${{ github.run_id }}
-          path: /tmp/outputs/
-          retention-days: "7"
-      - if: always()
-        name: Upload audit metrics
-        uses: actions/upload-artifact@v4
-        with:
-          name: agent-issue-formatter-audit-${{ github.run_id }}
-          path: /tmp/audit/
-          retention-days: "7"
-
-  agent-issue-formatter-outputs:
-    runs-on: ubuntu-latest
-    needs:
-      - dispatcher
-      - agent-issue-formatter
-    if: needs.agent-issue-formatter.result == 'success'
-    steps:
-      - uses: actions/checkout@v4
-      - uses: oven-sh/setup-bun@v2
-      - name: Install dependencies
-        run: bun install --frozen-lockfile
-      - uses: actions/create-github-app-token@v1
-        id: app-token
-        with:
-          app-id: ${{ secrets.GH_APP_ID }}
-          private-key: ${{ secrets.GH_APP_PRIVATE_KEY }}
-        continue-on-error: true
-      - name: Download outputs
-        uses: actions/download-artifact@v4
-        with:
-          name: agent-issue-formatter-outputs-${{ github.run_id }}
-          path: /tmp/outputs/
-        continue-on-error: true
-      - name: Execute outputs
-        run: bun run repo-agent run outputs --agent "Issue Formatter"
-        env:
-          GH_TOKEN: ${{ steps.app-token.outputs.token || secrets.GITHUB_TOKEN }}
-          EVENT_PAYLOAD: ${{ needs.dispatcher.outputs.agent-issue-formatter-event-payload }}
-
-  agent-issue-formatter-audit:
-    runs-on: ubuntu-latest
-    needs:
-      - dispatcher
-      - agent-issue-formatter
-    if: always() && needs.dispatcher.outputs.agent-issue-formatter-should-run == 'true'
-    steps:
-      - uses: actions/checkout@v4
-      - uses: oven-sh/setup-bun@v2
-      - name: Install dependencies
-        run: bun install --frozen-lockfile
-      - uses: actions/create-github-app-token@v1
-        id: app-token
-        with:
-          app-id: ${{ secrets.GH_APP_ID }}
-          private-key: ${{ secrets.GH_APP_PRIVATE_KEY }}
-        continue-on-error: true
-      - name: Download audit metrics
-        uses: actions/download-artifact@v4
-        with:
-          name: agent-issue-formatter-audit-${{ github.run_id }}
-          path: /tmp/artifacts/
-        continue-on-error: true
-      - name: Generate audit report
-        run: bun run repo-agent run audit --agent "Issue Formatter"
-        env:
-          GH_TOKEN: ${{ steps.app-token.outputs.token || secrets.GITHUB_TOKEN }}
-          AGENT_RESULT: ${{ needs.agent-issue-formatter.result }}
 
   agent-issue-implementer:
     runs-on: ubuntu-latest
@@ -309,39 +117,10 @@ jobs:
           GH_TOKEN: ${{ steps.app-token.outputs.token || secrets.GITHUB_TOKEN }}
           EVENT_PAYLOAD: ${{ needs.dispatcher.outputs.agent-issue-implementer-event-payload }}
 
-  agent-issue-implementer-audit:
-    runs-on: ubuntu-latest
-    needs:
-      - dispatcher
-      - agent-issue-implementer
-    if: always() && needs.dispatcher.outputs.agent-issue-implementer-should-run == 'true'
-    steps:
-      - uses: actions/checkout@v4
-      - uses: oven-sh/setup-bun@v2
-      - name: Install dependencies
-        run: bun install --frozen-lockfile
-      - uses: actions/create-github-app-token@v1
-        id: app-token
-        with:
-          app-id: ${{ secrets.GH_APP_ID }}
-          private-key: ${{ secrets.GH_APP_PRIVATE_KEY }}
-        continue-on-error: true
-      - name: Download audit metrics
-        uses: actions/download-artifact@v4
-        with:
-          name: agent-issue-implementer-audit-${{ github.run_id }}
-          path: /tmp/artifacts/
-        continue-on-error: true
-      - name: Generate audit report
-        run: bun run repo-agent run audit --agent "Issue Implementer"
-        env:
-          GH_TOKEN: ${{ steps.app-token.outputs.token || secrets.GITHUB_TOKEN }}
-          AGENT_RESULT: ${{ needs.agent-issue-implementer.result }}
-
-  agent-issue-triage:
+  agent-issue-quality:
     runs-on: ubuntu-latest
     needs: dispatcher
-    if: needs.dispatcher.outputs.agent-issue-triage-should-run == 'true'
+    if: needs.dispatcher.outputs.agent-issue-quality-should-run == 'true'
     steps:
       - uses: actions/checkout@v4
       - uses: oven-sh/setup-bun@v2
@@ -357,32 +136,32 @@ jobs:
         run: |-
           git config --global user.name "${{ steps.app-token.outputs.app-slug || 'github-actions[bot]' }}"
           git config --global user.email "${{ steps.app-token.outputs.app-slug || 'github-actions[bot]' }}@users.noreply.github.com"
-      - name: Run Issue Triage
-        run: bun run repo-agent run agent --agent "Issue Triage"
+      - name: Run Issue Quality
+        run: bun run repo-agent run agent --agent "Issue Quality"
         env:
           GH_TOKEN: ${{ steps.app-token.outputs.token || secrets.GITHUB_TOKEN }}
           CLAUDE_CODE_OAUTH_TOKEN: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
-          EVENT_PAYLOAD: ${{ needs.dispatcher.outputs.agent-issue-triage-event-payload }}
+          EVENT_PAYLOAD: ${{ needs.dispatcher.outputs.agent-issue-quality-event-payload }}
       - name: Upload outputs
         uses: actions/upload-artifact@v4
         with:
-          name: agent-issue-triage-outputs-${{ github.run_id }}
+          name: agent-issue-quality-outputs-${{ github.run_id }}
           path: /tmp/outputs/
           retention-days: "7"
       - if: always()
         name: Upload audit metrics
         uses: actions/upload-artifact@v4
         with:
-          name: agent-issue-triage-audit-${{ github.run_id }}
+          name: agent-issue-quality-audit-${{ github.run_id }}
           path: /tmp/audit/
           retention-days: "7"
 
-  agent-issue-triage-outputs:
+  agent-issue-quality-outputs:
     runs-on: ubuntu-latest
     needs:
       - dispatcher
-      - agent-issue-triage
-    if: needs.agent-issue-triage.result == 'success'
+      - agent-issue-quality
+    if: needs.agent-issue-quality.result == 'success'
     steps:
       - uses: actions/checkout@v4
       - uses: oven-sh/setup-bun@v2
@@ -397,21 +176,19 @@ jobs:
       - name: Download outputs
         uses: actions/download-artifact@v4
         with:
-          name: agent-issue-triage-outputs-${{ github.run_id }}
+          name: agent-issue-quality-outputs-${{ github.run_id }}
           path: /tmp/outputs/
         continue-on-error: true
       - name: Execute outputs
-        run: bun run repo-agent run outputs --agent "Issue Triage"
+        run: bun run repo-agent run outputs --agent "Issue Quality"
         env:
           GH_TOKEN: ${{ steps.app-token.outputs.token || secrets.GITHUB_TOKEN }}
-          EVENT_PAYLOAD: ${{ needs.dispatcher.outputs.agent-issue-triage-event-payload }}
+          EVENT_PAYLOAD: ${{ needs.dispatcher.outputs.agent-issue-quality-event-payload }}
 
-  agent-issue-triage-audit:
+  agent-test-agent:
     runs-on: ubuntu-latest
-    needs:
-      - dispatcher
-      - agent-issue-triage
-    if: always() && needs.dispatcher.outputs.agent-issue-triage-should-run == 'true'
+    needs: dispatcher
+    if: needs.dispatcher.outputs.agent-test-agent-should-run == 'true'
     steps:
       - uses: actions/checkout@v4
       - uses: oven-sh/setup-bun@v2
@@ -423,14 +200,126 @@ jobs:
           app-id: ${{ secrets.GH_APP_ID }}
           private-key: ${{ secrets.GH_APP_PRIVATE_KEY }}
         continue-on-error: true
-      - name: Download audit metrics
-        uses: actions/download-artifact@v4
-        with:
-          name: agent-issue-triage-audit-${{ github.run_id }}
-          path: /tmp/artifacts/
-        continue-on-error: true
-      - name: Generate audit report
-        run: bun run repo-agent run audit --agent "Issue Triage"
+      - name: Configure git identity
+        run: |-
+          git config --global user.name "${{ steps.app-token.outputs.app-slug || 'github-actions[bot]' }}"
+          git config --global user.email "${{ steps.app-token.outputs.app-slug || 'github-actions[bot]' }}@users.noreply.github.com"
+      - name: Run Test Agent
+        run: bun run repo-agent run agent --agent "Test Agent"
         env:
           GH_TOKEN: ${{ steps.app-token.outputs.token || secrets.GITHUB_TOKEN }}
-          AGENT_RESULT: ${{ needs.agent-issue-triage.result }}
+          CLAUDE_CODE_OAUTH_TOKEN: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
+          EVENT_PAYLOAD: ${{ needs.dispatcher.outputs.agent-test-agent-event-payload }}
+      - name: Upload outputs
+        uses: actions/upload-artifact@v4
+        with:
+          name: agent-test-agent-outputs-${{ github.run_id }}
+          path: /tmp/outputs/
+          retention-days: "7"
+      - if: always()
+        name: Upload audit metrics
+        uses: actions/upload-artifact@v4
+        with:
+          name: agent-test-agent-audit-${{ github.run_id }}
+          path: /tmp/audit/
+          retention-days: "7"
+
+  agent-test-agent-outputs:
+    runs-on: ubuntu-latest
+    needs:
+      - dispatcher
+      - agent-test-agent
+    if: needs.agent-test-agent.result == 'success'
+    steps:
+      - uses: actions/checkout@v4
+      - uses: oven-sh/setup-bun@v2
+      - name: Install dependencies
+        run: bun install --frozen-lockfile
+      - uses: actions/create-github-app-token@v1
+        id: app-token
+        with:
+          app-id: ${{ secrets.GH_APP_ID }}
+          private-key: ${{ secrets.GH_APP_PRIVATE_KEY }}
+        continue-on-error: true
+      - name: Download outputs
+        uses: actions/download-artifact@v4
+        with:
+          name: agent-test-agent-outputs-${{ github.run_id }}
+          path: /tmp/outputs/
+        continue-on-error: true
+      - name: Execute outputs
+        run: bun run repo-agent run outputs --agent "Test Agent"
+        env:
+          GH_TOKEN: ${{ steps.app-token.outputs.token || secrets.GITHUB_TOKEN }}
+          EVENT_PAYLOAD: ${{ needs.dispatcher.outputs.agent-test-agent-event-payload }}
+
+  audit-report:
+    runs-on: ubuntu-latest
+    needs:
+      - dispatcher
+      - agent-issue-implementer
+      - agent-issue-quality
+      - agent-test-agent
+    if: always()
+    outputs:
+      has-failures: ${{ steps.report.outputs.has-failures }}
+      failed-agents: ${{ steps.report.outputs.failed-agents }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: oven-sh/setup-bun@v2
+      - name: Install dependencies
+        run: bun install --frozen-lockfile
+      - name: Download all audit artifacts
+        uses: actions/download-artifact@v4
+        with:
+          pattern: agent-*-audit-*
+          path: /tmp/all-audits/
+        continue-on-error: true
+      - name: Generate audit report
+        id: report
+        run: bun run repo-agent run audit-report
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          JOB_RESULTS: ${{ toJSON(needs) }}
+      - name: Write job summary
+        run: cat /tmp/audit/summary.md >> $GITHUB_STEP_SUMMARY
+        if: always()
+        continue-on-error: true
+      - name: Upload audit manifest
+        uses: actions/upload-artifact@v4
+        with:
+          name: audit-manifest-${{ github.run_id }}
+          path: /tmp/audit/
+          retention-days: "30"
+        if: always()
+
+  audit-issues:
+    runs-on: ubuntu-latest
+    needs:
+      - audit-report
+    if: always() && needs.audit-report.outputs.has-failures == 'true'
+    strategy:
+      matrix:
+        agent: ${{ fromJSON(needs.audit-report.outputs.failed-agents) }}
+      fail-fast: false
+    steps:
+      - uses: actions/checkout@v4
+      - uses: oven-sh/setup-bun@v2
+      - name: Install dependencies
+        run: bun install --frozen-lockfile
+      - uses: actions/create-github-app-token@v1
+        id: app-token
+        with:
+          app-id: ${{ secrets.GH_APP_ID }}
+          private-key: ${{ secrets.GH_APP_PRIVATE_KEY }}
+        continue-on-error: true
+      - name: Download audit manifest
+        uses: actions/download-artifact@v4
+        with:
+          name: audit-manifest-${{ github.run_id }}
+          path: /tmp/audit/
+      - name: Create failure issue
+        run: bun run repo-agent run audit-issues --agent "${{ matrix.agent }}"
+        env:
+          GH_TOKEN: ${{ steps.app-token.outputs.token || secrets.GITHUB_TOKEN }}
+          MATRIX_AGENT: ${{ matrix.agent }}
