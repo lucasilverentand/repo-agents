@@ -198,7 +198,7 @@ describe("AddLabelHandler", () => {
       const config = {};
       const script = handler.generateValidationScript(config, mockRuntime);
 
-      expect(script).toContain('BLOCKED_LABELS=\'[]\'');
+      expect(script).toContain("BLOCKED_LABELS='[]'");
     });
   });
 });

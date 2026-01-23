@@ -299,6 +299,7 @@ function buildAgentManifest(
     passed: true,
     checks: {
       secrets_check: { passed: true },
+      bot_actor: { passed: true },
       user_authorization: { passed: true },
       trigger_labels: { passed: true },
       rate_limit: { passed: true },

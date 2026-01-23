@@ -23,6 +23,7 @@ export interface AgentDefinition {
   context?: ContextConfig; // Data collection configuration
   audit?: AuditConfig; // Audit and failure reporting configuration
   progress_comment?: boolean; // Show progress comment on issue/PR (default: true for issue/PR triggers)
+  allow_bot_triggers?: boolean; // Allow bot/app actors to trigger this agent (default: false, prevents recursive loops)
   markdown: string;
 }
 
@@ -529,6 +530,7 @@ export interface AuditValidationPhase {
   passed: boolean;
   checks: {
     secrets_check: AuditValidationCheck;
+    bot_actor: AuditValidationCheck;
     user_authorization: AuditValidationCheck;
     trigger_labels: AuditValidationCheck;
     rate_limit: AuditValidationCheck;

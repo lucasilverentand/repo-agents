@@ -10,6 +10,7 @@ import {
 import type { PermissionIssue, ValidationContext, ValidationStatus } from "../../utils/validation";
 import {
   checkBlockingIssues,
+  checkBotActor,
   checkMaxOpenPRs,
   checkRateLimit,
   checkTriggerLabels,
@@ -25,18 +26,20 @@ import {
  * (one per matching agent) and performs all validation checks:
  *
  * 1. Load and validate agent definition
- * 2. Check user authorization (repo permission, org membership, allowed lists)
- * 3. Check trigger labels (if configured)
- * 4. Check rate limiting (time since last successful run)
- * 5. Check max open PRs limit (if configured)
- * 6. Check blocking issues (if configured)
- * 7. Create progress comment (if enabled)
- * 8. Get target issue/PR number for outputs
- * 9. Encode event payload for agent context
+ * 2. Check if actor is a bot (prevents recursive loops)
+ * 3. Check user authorization (repo permission, org membership, allowed lists)
+ * 4. Check trigger labels (if configured)
+ * 5. Check rate limiting (time since last successful run)
+ * 6. Check max open PRs limit (if configured)
+ * 7. Check blocking issues (if configured)
+ * 8. Create progress comment (if enabled)
+ * 9. Get target issue/PR number for outputs
+ * 10. Encode event payload for agent context
  *
  * Outputs:
  * - should-run: "true" if all checks pass, "false" otherwise
  * - skip-reason: Reason for skipping (if should-run is false)
+ * - bot-triggered: "true" if skipped because actor is a bot
  * - rate-limited: "true" if skipped due to rate limit
  * - pr-limited: "true" if skipped due to max open PRs
  * - blocked-by-issues: "true" if skipped due to blocking issues
@@ -62,6 +65,7 @@ export async function runUnifiedValidate(ctx: {
 }): Promise<StageResult> {
   const validationStatus: ValidationStatus = {
     agent_loaded: false,
+    bot_actor_check: false,
     user_authorization: false,
     labels_check: false,
     rate_limit_check: false,
@@ -72,6 +76,7 @@ export async function runUnifiedValidate(ctx: {
 
   const outputs: Record<string, string> = {
     "should-run": "false",
+    "bot-triggered": "false",
     "rate-limited": "false",
     "pr-limited": "false",
     "blocked-by-issues": "false",
@@ -94,7 +99,32 @@ export async function runUnifiedValidate(ctx: {
       options: ctx.options,
     };
 
-    // Step 2: Check user authorization
+    // Step 2: Check if actor is a bot (prevents recursive loops)
+    const botActorResult = await checkBotActor(validationContext, agent);
+    if (!botActorResult.allowed) {
+      permissionIssues.push({
+        timestamp: new Date().toISOString(),
+        issue_type: "validation_error",
+        severity: "warning",
+        message: "Bot actor detected - skipping to prevent recursive loops",
+        context: {
+          actor: ctx.github.actor,
+          isBot: botActorResult.isBot,
+        },
+      });
+      await writeAuditData(validationStatus, permissionIssues, agent.name);
+      outputs["skip-reason"] = botActorResult.reason ?? "Bot actor not allowed";
+      outputs["bot-triggered"] = "true";
+      await writeValidationResult(outputs);
+      return {
+        success: true, // Not an error, just skipped
+        outputs,
+      };
+    }
+    validationStatus.bot_actor_check = true;
+    console.log(`✓ Bot actor check passed: ${ctx.github.actor}`);
+
+    // Step 3: Check user authorization (human users only at this point)
     const authResult = await checkUserAuthorization(validationContext, agent);
     if (!authResult.authorized) {
       permissionIssues.push({
@@ -118,7 +148,7 @@ export async function runUnifiedValidate(ctx: {
     validationStatus.user_authorization = true;
     console.log(`✓ User authorized: ${ctx.github.actor}`);
 
-    // Step 3: Check trigger labels (if configured)
+    // Step 4: Check trigger labels (if configured)
     const labelsResult = await checkTriggerLabels(validationContext, agent);
     if (!labelsResult.valid) {
       permissionIssues.push({
@@ -142,7 +172,7 @@ export async function runUnifiedValidate(ctx: {
     validationStatus.labels_check = true;
     console.log("✓ Trigger labels check passed");
 
-    // Step 4: Check rate limiting
+    // Step 5: Check rate limiting
     const rateLimitResult = await checkRateLimit(validationContext, agent);
     if (!rateLimitResult.allowed) {
       permissionIssues.push({
@@ -167,7 +197,7 @@ export async function runUnifiedValidate(ctx: {
     validationStatus.rate_limit_check = true;
     console.log("✓ Rate limit check passed");
 
-    // Step 5: Check max open PRs limit (if configured)
+    // Step 6: Check max open PRs limit (if configured)
     const maxOpenPrsResult = await checkMaxOpenPRs(validationContext, agent);
     if (!maxOpenPrsResult.allowed) {
       // Silently skip - no comment, just don't run. Will retry on PR close/merge.
@@ -183,7 +213,7 @@ export async function runUnifiedValidate(ctx: {
     validationStatus.max_open_prs_check = true;
     console.log("✓ Max open PRs check passed");
 
-    // Step 6: Check for blocking issues (if configured)
+    // Step 7: Check for blocking issues (if configured)
     const blockingIssuesResult = await checkBlockingIssues(validationContext, agent);
     if (!blockingIssuesResult.allowed) {
       permissionIssues.push({
@@ -306,6 +336,7 @@ async function writeValidationResult(outputs: Record<string, string>): Promise<v
   const result = {
     should_run: outputs["should-run"] === "true",
     skip_reason: outputs["skip-reason"] || null,
+    bot_triggered: outputs["bot-triggered"] === "true",
     rate_limited: outputs["rate-limited"] === "true",
     pr_limited: outputs["pr-limited"] === "true",
     blocked_by_issues: outputs["blocked-by-issues"] === "true",

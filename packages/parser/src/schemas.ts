@@ -315,6 +315,7 @@ export const agentFrontmatterSchema = z.strictObject({
   context: contextConfigSchema,
   audit: auditConfigSchema,
   progress_comment: z.boolean().optional(), // Show progress comment on issue/PR (default: true for issue/PR triggers)
+  allow_bot_triggers: z.boolean().optional(), // Allow bot/app actors to trigger this agent (default: false, prevents recursive loops)
 }); // Reject unknown properties
 
 export type AgentFrontmatter = z.infer<typeof agentFrontmatterSchema>;

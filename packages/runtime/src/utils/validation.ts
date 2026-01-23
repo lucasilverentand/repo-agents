@@ -13,6 +13,7 @@ import {
  */
 export interface ValidationStatus {
   agent_loaded: boolean;
+  bot_actor_check: boolean;
   user_authorization: boolean;
   labels_check: boolean;
   rate_limit_check: boolean;
@@ -115,6 +116,56 @@ export async function checkUserAuthorization(
     authorized: false,
     reason: `User ${actor} is not authorized`,
   };
+}
+
+/**
+ * Known bot actor patterns.
+ * These patterns identify automated actors that could cause recursive loops.
+ */
+const BOT_ACTOR_PATTERNS = [
+  // GitHub Apps and bots
+  /\[bot\]$/i, // Matches: github-actions[bot], dependabot[bot], etc.
+  /^github-actions$/i, // GitHub Actions actor
+  /^dependabot$/i, // Dependabot preview
+  // Common CI/CD bots
+  /^renovate$/i, // Renovate bot
+  /^greenkeeper$/i, // Greenkeeper bot
+  /^snyk-bot$/i, // Snyk bot
+  /^codecov$/i, // Codecov bot
+  /^semantic-release-bot$/i, // Semantic release bot
+];
+
+/**
+ * Check if the actor is a bot or automated system.
+ *
+ * By default, agents skip execution when triggered by bots to prevent
+ * recursive loops (e.g., agent edits issue -> triggers agent -> edits issue...).
+ *
+ * Set `allow_bot_triggers: true` in agent config to allow bot triggers.
+ */
+export async function checkBotActor(
+  ctx: ValidationContext,
+  agent: AgentDefinition,
+): Promise<{ allowed: boolean; reason?: string; isBot?: boolean }> {
+  // If agent explicitly allows bot triggers, skip this check
+  if (agent.allow_bot_triggers === true) {
+    return { allowed: true, isBot: false };
+  }
+
+  const actor = ctx.github.actor;
+
+  // Check if actor matches any bot patterns
+  for (const pattern of BOT_ACTOR_PATTERNS) {
+    if (pattern.test(actor)) {
+      return {
+        allowed: false,
+        reason: `Bot actor '${actor}' cannot trigger this agent (prevents recursive loops). Set 'allow_bot_triggers: true' to override.`,
+        isBot: true,
+      };
+    }
+  }
+
+  return { allowed: true, isBot: false };
 }
 
 /**
