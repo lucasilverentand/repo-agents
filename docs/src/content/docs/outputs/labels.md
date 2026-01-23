@@ -3,7 +3,7 @@ title: Labels
 description: Enable agents to manage issue and pull request labels
 ---
 
-The `add-label` and `remove-label` outputs allow your agent to manage labels on GitHub issues and pull requests. These outputs work with the labels that already exist in your repository and cannot create new labels.
+The `add-label`, `remove-label`, and `manage-labels` outputs allow your agent to manage labels on GitHub issues and pull requests. The first two work with existing labels, while `manage-labels` can create, edit, and delete repository labels.
 
 ## Basic Example
 
@@ -29,11 +29,31 @@ that don't match the actual issue type.
 outputs:
   add-label: true            # boolean — default: false
   remove-label: true         # boolean — default: false
+  manage-labels: true        # boolean — default: false
 ```
 
 **add-label** — Enable adding labels. Labels must exist in the repository.
 
 **remove-label** — Enable removing labels. Silently ignores labels that don't exist.
+
+**manage-labels** — Enable creating, editing, and deleting repository labels.
+
+### manage-labels
+
+The `manage-labels` output allows agents to manage repository labels themselves — creating new labels, editing existing ones, or deleting labels that are no longer needed.
+
+```yaml
+outputs:
+  manage-labels:
+    allow_create: true       # boolean — allow creating labels
+    allow_edit: true         # boolean — allow editing labels
+    allow_delete: false      # boolean — allow deleting labels (destructive)
+    protected_labels:        # labels that cannot be deleted
+      - bug
+      - enhancement
+```
+
+Use this output cautiously since label changes affect the entire repository. Consider disabling `allow_delete` or using `protected_labels` to prevent accidental removal of important labels.
 
 ## Best Practices
 
@@ -137,5 +157,34 @@ Analyze the issue title and body to determine the type:
 
 If the issue is unclear or missing important details, add `needs-info` and
 leave a polite comment asking for clarification.
+```
+</details>
+
+<details>
+<summary>Example: Label management for new components</summary>
+
+```yaml
+name: Label Manager
+on:
+  pull_request:
+    types: [opened]
+    paths:
+      - 'src/components/**'
+
+outputs:
+  manage-labels:
+    allow_create: true
+    allow_edit: true
+    allow_delete: false
+  add-label: true
+---
+
+When a PR adds a new component directory under src/components/:
+
+1. Check if a label exists for that component (e.g., "component/button")
+2. If not, create it with a blue color (#0366d6) and description
+3. Add the component label to the PR
+
+This ensures every component has a corresponding label for filtering issues and PRs.
 ```
 </details>
