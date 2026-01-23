@@ -18,9 +18,7 @@ class LinkProjectHandler implements OutputHandler {
     const projectNumber = linkConfig.project_number;
     const owner = linkConfig.owner ?? "@me";
 
-    const projectNote = projectNumber
-      ? `\n- Default project number: ${projectNumber}`
-      : "";
+    const projectNote = projectNumber ? `\n- Default project number: ${projectNumber}` : "";
     const ownerNote = `\n- Default owner: ${owner}`;
 
     return `## Skill: Link Project

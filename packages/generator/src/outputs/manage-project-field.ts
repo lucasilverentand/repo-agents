@@ -24,9 +24,7 @@ class ManageProjectFieldHandler implements OutputHandler {
     const allowDelete = fieldConfig.allow_delete !== false;
     const protectedFields = fieldConfig.protected_fields ?? [];
 
-    const projectNote = projectNumber
-      ? `\n- Default project number: ${projectNumber}`
-      : "";
+    const projectNote = projectNumber ? `\n- Default project number: ${projectNumber}` : "";
     const ownerNote = `\n- Default owner: ${owner}`;
     const protectedNote =
       protectedFields.length > 0

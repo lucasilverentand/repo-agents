@@ -18,9 +18,7 @@ class RemoveFromProjectHandler implements OutputHandler {
     const projectNumber = projectConfig.project_number;
     const owner = projectConfig.owner ?? "@me";
 
-    const projectNote = projectNumber
-      ? `\n- Default project number: ${projectNumber}`
-      : "";
+    const projectNote = projectNumber ? `\n- Default project number: ${projectNumber}` : "";
     const ownerNote = `\n- Default owner: ${owner}`;
 
     return `## Skill: Remove from Project

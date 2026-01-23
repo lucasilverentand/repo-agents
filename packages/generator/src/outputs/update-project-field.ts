@@ -20,9 +20,7 @@ class UpdateProjectFieldHandler implements OutputHandler {
     const owner = fieldConfig.owner ?? "@me";
     const allowedFields = fieldConfig.allowed_fields ?? [];
 
-    const projectNote = projectNumber
-      ? `\n- Default project number: ${projectNumber}`
-      : "";
+    const projectNote = projectNumber ? `\n- Default project number: ${projectNumber}` : "";
     const ownerNote = `\n- Default owner: ${owner}`;
     const fieldsNote =
       allowedFields.length > 0

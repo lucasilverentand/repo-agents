@@ -18,9 +18,7 @@ class ArchiveProjectItemHandler implements OutputHandler {
     const projectNumber = archiveConfig.project_number;
     const owner = archiveConfig.owner ?? "@me";
 
-    const projectNote = projectNumber
-      ? `\n- Default project number: ${projectNumber}`
-      : "";
+    const projectNote = projectNumber ? `\n- Default project number: ${projectNumber}` : "";
     const ownerNote = `\n- Default owner: ${owner}`;
 
     return `## Skill: Archive Project Item
