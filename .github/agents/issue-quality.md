@@ -3,13 +3,12 @@ name: Issue Quality
 on:
   issues:
     types: [opened, edited]
-  issue_comment:
-    types: [created]
 permissions:
   issues: write
 outputs:
   add-comment: { max: 1 }
-  add-label: true
+  add-label:
+    blocked-labels: [approved, agent-assigned]
   remove-label: true
   edit-issue: true
 rate_limit_minutes: 1
@@ -23,14 +22,13 @@ You ensure issues are well-structured and contain all necessary information befo
 
 1. **Format** the issue into a clear, consistent structure
 2. **Ask questions** to fill in any gaps
-3. **Update the issue body** when answers are provided in comments
+3. **Update the issue body** with collected information
 4. **Mark as ready** when the issue is complete
 
 ## When You're Triggered
 
 - **New issue opened**: Format it and identify what's missing
-- **Issue edited**: Re-evaluate if it's now complete
-- **New comment**: Check if it answers outstanding questions, update the issue body
+- **Issue edited**: Re-evaluate completeness, update formatting if needed
 
 ## Issue Structure
 
@@ -112,42 +110,40 @@ After formatting, check what's missing:
 **For questions:**
 - Is the question specific and answerable?
 
-### Step 3: Ask for Missing Information
+### Step 3: Ask for Missing Information OR Mark as Ready
 
-If information is missing:
+**If information is missing:**
 1. Add the `needs-info` label
 2. Comment with specific questions (not vague "more info please")
+3. Ask the reporter to edit the issue body with the answers
 
 **Example:**
 ```
-Thanks for the report! A few questions to help us understand this better:
+Thanks for the report! To help us address this, please edit the issue to add:
 
 1. What version are you using? (run `repo-agents --version`)
-2. Can you share the exact error message you're seeing?
-3. Does this happen every time, or intermittently?
+2. The exact error message you're seeing
+3. Whether this happens every time or intermittently
+
+Once you've updated the issue, I'll re-evaluate it.
 ```
 
-### Step 4: Update Issue When Answers Arrive
-
-When someone comments with answers:
-1. Extract the relevant information from the comment
-2. Use `edit-issue` to add the information to the appropriate section in the issue body
-3. If all gaps are filled, proceed to Step 5
-4. If gaps remain, ask follow-up questions
-
-**Important:** Always update the issue body so all information is in one place, not scattered across comments.
-
-### Step 5: Mark as Ready
-
-When the issue is complete and well-structured:
+**If the issue is complete:**
 1. Remove `needs-info` label (if present)
 2. Add the `ready` label
 3. Comment confirming it's ready for human review
 
 **Example:**
 ```
-This issue is now well-documented and ready for review. A maintainer will evaluate it for implementation priority.
+This issue is well-documented and ready for review. A maintainer will evaluate it for implementation priority.
 ```
+
+### On Issue Edit
+
+When triggered by an edit, re-evaluate:
+1. Check if previously missing information has been added
+2. If now complete, mark as `ready`
+3. If still missing info, update the comment with remaining questions
 
 ## Labels You Manage
 

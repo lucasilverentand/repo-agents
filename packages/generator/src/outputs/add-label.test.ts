@@ -75,6 +75,23 @@ describe("AddLabelHandler", () => {
 
       expect(skill).toContain("adds to existing labels (doesn't replace them)");
     });
+
+    it("should include blocked labels in skill documentation when configured", () => {
+      const config = { "blocked-labels": ["approved", "agent-assigned"] };
+      const skill = handler.generateSkill(config);
+
+      expect(skill).toContain("Blocked labels");
+      expect(skill).toContain("`approved`");
+      expect(skill).toContain("`agent-assigned`");
+      expect(skill).toContain("Cannot add blocked labels");
+    });
+
+    it("should not mention blocked labels when none configured", () => {
+      const config = {};
+      const skill = handler.generateSkill(config);
+
+      expect(skill).not.toContain("Blocked labels");
+    });
   });
 
   describe("generateValidationScript", () => {
@@ -156,6 +173,32 @@ describe("AddLabelHandler", () => {
       expect(script).toContain("Phase 1: Validate all files");
       expect(script).toContain("Phase 2: Execute only if all validations passed");
       expect(script).toContain("VALIDATION_FAILED");
+    });
+
+    it("should check for blocked labels when configured", () => {
+      const config = { "blocked-labels": ["approved", "agent-assigned"] };
+      const script = handler.generateValidationScript(config, mockRuntime);
+
+      expect(script).toContain("BLOCKED_LABELS");
+      expect(script).toContain("approved");
+      expect(script).toContain("agent-assigned");
+      expect(script).toContain("BLOCKED_LABELS_ATTEMPTED");
+      expect(script).toContain("labels are blocked and cannot be added");
+    });
+
+    it("should filter out blocked labels before applying", () => {
+      const config = { "blocked-labels": ["approved"] };
+      const script = handler.generateValidationScript(config, mockRuntime);
+
+      expect(script).toContain("FILTERED_LABELS");
+      expect(script).toContain("select(. as $l | $blocked | index($l) | not)");
+    });
+
+    it("should have empty blocked labels array when none configured", () => {
+      const config = {};
+      const script = handler.generateValidationScript(config, mockRuntime);
+
+      expect(script).toContain('BLOCKED_LABELS=\'[]\'');
     });
   });
 });

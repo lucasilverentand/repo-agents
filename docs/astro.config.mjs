@@ -24,13 +24,6 @@ export default defineConfig({
           autogenerate: { directory: 'getting-started' }
         },
         {
-          label: 'Inspiration',
-          collapsed: false,
-          items: [
-            { slug: 'inspiration/issue-lifecycle' },
-          ]
-        },
-        {
           label: 'Anatomy of an Agent',
           items: [
             { slug: 'anatomy/what-is-an-agent' },

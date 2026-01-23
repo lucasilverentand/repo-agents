@@ -3,7 +3,7 @@ import { join, resolve } from "node:path";
 
 const CLI_PATH = resolve(import.meta.dir, "../../src/index.ts");
 const PROJECT_ROOT = resolve(import.meta.dir, "../../../..");
-const EXAMPLE_AGENT = join(PROJECT_ROOT, ".github/agents/issue-lifecycle/issue-analyzer.md");
+const EXAMPLE_AGENT = join(PROJECT_ROOT, ".github/agents/issue-quality.md");
 
 describe("Validate Command", () => {
   test("validate single agent file", async () => {

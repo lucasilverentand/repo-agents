@@ -2,6 +2,10 @@ import type { OutputConfig } from "@repo-agents/types";
 import type { OutputHandler, RuntimeContext } from "./base";
 import { generateLabelsContextScript } from "./base";
 
+interface AddLabelConfig extends OutputConfig {
+  "blocked-labels"?: string[];
+}
+
 class AddLabelHandler implements OutputHandler {
   name = "add-label";
 
@@ -9,12 +13,19 @@ class AddLabelHandler implements OutputHandler {
     return generateLabelsContextScript(runtime.repository);
   }
 
-  generateSkill(_config: OutputConfig): string {
+  generateSkill(config: OutputConfig): string {
+    const labelConfig = config as AddLabelConfig;
+    const blockedLabels = labelConfig?.["blocked-labels"] ?? [];
+    const blockedNote =
+      blockedLabels.length > 0
+        ? `\n\n**Blocked labels** (you cannot add these): ${blockedLabels.map((l) => `\`${l}\``).join(", ")}`
+        : "";
+
     return `## Skill: Add Labels
 
 Add one or more labels to the current issue or pull request.
 
-**Available labels**: See the "Available Repository Labels" section in the context above for the complete list of labels you can use.
+**Available labels**: See the "Available Repository Labels" section in the context above for the complete list of labels you can use.${blockedNote}
 
 **File to create**: \`/tmp/outputs/add-label.json\`
 
@@ -34,7 +45,7 @@ For multiple label operations, use numbered suffixes: \`add-label-1.json\`, \`ad
 - Labels must already exist in the repository (see available labels above)
 - Labels array must be non-empty
 - Duplicate labels will be ignored
-- This operation adds to existing labels (doesn't replace them)
+- This operation adds to existing labels (doesn't replace them)${blockedLabels.length > 0 ? `\n- Cannot add blocked labels: ${blockedLabels.join(", ")}` : ""}
 
 **Example**:
 Create \`/tmp/outputs/add-label.json\` with:
@@ -47,7 +58,10 @@ Create \`/tmp/outputs/add-label.json\` with:
 **Important**: Use the Write tool to create this file. Only add labels that exist in the available labels list.`;
   }
 
-  generateValidationScript(_config: OutputConfig, runtime: RuntimeContext): string {
+  generateValidationScript(config: OutputConfig, runtime: RuntimeContext): string {
+    const labelConfig = config as AddLabelConfig;
+    const blockedLabels = labelConfig?.["blocked-labels"] ?? [];
+    const blockedLabelsJson = JSON.stringify(blockedLabels);
     const issueOrPrNumber = runtime.issueOrPrNumber;
 
     return `
@@ -62,6 +76,10 @@ if [ -n "$LABEL_FILES" ]; then
   VALIDATION_FAILED=false
   ALL_LABELS="[]"
   INVALID_LABELS=""
+  BLOCKED_LABELS_ATTEMPTED=""
+
+  # Blocked labels configuration
+  BLOCKED_LABELS='${blockedLabelsJson}'
 
   # Fetch existing labels from repository
   EXISTING_LABELS=$(gh api "repos/${runtime.repository}/labels" --jq '[.[].name]' 2>/dev/null || echo '[]')
@@ -91,8 +109,20 @@ if [ -n "$LABEL_FILES" ]; then
       continue
     fi
 
-    # Validate each label exists
+    # Validate each label exists and is not blocked
     for label in $(echo "$LABELS_ARRAY" | jq -r '.[]'); do
+      # Check if label is blocked
+      if echo "$BLOCKED_LABELS" | jq -e --arg label "$label" 'index($label) != null' >/dev/null 2>&1; then
+        if [ -z "$BLOCKED_LABELS_ATTEMPTED" ]; then
+          BLOCKED_LABELS_ATTEMPTED="$label"
+        else
+          BLOCKED_LABELS_ATTEMPTED="$BLOCKED_LABELS_ATTEMPTED, $label"
+        fi
+        VALIDATION_FAILED=true
+        continue
+      fi
+
+      # Check if label exists in repository
       if ! echo "$EXISTING_LABELS" | jq -e --arg label "$label" 'index($label)' >/dev/null 2>&1; then
         if [ -z "$INVALID_LABELS" ]; then
           INVALID_LABELS="$label"
@@ -103,10 +133,16 @@ if [ -n "$LABEL_FILES" ]; then
       fi
     done
 
-    # Merge labels
-    ALL_LABELS=$(echo "$ALL_LABELS" "$LABELS_ARRAY" | jq -s 'add | unique')
+    # Merge labels (excluding blocked ones)
+    FILTERED_LABELS=$(echo "$LABELS_ARRAY" | jq --argjson blocked "$BLOCKED_LABELS" '[.[] | select(. as $l | $blocked | index($l) | not)]')
+    ALL_LABELS=$(echo "$ALL_LABELS" "$FILTERED_LABELS" | jq -s 'add | unique')
     echo "✓ Validation passed for $label_file"
   done
+
+  # Write error if there are blocked labels
+  if [ -n "$BLOCKED_LABELS_ATTEMPTED" ]; then
+    echo "- **add-label**: The following labels are blocked and cannot be added: $BLOCKED_LABELS_ATTEMPTED" >> /tmp/validation-errors/add-label.txt
+  fi
 
   # Write error if there are invalid labels
   if [ -n "$INVALID_LABELS" ]; then

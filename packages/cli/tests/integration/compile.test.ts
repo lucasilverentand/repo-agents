@@ -6,7 +6,7 @@ import { join, resolve } from "node:path";
 
 const CLI_PATH = resolve(import.meta.dir, "../../src/index.ts");
 const PROJECT_ROOT = resolve(import.meta.dir, "../../../..");
-const EXAMPLE_AGENT = join(PROJECT_ROOT, ".github/agents/issue-lifecycle/issue-analyzer.md");
+const EXAMPLE_AGENT = join(PROJECT_ROOT, ".github/agents/issue-quality.md");
 
 describe("Compile Command", () => {
   let tempDir: string;
@@ -16,12 +16,12 @@ describe("Compile Command", () => {
     tempDir = await mkdtemp(join(tmpdir(), "repo-agents-test-"));
 
     // Create agent structure
-    await mkdir(join(tempDir, ".github/agents/issue-lifecycle"), {
+    await mkdir(join(tempDir, ".github/agents"), {
       recursive: true,
     });
 
     // Copy example agent
-    await cp(EXAMPLE_AGENT, join(tempDir, ".github/agents/issue-lifecycle/issue-analyzer.md"));
+    await cp(EXAMPLE_AGENT, join(tempDir, ".github/agents/issue-quality.md"));
 
     // Initialize git repo (required for repo-agents)
     const initGit = Bun.spawn(["git", "init"], {
@@ -88,8 +88,8 @@ describe("Compile Command", () => {
     const workflowContent = await Bun.file(workflowPath).text();
     expect(workflowContent).toContain("name: AI Agents");
     expect(workflowContent).toContain("dispatcher:");
-    expect(workflowContent).toContain("agent-issue-analyzer:");
-    expect(workflowContent).toContain("agent-issue-analyzer-outputs:");
+    expect(workflowContent).toContain("agent-issue-quality:");
+    expect(workflowContent).toContain("agent-issue-quality-outputs:");
     // New audit architecture uses unified audit-report and audit-issues jobs
     expect(workflowContent).toContain("audit-report:");
     expect(workflowContent).toContain("audit-issues:");

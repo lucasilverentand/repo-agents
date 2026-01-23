@@ -21,10 +21,8 @@ Copy the agents from `.github/agents/` to your repository and configure:
 
 | Agent | Trigger | Purpose |
 |-------|---------|---------|
-| [Issue Analyzer](issue-lifecycle/issue-analyzer.md) | Issue opened | Analyze completeness, request info or mark ready |
-| [Issue Triage](issue-lifecycle/issue-triage.md) | `ready-for-triage` label | Auto-categorize with type/priority/area labels |
-| [Issue Formatter](issue-lifecycle/issue-formatter.md) | `needs-formatting` label | Restructure into templates without altering content |
-| [Issue Implementer](issue-lifecycle/issue-implementer.md) | `approved` label | Implement and create pull request |
+| [Issue Quality](issue-quality.md) | Issue opened/edited | Format issues, ask questions, mark as ready |
+| [Issue Implementer](issue-implementer.md) | `approved` label | Implement and create pull request |
 
 ### Pull Request Lifecycle
 
@@ -84,30 +82,25 @@ Copy the agents from `.github/agents/` to your repository and configure:
 │                            ISSUE LIFECYCLE                                   │
 └─────────────────────────────────────────────────────────────────────────────┘
 
-  Issue Created
+  Issue Created/Edited
        │
        ▼
   ┌─────────────┐     ┌──────────────────────┐
-  │   Issue     │────►│  "ready-for-triage"  │
-  │  Analyzer   │     │   or "needs-info"    │
+  │   Issue     │────►│  "needs-info" or     │
+  │  Quality    │     │  "ready"             │
   └─────────────┘     └──────────────────────┘
-                               │
-       ┌───────────────────────┼───────────────────────┐
-       │                       │                       │
-       ▼                       ▼                       ▼
-  ┌─────────────┐     ┌─────────────────┐     ┌─────────────────┐
-  │  Duplicate  │     │  Issue Triage   │     │ Issue Formatter │
-  │  Detector   │     │ (adds type/pri) │     │ (if requested)  │
-  └─────────────┘     └─────────────────┘     └─────────────────┘
-                               │
-                               ▼
-                      Human adds "approved"
-                               │
-                               ▼
-                      ┌─────────────────┐
-                      │     Issue       │────► Creates PR
-                      │  Implementer    │
-                      └─────────────────┘
+       │
+       │ (formats issue, asks questions,
+       │  updates body with answers)
+       │
+       ▼
+  Human reviews and adds "approved"
+       │
+       ▼
+  ┌─────────────────┐
+  │     Issue       │────► Creates PR
+  │  Implementer    │
+  └─────────────────┘
 
 ┌─────────────────────────────────────────────────────────────────────────────┐
 │                          PR LIFECYCLE                                        │
@@ -157,57 +150,26 @@ Copy the agents from `.github/agents/` to your repository and configure:
 
 ## Agent Details
 
-### Issue Analyzer
+### Issue Quality
 
-**Purpose**: Analyze newly created issues for completeness and prepare them for triage.
+**Purpose**: Ensure issues are well-structured and contain all necessary information before humans review them for implementation.
 
-**Trigger**: `issues: opened`
-
-**Actions**:
-- Analyze issue title and body for completeness
-- Check for clear problem statement, reproduction steps (bugs), expected behavior
-- Add appropriate labels:
-  - `needs-info` - Missing critical information (pauses pipeline)
-  - `ready-for-triage` - Complete and ready for categorization
-- Comment acknowledging issue and requesting any missing info
-
-**Outputs**: `add-comment`, `add-label`
-
----
-
-### Issue Triage
-
-**Purpose**: Automatically categorize and prioritize issues ready for triage.
-
-**Trigger**: `issues: labeled` with `ready-for-triage`
+**Trigger**: `issues: opened, edited`
 
 **Actions**:
-- Categorize by type: `bug`, `feature`, `enhancement`, `documentation`, `question`, `chore`
-- Assess priority: `priority:critical`, `priority:high`, `priority:medium`, `priority:low`
-- Identify area: `area:frontend`, `area:backend`, `area:api`, `area:infra`, etc.
-- Remove `ready-for-triage`, add `triaged`
-- Comment summarizing categorization
+1. **Format** the issue into a clear, consistent structure (bug report, feature request, or question template)
+2. **Ask questions** via comments to fill in any gaps
+3. **Update the issue body** with collected information
+4. **Mark as ready** when the issue is complete
 
-**Outputs**: `add-comment`, `add-label`, `remove-label`
+**Label Management**:
+- `needs-info` - Issue is missing critical information
+- `ready` - Issue is complete and ready for human review
+- **Blocked labels** (cannot add): `approved`, `agent-assigned` (human-controlled)
 
----
+**Outputs**: `add-comment` (max 1), `add-label`, `remove-label`, `edit-issue`
 
-### Issue Formatter
-
-**Purpose**: Restructure poorly formatted issues into proper templates while preserving all content.
-
-**Trigger**: `issues: labeled` with `needs-formatting`
-
-**Actions**:
-- Restructure into appropriate template:
-  - **Bug Report**: Summary, Steps to Reproduce, Expected/Actual Behavior, Environment
-  - **Feature Request**: Summary, Problem Statement, Proposed Solution, Alternatives
-  - **Question**: Question, Context, What I've Tried
-- NEVER alter meaning or remove information
-- Preserve technical details, logs, screenshots
-- Improve formatting (code blocks, lists, headers)
-
-**Outputs**: `edit-issue`, `add-comment`, `add-label`, `remove-label`
+**Rate Limit**: 1 minute between runs
 
 ---
 
@@ -626,9 +588,7 @@ Create these labels in your repository for the agents to function properly.
 | Label | Color | Description |
 |-------|-------|-------------|
 | `needs-info` | `#d93f0b` | Issue needs more information from reporter |
-| `ready-for-triage` | `#0e8a16` | Ready for categorization |
-| `triaged` | `#1d76db` | Has been categorized |
-| `formatted` | `#5319e7` | Issue has been reformatted |
+| `ready` | `#0e8a16` | Issue complete and ready for human review |
 | `implementation-in-progress` | `#fbca04` | Currently being implemented |
 | `stale` | `#ffffff` | No recent activity |
 | `duplicate` | `#cfd3d7` | Duplicate of another issue |
@@ -637,10 +597,9 @@ Create these labels in your repository for the agents to function properly.
 | Label | Color | Description |
 |-------|-------|-------------|
 | `approved` | `#0e8a16` | Approved for implementation |
-| `ready-to-implement` | `#0e8a16` | Alternative approval signal |
+| `agent-assigned` | `#1d76db` | Assigned to implementation agent |
 | `fix-requested` | `#d93f0b` | PR needs automated fixes |
 | `auto-fix` | `#d93f0b` | Allow auto-fix of PR issues |
-| `needs-formatting` | `#fbca04` | Issue needs reformatting |
 
 #### Type Labels
 | Label | Color | Description |
