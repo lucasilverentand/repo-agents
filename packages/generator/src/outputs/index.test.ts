@@ -31,6 +31,14 @@ describe("OutputHandlerRegistry", () => {
         "create-branch",
         "copy-project",
         "mark-template",
+        "manage-labels",
+        "add-to-project",
+        "remove-from-project",
+        "update-project-field",
+        "archive-project-item",
+        "manage-project",
+        "manage-project-field",
+        "link-project",
       ];
 
       expectedOutputs.forEach((output) => {
@@ -67,8 +75,16 @@ describe("OutputHandlerRegistry", () => {
       expect(registeredOutputs).toContain("create-branch");
       expect(registeredOutputs).toContain("copy-project");
       expect(registeredOutputs).toContain("mark-template");
+      expect(registeredOutputs).toContain("manage-labels");
+      expect(registeredOutputs).toContain("add-to-project");
+      expect(registeredOutputs).toContain("remove-from-project");
+      expect(registeredOutputs).toContain("update-project-field");
+      expect(registeredOutputs).toContain("archive-project-item");
+      expect(registeredOutputs).toContain("manage-project");
+      expect(registeredOutputs).toContain("manage-project-field");
+      expect(registeredOutputs).toContain("link-project");
 
-      expect(registeredOutputs.length).toBe(26);
+      expect(registeredOutputs.length).toBe(34);
     });
   });
 

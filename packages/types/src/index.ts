@@ -101,7 +101,15 @@ export type Output =
   | "add-reaction"
   | "create-branch"
   | "copy-project"
-  | "mark-template";
+  | "mark-template"
+  | "manage-labels"
+  | "add-to-project"
+  | "remove-from-project"
+  | "update-project-field"
+  | "archive-project-item"
+  | "manage-project"
+  | "manage-project-field"
+  | "link-project";
 
 export interface OutputConfig {
   max?: number; // Maximum times this output can be used
