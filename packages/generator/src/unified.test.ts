@@ -11,6 +11,10 @@ interface WorkflowYaml {
     workflow_dispatch?: Record<string, unknown>;
     [key: string]: unknown;
   };
+  concurrency?: {
+    group: string;
+    "cancel-in-progress": boolean;
+  };
   permissions: Record<string, string>;
   jobs: Record<string, unknown>;
 }
@@ -301,7 +305,7 @@ describe("UnifiedWorkflowGenerator", () => {
   });
 
   describe("concurrency", () => {
-    it("should add concurrency group for issue-triggered agents", () => {
+    it("should add workflow-level concurrency that groups by issue/PR number", () => {
       const agents: AgentDefinition[] = [
         {
           name: "Issue Agent",
@@ -313,16 +317,15 @@ describe("UnifiedWorkflowGenerator", () => {
       const workflow = unifiedWorkflowGenerator.generate(agents, defaultSecrets);
       const parsed = yaml.load(workflow) as WorkflowYaml;
 
-      const agentJob = parsed.jobs["agent-issue-agent"] as Record<string, unknown>;
-      expect(agentJob.concurrency).toBeDefined();
-
-      const concurrency = agentJob.concurrency as { group: string; "cancel-in-progress": boolean };
-      expect(concurrency.group).toContain("issue-agent-issue-");
-      expect(concurrency.group).toContain("github.event.issue.number");
-      expect(concurrency["cancel-in-progress"]).toBe(true);
+      // Concurrency should be at workflow level, not job level
+      expect(parsed.concurrency).toBeDefined();
+      expect(parsed.concurrency?.group).toContain("agents-");
+      expect(parsed.concurrency?.group).toContain("github.event.issue.number");
+      expect(parsed.concurrency?.group).toContain("github.event.pull_request.number");
+      expect(parsed.concurrency?.["cancel-in-progress"]).toBe(true);
     });
 
-    it("should add concurrency group for PR-triggered agents", () => {
+    it("should not have job-level concurrency (workflow-level handles it)", () => {
       const agents: AgentDefinition[] = [
         {
           name: "PR Agent",
@@ -334,60 +337,15 @@ describe("UnifiedWorkflowGenerator", () => {
       const workflow = unifiedWorkflowGenerator.generate(agents, defaultSecrets);
       const parsed = yaml.load(workflow) as WorkflowYaml;
 
+      // Job should NOT have concurrency (it's at workflow level now)
       const agentJob = parsed.jobs["agent-pr-agent"] as Record<string, unknown>;
-      expect(agentJob.concurrency).toBeDefined();
+      expect(agentJob.concurrency).toBeUndefined();
 
-      const concurrency = agentJob.concurrency as { group: string; "cancel-in-progress": boolean };
-      expect(concurrency.group).toContain("pr-agent-pr-");
-      expect(concurrency.group).toContain("github.event.pull_request.number");
-      expect(concurrency["cancel-in-progress"]).toBe(true);
+      // But workflow should have it
+      expect(parsed.concurrency).toBeDefined();
     });
 
-    it("should add concurrency group for scheduled agents without cancel-in-progress", () => {
-      const agents: AgentDefinition[] = [
-        {
-          name: "Scheduled Agent",
-          markdown: "Test",
-          on: { schedule: [{ cron: "0 0 * * *" }] },
-        },
-      ];
-
-      const workflow = unifiedWorkflowGenerator.generate(agents, defaultSecrets);
-      const parsed = yaml.load(workflow) as WorkflowYaml;
-
-      const agentJob = parsed.jobs["agent-scheduled-agent"] as Record<string, unknown>;
-      expect(agentJob.concurrency).toBeDefined();
-
-      const concurrency = agentJob.concurrency as { group: string; "cancel-in-progress": boolean };
-      expect(concurrency.group).toBe("scheduled-agent");
-      expect(concurrency["cancel-in-progress"]).toBe(false);
-    });
-
-    it("should use custom concurrency group when configured", () => {
-      const agents: AgentDefinition[] = [
-        {
-          name: "Custom Agent",
-          markdown: "Test",
-          on: { issues: { types: ["opened"] } },
-          concurrency: {
-            group: "my-custom-group-${{ github.ref }}",
-            cancel_in_progress: false,
-          },
-        },
-      ];
-
-      const workflow = unifiedWorkflowGenerator.generate(agents, defaultSecrets);
-      const parsed = yaml.load(workflow) as WorkflowYaml;
-
-      const agentJob = parsed.jobs["agent-custom-agent"] as Record<string, unknown>;
-      expect(agentJob.concurrency).toBeDefined();
-
-      const concurrency = agentJob.concurrency as { group: string; "cancel-in-progress": boolean };
-      expect(concurrency.group).toBe("my-custom-group-${{ github.ref }}");
-      expect(concurrency["cancel-in-progress"]).toBe(false);
-    });
-
-    it("should not add concurrency when explicitly disabled", () => {
+    it("should not add workflow concurrency when all agents have it disabled", () => {
       const agents: AgentDefinition[] = [
         {
           name: "No Concurrency Agent",
@@ -400,8 +358,30 @@ describe("UnifiedWorkflowGenerator", () => {
       const workflow = unifiedWorkflowGenerator.generate(agents, defaultSecrets);
       const parsed = yaml.load(workflow) as WorkflowYaml;
 
-      const agentJob = parsed.jobs["agent-no-concurrency-agent"] as Record<string, unknown>;
-      expect(agentJob.concurrency).toBeUndefined();
+      expect(parsed.concurrency).toBeUndefined();
+    });
+
+    it("should add workflow concurrency when at least one agent allows it", () => {
+      const agents: AgentDefinition[] = [
+        {
+          name: "No Concurrency Agent",
+          markdown: "Test",
+          on: { issues: { types: ["opened"] } },
+          concurrency: false,
+        },
+        {
+          name: "Default Agent",
+          markdown: "Test",
+          on: { issues: { types: ["edited"] } },
+          // No concurrency config = use default
+        },
+      ];
+
+      const workflow = unifiedWorkflowGenerator.generate(agents, defaultSecrets);
+      const parsed = yaml.load(workflow) as WorkflowYaml;
+
+      // Should have workflow-level concurrency because one agent allows it
+      expect(parsed.concurrency).toBeDefined();
     });
   });
 });

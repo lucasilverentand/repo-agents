@@ -31,6 +31,10 @@ interface GitHubWorkflowJob {
 interface UnifiedWorkflow {
   name: string;
   on: TriggerConfig;
+  concurrency?: {
+    group: string;
+    "cancel-in-progress": boolean;
+  };
   permissions: Record<string, string>;
   jobs: Record<string, GitHubWorkflowJob>;
 }
@@ -84,6 +88,7 @@ export class UnifiedWorkflowGenerator {
     const workflow: UnifiedWorkflow = {
       name: "AI Agents",
       on: this.aggregateTriggers(agents),
+      concurrency: this.generateWorkflowConcurrency(agents),
       permissions: this.aggregatePermissions(agents),
       jobs,
     };
@@ -233,6 +238,35 @@ export class UnifiedWorkflowGenerator {
   }
 
   /**
+   * Generate workflow-level concurrency configuration.
+   *
+   * Groups workflow runs by issue/PR/discussion number to debounce rapid events.
+   * When a new event occurs for the same issue/PR, any in-progress run is cancelled.
+   *
+   * This is more effective than job-level concurrency for the unified workflow
+   * because each trigger starts a new workflow run.
+   */
+  private generateWorkflowConcurrency(
+    agents: AgentDefinition[],
+  ): { group: string; "cancel-in-progress": boolean } | undefined {
+    // Check if all agents have concurrency disabled
+    const allDisabled = agents.every((a) => a.concurrency === false);
+    if (allDisabled) {
+      return undefined;
+    }
+
+    // Build a dynamic group that works for all event types
+    // Uses the first available identifier, falls back to run_id for unique groups
+    const ghExpr = (expr: string) => `\${{ ${expr} }}`;
+    const group = `agents-${ghExpr("github.event.issue.number || github.event.pull_request.number || github.event.discussion.number || github.run_id")}`;
+
+    return {
+      group,
+      "cancel-in-progress": true,
+    };
+  }
+
+  /**
    * Job 1: Dispatcher - discovers, routes, and validates all agents
    * Includes global preflight check (Claude authentication) before proceeding.
    * Outputs per-agent decisions: agent-{slug}-should-run, agent-{slug}-skip-reason, etc.
@@ -376,90 +410,17 @@ export class UnifiedWorkflowGenerator {
       },
     });
 
-    const job: GitHubWorkflowJob = {
+    return {
       "runs-on": "ubuntu-latest",
       needs: "dispatcher",
       if: `needs.dispatcher.outputs.agent-${agentSlug}-should-run == 'true'`,
       steps,
     };
-
-    // Add concurrency if not explicitly disabled
-    const concurrency = this.generateConcurrencyConfig(agent, agentSlug);
-    if (concurrency) {
-      job.concurrency = concurrency;
-    }
-
-    return job;
   }
 
-  /**
-   * Generate concurrency configuration for an agent.
-   * By default, creates a group based on trigger type to debounce rapid events.
-   *
-   * - Issue triggers: group by issue number (cancel previous runs on same issue)
-   * - PR triggers: group by PR number (cancel previous runs on same PR)
-   * - Schedule/dispatch: group by agent name (only one run at a time)
-   *
-   * Can be customized via agent.concurrency config or disabled with concurrency: false
-   */
-  private generateConcurrencyConfig(
-    agent: AgentDefinition,
-    agentSlug: string,
-  ): { group: string; "cancel-in-progress": boolean } | null {
-    const ghExpr = (expr: string) => `\${{ ${expr} }}`;
-
-    // Explicitly disabled
-    if (agent.concurrency === false) {
-      return null;
-    }
-
-    // Custom configuration
-    if (agent.concurrency && typeof agent.concurrency === "object") {
-      const group = agent.concurrency.group || `${agentSlug}-${ghExpr("github.ref")}`;
-      return {
-        group,
-        "cancel-in-progress": agent.concurrency.cancel_in_progress !== false,
-      };
-    }
-
-    // Auto-generate based on trigger type
-    const triggers = agent.on;
-
-    // Issue triggers: group by issue number
-    if (triggers.issues) {
-      return {
-        group: `${agentSlug}-issue-${ghExpr("github.event.issue.number || github.run_id")}`,
-        "cancel-in-progress": true,
-      };
-    }
-
-    // PR triggers: group by PR number
-    if (triggers.pull_request) {
-      return {
-        group: `${agentSlug}-pr-${ghExpr("github.event.pull_request.number || github.run_id")}`,
-        "cancel-in-progress": true,
-      };
-    }
-
-    // Discussion triggers: group by discussion number
-    if (triggers.discussion) {
-      return {
-        group: `${agentSlug}-discussion-${ghExpr("github.event.discussion.number || github.run_id")}`,
-        "cancel-in-progress": true,
-      };
-    }
-
-    // Schedule/dispatch: only one run at a time
-    if (triggers.schedule || triggers.workflow_dispatch || triggers.repository_dispatch) {
-      return {
-        group: agentSlug,
-        "cancel-in-progress": false, // Don't cancel scheduled runs
-      };
-    }
-
-    // Default: no concurrency (shouldn't happen with valid triggers)
-    return null;
-  }
+  // NOTE: Job-level concurrency was removed in favor of workflow-level concurrency.
+  // Workflow-level is more effective for the unified workflow because each trigger
+  // starts a new workflow run. See generateWorkflowConcurrency() for implementation.
 
   /**
    * Generate outputs execution job for a specific agent

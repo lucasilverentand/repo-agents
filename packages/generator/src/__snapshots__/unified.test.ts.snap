@@ -16,6 +16,9 @@ exports[`UnifiedWorkflowGenerator should generate consistent workflow output (sn
         description: Specific agent to run (leave empty to auto-route)
         required: false
         type: string
+concurrency:
+  group: agents-\${{ github.event.issue.number || github.event.pull_request.number || github.event.discussion.number || github.run_id }}
+  cancel-in-progress: true
 permissions:
   actions: write
   contents: read
@@ -79,9 +82,6 @@ jobs:
           name: agent-test-agent-audit-\${{ github.run_id }}
           path: /tmp/audit/
           retention-days: "7"
-    concurrency:
-      group: test-agent-issue-\${{ github.event.issue.number || github.run_id }}
-      cancel-in-progress: true
 
   agent-test-agent-outputs:
     runs-on: ubuntu-latest
