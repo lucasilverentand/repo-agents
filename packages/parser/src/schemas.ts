@@ -297,6 +297,19 @@ const auditConfigSchema = z
   })
   .optional();
 
+const concurrencyConfigSchema = z
+  .union([
+    z.object({
+      // Custom concurrency group (supports GitHub expressions like ${{ github.event.issue.number }})
+      group: z.string().optional(),
+      // Whether to cancel in-progress runs when a new one starts (default: true)
+      cancel_in_progress: z.boolean().optional(),
+    }),
+    // Disable concurrency entirely
+    z.literal(false),
+  ])
+  .optional();
+
 export const agentFrontmatterSchema = z.strictObject({
   name: z.string().min(1, { message: "Agent name is required" }),
   on: triggerConfigSchema,
@@ -316,6 +329,7 @@ export const agentFrontmatterSchema = z.strictObject({
   audit: auditConfigSchema,
   progress_comment: z.boolean().optional(), // Show progress comment on issue/PR (default: true for issue/PR triggers)
   allow_bot_triggers: z.boolean().optional(), // Allow bot/app actors to trigger this agent (default: false, prevents recursive loops)
+  concurrency: concurrencyConfigSchema, // Concurrency settings for debouncing (default: auto-generated based on trigger)
 }); // Reject unknown properties
 
 export type AgentFrontmatter = z.infer<typeof agentFrontmatterSchema>;

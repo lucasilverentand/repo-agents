@@ -1,6 +1,6 @@
 import { describe, expect, it } from "bun:test";
-import { checkBotActor, type ValidationContext } from "./validation";
 import type { AgentDefinition } from "@repo-agents/types";
+import { checkBotActor, type ValidationContext } from "./validation";
 
 describe("checkBotActor", () => {
   const createContext = (actor: string): ValidationContext => ({

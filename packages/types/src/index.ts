@@ -24,6 +24,7 @@ export interface AgentDefinition {
   audit?: AuditConfig; // Audit and failure reporting configuration
   progress_comment?: boolean; // Show progress comment on issue/PR (default: true for issue/PR triggers)
   allow_bot_triggers?: boolean; // Allow bot/app actors to trigger this agent (default: false, prevents recursive loops)
+  concurrency?: ConcurrencyConfig | false; // Concurrency settings for debouncing (default: auto-generated based on trigger)
   markdown: string;
 }
 
@@ -31,6 +32,11 @@ export interface AuditConfig {
   create_issues?: boolean; // Whether to create issues on failures (default: true)
   labels?: string[]; // Labels to add to audit issues
   assignees?: string[]; // Assignees for audit issues
+}
+
+export interface ConcurrencyConfig {
+  group?: string; // Custom concurrency group (supports GitHub expressions)
+  cancel_in_progress?: boolean; // Whether to cancel in-progress runs (default: true)
 }
 
 export interface TriggerConfig {

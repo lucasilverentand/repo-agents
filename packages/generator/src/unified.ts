@@ -18,6 +18,10 @@ interface GitHubWorkflowJob {
   if?: string;
   outputs?: Record<string, string>;
   strategy?: Record<string, unknown>;
+  concurrency?: {
+    group: string;
+    "cancel-in-progress": boolean;
+  };
   steps: WorkflowStep[];
 }
 
@@ -372,12 +376,89 @@ export class UnifiedWorkflowGenerator {
       },
     });
 
-    return {
+    const job: GitHubWorkflowJob = {
       "runs-on": "ubuntu-latest",
       needs: "dispatcher",
       if: `needs.dispatcher.outputs.agent-${agentSlug}-should-run == 'true'`,
       steps,
     };
+
+    // Add concurrency if not explicitly disabled
+    const concurrency = this.generateConcurrencyConfig(agent, agentSlug);
+    if (concurrency) {
+      job.concurrency = concurrency;
+    }
+
+    return job;
+  }
+
+  /**
+   * Generate concurrency configuration for an agent.
+   * By default, creates a group based on trigger type to debounce rapid events.
+   *
+   * - Issue triggers: group by issue number (cancel previous runs on same issue)
+   * - PR triggers: group by PR number (cancel previous runs on same PR)
+   * - Schedule/dispatch: group by agent name (only one run at a time)
+   *
+   * Can be customized via agent.concurrency config or disabled with concurrency: false
+   */
+  private generateConcurrencyConfig(
+    agent: AgentDefinition,
+    agentSlug: string,
+  ): { group: string; "cancel-in-progress": boolean } | null {
+    const ghExpr = (expr: string) => `\${{ ${expr} }}`;
+
+    // Explicitly disabled
+    if (agent.concurrency === false) {
+      return null;
+    }
+
+    // Custom configuration
+    if (agent.concurrency && typeof agent.concurrency === "object") {
+      const group = agent.concurrency.group || `${agentSlug}-${ghExpr("github.ref")}`;
+      return {
+        group,
+        "cancel-in-progress": agent.concurrency.cancel_in_progress !== false,
+      };
+    }
+
+    // Auto-generate based on trigger type
+    const triggers = agent.on;
+
+    // Issue triggers: group by issue number
+    if (triggers.issues) {
+      return {
+        group: `${agentSlug}-issue-${ghExpr("github.event.issue.number || github.run_id")}`,
+        "cancel-in-progress": true,
+      };
+    }
+
+    // PR triggers: group by PR number
+    if (triggers.pull_request) {
+      return {
+        group: `${agentSlug}-pr-${ghExpr("github.event.pull_request.number || github.run_id")}`,
+        "cancel-in-progress": true,
+      };
+    }
+
+    // Discussion triggers: group by discussion number
+    if (triggers.discussion) {
+      return {
+        group: `${agentSlug}-discussion-${ghExpr("github.event.discussion.number || github.run_id")}`,
+        "cancel-in-progress": true,
+      };
+    }
+
+    // Schedule/dispatch: only one run at a time
+    if (triggers.schedule || triggers.workflow_dispatch || triggers.repository_dispatch) {
+      return {
+        group: agentSlug,
+        "cancel-in-progress": false, // Don't cancel scheduled runs
+      };
+    }
+
+    // Default: no concurrency (shouldn't happen with valid triggers)
+    return null;
   }
 
   /**

@@ -299,4 +299,109 @@ describe("UnifiedWorkflowGenerator", () => {
     expect(workflow).not.toContain("ANTHROPIC_API_KEY");
     expect(workflow).not.toContain("CLAUDE_CODE_OAUTH_TOKEN");
   });
+
+  describe("concurrency", () => {
+    it("should add concurrency group for issue-triggered agents", () => {
+      const agents: AgentDefinition[] = [
+        {
+          name: "Issue Agent",
+          markdown: "Test",
+          on: { issues: { types: ["opened", "edited"] } },
+        },
+      ];
+
+      const workflow = unifiedWorkflowGenerator.generate(agents, defaultSecrets);
+      const parsed = yaml.load(workflow) as WorkflowYaml;
+
+      const agentJob = parsed.jobs["agent-issue-agent"] as Record<string, unknown>;
+      expect(agentJob.concurrency).toBeDefined();
+
+      const concurrency = agentJob.concurrency as { group: string; "cancel-in-progress": boolean };
+      expect(concurrency.group).toContain("issue-agent-issue-");
+      expect(concurrency.group).toContain("github.event.issue.number");
+      expect(concurrency["cancel-in-progress"]).toBe(true);
+    });
+
+    it("should add concurrency group for PR-triggered agents", () => {
+      const agents: AgentDefinition[] = [
+        {
+          name: "PR Agent",
+          markdown: "Test",
+          on: { pull_request: { types: ["opened", "synchronize"] } },
+        },
+      ];
+
+      const workflow = unifiedWorkflowGenerator.generate(agents, defaultSecrets);
+      const parsed = yaml.load(workflow) as WorkflowYaml;
+
+      const agentJob = parsed.jobs["agent-pr-agent"] as Record<string, unknown>;
+      expect(agentJob.concurrency).toBeDefined();
+
+      const concurrency = agentJob.concurrency as { group: string; "cancel-in-progress": boolean };
+      expect(concurrency.group).toContain("pr-agent-pr-");
+      expect(concurrency.group).toContain("github.event.pull_request.number");
+      expect(concurrency["cancel-in-progress"]).toBe(true);
+    });
+
+    it("should add concurrency group for scheduled agents without cancel-in-progress", () => {
+      const agents: AgentDefinition[] = [
+        {
+          name: "Scheduled Agent",
+          markdown: "Test",
+          on: { schedule: [{ cron: "0 0 * * *" }] },
+        },
+      ];
+
+      const workflow = unifiedWorkflowGenerator.generate(agents, defaultSecrets);
+      const parsed = yaml.load(workflow) as WorkflowYaml;
+
+      const agentJob = parsed.jobs["agent-scheduled-agent"] as Record<string, unknown>;
+      expect(agentJob.concurrency).toBeDefined();
+
+      const concurrency = agentJob.concurrency as { group: string; "cancel-in-progress": boolean };
+      expect(concurrency.group).toBe("scheduled-agent");
+      expect(concurrency["cancel-in-progress"]).toBe(false);
+    });
+
+    it("should use custom concurrency group when configured", () => {
+      const agents: AgentDefinition[] = [
+        {
+          name: "Custom Agent",
+          markdown: "Test",
+          on: { issues: { types: ["opened"] } },
+          concurrency: {
+            group: "my-custom-group-${{ github.ref }}",
+            cancel_in_progress: false,
+          },
+        },
+      ];
+
+      const workflow = unifiedWorkflowGenerator.generate(agents, defaultSecrets);
+      const parsed = yaml.load(workflow) as WorkflowYaml;
+
+      const agentJob = parsed.jobs["agent-custom-agent"] as Record<string, unknown>;
+      expect(agentJob.concurrency).toBeDefined();
+
+      const concurrency = agentJob.concurrency as { group: string; "cancel-in-progress": boolean };
+      expect(concurrency.group).toBe("my-custom-group-${{ github.ref }}");
+      expect(concurrency["cancel-in-progress"]).toBe(false);
+    });
+
+    it("should not add concurrency when explicitly disabled", () => {
+      const agents: AgentDefinition[] = [
+        {
+          name: "No Concurrency Agent",
+          markdown: "Test",
+          on: { issues: { types: ["opened"] } },
+          concurrency: false,
+        },
+      ];
+
+      const workflow = unifiedWorkflowGenerator.generate(agents, defaultSecrets);
+      const parsed = yaml.load(workflow) as WorkflowYaml;
+
+      const agentJob = parsed.jobs["agent-no-concurrency-agent"] as Record<string, unknown>;
+      expect(agentJob.concurrency).toBeUndefined();
+    });
+  });
 });

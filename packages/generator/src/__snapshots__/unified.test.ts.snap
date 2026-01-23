@@ -79,6 +79,9 @@ jobs:
           name: agent-test-agent-audit-\${{ github.run_id }}
           path: /tmp/audit/
           retention-days: "7"
+    concurrency:
+      group: test-agent-issue-\${{ github.event.issue.number || github.run_id }}
+      cancel-in-progress: true
 
   agent-test-agent-outputs:
     runs-on: ubuntu-latest
