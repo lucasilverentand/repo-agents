@@ -5,6 +5,38 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.7.0](https://github.com/lucasilverentand/repo-agents/compare/v1.6.0...v1.7.0) (2026-01-24)
+
+
+### Features
+
+* add blocked-labels support to add-label output handler ([dd11fd5](https://github.com/lucasilverentand/repo-agents/commit/dd11fd544af7d931150af6a8244d6c386e1c9c51))
+* add bot actor detection to prevent recursive loops ([b4f3905](https://github.com/lucasilverentand/repo-agents/commit/b4f39059fe8656dec4e2433eca4764c539130222))
+* add concurrency support to debounce rapid events ([17a7734](https://github.com/lucasilverentand/repo-agents/commit/17a7734a1816048848252da00e4fecf2a936d9d6))
+* add GitHub Projects and label management output types ([#272](https://github.com/lucasilverentand/repo-agents/issues/272)) ([0408096](https://github.com/lucasilverentand/repo-agents/commit/040809627f5c556107a1cb6c39b6cff8d60e6734))
+* add GitHub Projects v2 context collection ([#276](https://github.com/lucasilverentand/repo-agents/issues/276)) ([ea13588](https://github.com/lucasilverentand/repo-agents/commit/ea13588e66d422395785fd701cad317f86bde5d8))
+* enhance audit report with comprehensive markdown summary ([dd38843](https://github.com/lucasilverentand/repo-agents/commit/dd38843d9240f508209c1df5959ac5427895cb83))
+* implement audit system for agent execution tracking ([93626f7](https://github.com/lucasilverentand/repo-agents/commit/93626f7ec0f3a68ab0040c6c6c88a7baff567797))
+* **invocations:** add comment-triggered agent execution ([#230](https://github.com/lucasilverentand/repo-agents/issues/230)) ([#280](https://github.com/lucasilverentand/repo-agents/issues/280)) ([c0d93aa](https://github.com/lucasilverentand/repo-agents/commit/c0d93aa6d1290574039858efc02faab660d85472))
+* **timeout:** add configurable execution timeouts ([#232](https://github.com/lucasilverentand/repo-agents/issues/232)) ([#279](https://github.com/lucasilverentand/repo-agents/issues/279)) ([7cdf26a](https://github.com/lucasilverentand/repo-agents/commit/7cdf26acd7874363b3c83e5b23379823896c0409))
+
+
+### Bug Fixes
+
+* add dispatcher to outputs job needs array ([5676558](https://github.com/lucasilverentand/repo-agents/commit/567655827988c54c38ab2dcc9d8b6f288d8bb278))
+* **generator:** audit jobs should only run when agent is dispatched ([d6d2bec](https://github.com/lucasilverentand/repo-agents/commit/d6d2bec52ad809f594bd93f025b3959e676f6347))
+* **generator:** handle missing outputs artifacts gracefully ([662c89e](https://github.com/lucasilverentand/repo-agents/commit/662c89e1b0a4df80350eec8c23e90a819bb20a2d))
+* improve audit issue template to surface errors prominently ([9de47d9](https://github.com/lucasilverentand/repo-agents/commit/9de47d9d375a5beac12217ead483de8b048dff4e))
+* include event_name in concurrency group to avoid collisions ([1f935a3](https://github.com/lucasilverentand/repo-agents/commit/1f935a326b3d7b0bef76baf6b694f1f822cdb290))
+* make outputs stage process all outputs when no type specified ([bc40b57](https://github.com/lucasilverentand/repo-agents/commit/bc40b571272b9ab8ad5525c349c2855dece1057c))
+* move concurrency to workflow level for unified architecture ([79edfef](https://github.com/lucasilverentand/repo-agents/commit/79edfef4e908754a0bcb98650c7fde15385e21df))
+* remove duplicate GITHUB_STEP_SUMMARY write in audit-report ([b71d909](https://github.com/lucasilverentand/repo-agents/commit/b71d909dda84c5c11f018f5a3d14d5eb9864abc6))
+* resolve pipe command failures and trigger_labels validation logic ([6ee1af8](https://github.com/lucasilverentand/repo-agents/commit/6ee1af82b25e755828b92030b72bbdbfe57f7db7))
+* **runtime:** use OR logic for trigger_labels ([#226](https://github.com/lucasilverentand/repo-agents/issues/226)) ([#278](https://github.com/lucasilverentand/repo-agents/issues/278)) ([52c58cd](https://github.com/lucasilverentand/repo-agents/commit/52c58cdd40926fe03b31be6550230a217debb881))
+* use heredoc for add-label and remove-label output execution ([#227](https://github.com/lucasilverentand/repo-agents/issues/227)) ([7f9d619](https://github.com/lucasilverentand/repo-agents/commit/7f9d619298c4dacd6412c7a774ebcac27a4ddc69))
+* use heredoc format for large GitHub Actions outputs ([6840306](https://github.com/lucasilverentand/repo-agents/commit/6840306c1ff2ec01e5aa1716fb7a82d6e3f9dc30))
+* use setOutputs utility for GitHub Actions outputs ([0658623](https://github.com/lucasilverentand/repo-agents/commit/0658623014dec6256d1eaef0f4994a81d0ec0503))
+
 ## [1.6.0](https://github.com/lucasilverentand/repo-agents/compare/v1.5.0...v1.6.0) (2026-01-21)
 
 
