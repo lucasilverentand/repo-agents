@@ -25,6 +25,7 @@ export interface AgentDefinition {
   progress_comment?: boolean; // Show progress comment on issue/PR (default: true for issue/PR triggers)
   allow_bot_triggers?: boolean; // Allow bot/app actors to trigger this agent (default: false, prevents recursive loops)
   concurrency?: ConcurrencyConfig | false; // Concurrency settings for debouncing (default: auto-generated based on trigger)
+  timeout?: number | TimeoutConfig; // Execution timeout in minutes (number) or detailed config
   markdown: string;
 }
 
@@ -45,6 +46,12 @@ export interface InvocationConfig {
   aliases?: string[]; // Alternative command names
   allowed_users?: string[]; // Users who can invoke this command
   allowed_teams?: string[]; // Teams who can invoke this command
+}
+
+export interface TimeoutConfig {
+  execution?: number; // Agent execution timeout in minutes (default: 30)
+  total?: number; // Total job timeout in minutes (default: 45)
+  context_collection?: number; // Context collection timeout in minutes (default: 5)
 }
 
 export interface TriggerConfig {
@@ -165,6 +172,7 @@ export interface WorkflowStep {
   env?: Record<string, string>;
   if?: string;
   "continue-on-error"?: boolean;
+  "timeout-minutes"?: number;
 }
 
 // Context Configuration Types

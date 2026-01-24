@@ -344,11 +344,14 @@ async function handleClosedIssueRetries(
           continue;
         }
 
-        // Check if this issue has the required trigger labels for this agent
-        const requiredLabels = agent.config.trigger_labels || [];
-        const hasAllLabels = requiredLabels.every((required) => labels.includes(required));
+        // Check if this issue has any of the trigger labels for this agent (OR logic)
+        const triggerLabels = agent.config.trigger_labels || [];
+        // If no trigger labels configured, agent matches all issues
+        // Otherwise, check if ANY trigger label is present
+        const hasAnyTriggerLabel =
+          triggerLabels.length === 0 || triggerLabels.some((label) => labels.includes(label));
 
-        if (hasAllLabels && !matchingAgents.some((a) => a.name === agent.name)) {
+        if (hasAnyTriggerLabel && !matchingAgents.some((a) => a.name === agent.name)) {
           console.log(`    -> Matching agent: ${agent.name}`);
           matchingAgents.push(agent);
         }

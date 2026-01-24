@@ -390,6 +390,47 @@ Deploy instructions`;
         }
       });
 
+      it("should parse agent with simple timeout (number)", () => {
+        const content = `---
+name: Timeout Agent
+on:
+  issues:
+    types: [opened]
+timeout: 20
+---
+
+Timeout test`;
+
+        const result = parser.parseContent(content);
+
+        expect(result.agent).toBeDefined();
+        expect(result.agent?.timeout).toBe(20);
+      });
+
+      it("should parse agent with detailed timeout config", () => {
+        const content = `---
+name: Detailed Timeout Agent
+on:
+  issues:
+    types: [opened]
+timeout:
+  execution: 15
+  total: 25
+  context_collection: 3
+---
+
+Timeout test`;
+
+        const result = parser.parseContent(content);
+
+        expect(result.agent).toBeDefined();
+        expect(result.agent?.timeout).toEqual({
+          execution: 15,
+          total: 25,
+          context_collection: 3,
+        });
+      });
+
       it("should parse agent with context configuration", () => {
         const content = `---
 name: Context Agent

@@ -346,6 +346,25 @@ const concurrencyConfigSchema = z
   ])
   .optional();
 
+const timeoutConfigSchema = z
+  .union([
+    // Simple number: execution timeout in minutes
+    z
+      .number()
+      .min(1)
+      .max(360),
+    // Detailed config object
+    z.object({
+      // Agent execution timeout in minutes (default: 30)
+      execution: z.number().min(1).max(360).optional(),
+      // Total job timeout in minutes (default: 45)
+      total: z.number().min(1).max(360).optional(),
+      // Context collection timeout in minutes (default: 5)
+      context_collection: z.number().min(1).max(60).optional(),
+    }),
+  ])
+  .optional();
+
 export const agentFrontmatterSchema = z.strictObject({
   name: z.string().min(1, { message: "Agent name is required" }),
   on: triggerConfigSchema,
@@ -366,6 +385,7 @@ export const agentFrontmatterSchema = z.strictObject({
   progress_comment: z.boolean().optional(), // Show progress comment on issue/PR (default: true for issue/PR triggers)
   allow_bot_triggers: z.boolean().optional(), // Allow bot/app actors to trigger this agent (default: false, prevents recursive loops)
   concurrency: concurrencyConfigSchema, // Concurrency settings for debouncing (default: auto-generated based on trigger)
+  timeout: timeoutConfigSchema, // Execution timeout in minutes or detailed config
 }); // Reject unknown properties
 
 export type AgentFrontmatter = z.infer<typeof agentFrontmatterSchema>;
