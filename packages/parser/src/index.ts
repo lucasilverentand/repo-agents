@@ -96,8 +96,13 @@ export class AgentParser {
       trigger_labels: frontmatter.trigger_labels,
       max_open_prs: frontmatter.max_open_prs,
       rate_limit_minutes: frontmatter.rate_limit_minutes,
+      pre_flight: frontmatter.pre_flight,
       context: frontmatter.context,
       audit: frontmatter.audit,
+      progress_comment: frontmatter.progress_comment,
+      allow_bot_triggers: frontmatter.allow_bot_triggers,
+      concurrency: frontmatter.concurrency,
+      timeout: frontmatter.timeout,
       markdown: parsed.content.trim(),
     };
 
