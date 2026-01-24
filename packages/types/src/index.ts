@@ -273,6 +273,20 @@ export interface CheckRunsContextConfig {
   limit?: number;
 }
 
+export interface ProjectContextConfig {
+  project_number?: number; // Project number (visible in URL)
+  project_id?: string; // Project node ID (format: PVT_...)
+  owner?: string; // Owner for organization projects (defaults to repo owner)
+  include_items?: boolean; // Include project items in context (default: true)
+  include_fields?: boolean; // Include field definitions (default: true)
+  filters?: {
+    status?: string[]; // Filter by status field values
+    assignee?: string[]; // Filter by assignee
+    labels?: string[]; // Filter by labels on linked issues/PRs
+  };
+  limit?: number; // Limit number of items (default: 100)
+}
+
 export interface ContextConfig {
   issues?: IssuesContextConfig;
   pull_requests?: PullRequestsContextConfig;
@@ -290,13 +304,14 @@ export interface ContextConfig {
   repository_traffic?: RepositoryTrafficContextConfig;
   branches?: BranchesContextConfig;
   check_runs?: CheckRunsContextConfig;
+  project?: ProjectContextConfig; // GitHub Projects v2 context collection
   stars?: boolean;
   forks?: boolean;
   since?: string; // Time filter: "last-run", "1h", "24h", "7d", etc. (default: "last-run")
   min_items?: number; // Minimum total items to trigger agent (default: 1)
-  project_id?: string; // GitHub Project ID for custom fields (format: PVT_...)
+  project_id?: string; // GitHub Project ID for custom fields (format: PVT_...) - deprecated, use project.project_id
   include_dependencies?: boolean; // Include issue blocking/blocked-by relationships
-  include_custom_fields?: string[]; // Custom field names to include from Projects
+  include_custom_fields?: string[]; // Custom field names to include from Projects - deprecated, use project config
 }
 
 // Issue Dependency Types
@@ -322,6 +337,7 @@ export interface CollectedContext {
   commits?: GitHubCommit[];
   releases?: GitHubRelease[];
   workflow_runs?: GitHubWorkflowRun[];
+  project?: GitHubProject;
   stars?: number;
   forks?: number;
   dependencies?: {
@@ -407,6 +423,45 @@ export interface GitHubWorkflowRun {
   createdAt: string;
   updatedAt: string;
   author: string;
+}
+
+export interface GitHubProjectField {
+  id: string;
+  name: string;
+  dataType: "single_select" | "number" | "text" | "date" | "iteration";
+  options?: Array<{
+    id: string;
+    name: string;
+  }>;
+}
+
+export interface GitHubProjectItemFieldValue {
+  fieldName: string;
+  value: string | number | null;
+}
+
+export interface GitHubProjectItem {
+  id: string;
+  contentType: "Issue" | "PullRequest" | "DraftIssue";
+  contentNumber?: number;
+  contentTitle?: string;
+  contentState?: string;
+  contentUrl?: string;
+  assignees: string[];
+  labels: string[];
+  fieldValues: GitHubProjectItemFieldValue[];
+}
+
+export interface GitHubProject {
+  id: string;
+  number: number;
+  title: string;
+  description?: string;
+  url: string;
+  fields: GitHubProjectField[];
+  items: GitHubProjectItem[];
+  itemsByStatus: Record<string, number>;
+  totalItems: number;
 }
 
 // Audit Report Types

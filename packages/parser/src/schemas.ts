@@ -259,6 +259,24 @@ const checkRunsContextSchema = z
   })
   .optional();
 
+const projectContextSchema = z
+  .object({
+    project_number: z.number().min(1).optional(),
+    project_id: z.string().optional(),
+    owner: z.string().optional(),
+    include_items: z.boolean().optional(),
+    include_fields: z.boolean().optional(),
+    filters: z
+      .object({
+        status: z.array(z.string()).optional(),
+        assignee: z.array(z.string()).optional(),
+        labels: z.array(z.string()).optional(),
+      })
+      .optional(),
+    limit: z.number().min(1).max(1000).optional(),
+  })
+  .optional();
+
 const contextConfigSchema = z
   .object({
     issues: issuesContextSchema,
@@ -277,6 +295,7 @@ const contextConfigSchema = z
     repository_traffic: repositoryTrafficContextSchema,
     branches: branchesContextSchema,
     check_runs: checkRunsContextSchema,
+    project: projectContextSchema,
     stars: z.boolean().optional(),
     forks: z.boolean().optional(),
     since: z.string().optional(),
