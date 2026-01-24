@@ -1,6 +1,9 @@
-import { describe, expect, it } from "bun:test";
+import { afterEach, beforeEach, describe, expect, it } from "bun:test";
+import { mkdtemp, rm, writeFile } from "node:fs/promises";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
 import type { AgentDefinition } from "@repo-agents/types";
-import { checkBotActor, type ValidationContext } from "./validation";
+import { checkBotActor, checkTriggerLabels, type ValidationContext } from "./validation";
 
 describe("checkBotActor", () => {
   const createContext = (actor: string): ValidationContext => ({
@@ -177,6 +180,191 @@ describe("checkBotActor", () => {
       const result = await checkBotActor(ctx, agent);
 
       expect(result.reason).toContain("allow_bot_triggers: true");
+    });
+  });
+});
+
+describe("checkTriggerLabels", () => {
+  let tempDir: string;
+  let eventPath: string;
+
+  beforeEach(async () => {
+    tempDir = await mkdtemp(join(tmpdir(), "trigger-labels-test-"));
+    eventPath = join(tempDir, "event.json");
+  });
+
+  afterEach(async () => {
+    await rm(tempDir, { recursive: true, force: true });
+  });
+
+  const createContext = (eventName: string, eventPathOverride?: string): ValidationContext => ({
+    github: {
+      actor: "octocat",
+      repository: "owner/repo",
+      eventName,
+      eventPath: eventPathOverride ?? eventPath,
+      runId: 12345,
+      serverUrl: "https://github.com",
+    },
+  });
+
+  const createAgent = (triggerLabels?: string[]): AgentDefinition => ({
+    name: "test-agent",
+    on: { issues: { types: ["opened", "labeled"] } },
+    trigger_labels: triggerLabels,
+    markdown: "# Test Agent",
+  });
+
+  describe("no trigger_labels configured", () => {
+    it("should always be valid when no trigger_labels specified", async () => {
+      const ctx = createContext("issues");
+      const agent = createAgent(undefined);
+
+      const result = await checkTriggerLabels(ctx, agent);
+
+      expect(result.valid).toBe(true);
+    });
+
+    it("should always be valid with empty trigger_labels array", async () => {
+      const ctx = createContext("issues");
+      const agent = createAgent([]);
+
+      const result = await checkTriggerLabels(ctx, agent);
+
+      expect(result.valid).toBe(true);
+    });
+  });
+
+  describe("OR logic for trigger_labels", () => {
+    it("should be valid when first trigger label is present", async () => {
+      await writeFile(
+        eventPath,
+        JSON.stringify({
+          issue: { labels: [{ name: "approved" }] },
+        }),
+      );
+
+      const ctx = createContext("issues");
+      const agent = createAgent(["approved", "agent-assigned"]);
+
+      const result = await checkTriggerLabels(ctx, agent);
+
+      expect(result.valid).toBe(true);
+    });
+
+    it("should be valid when second trigger label is present", async () => {
+      await writeFile(
+        eventPath,
+        JSON.stringify({
+          issue: { labels: [{ name: "agent-assigned" }] },
+        }),
+      );
+
+      const ctx = createContext("issues");
+      const agent = createAgent(["approved", "agent-assigned"]);
+
+      const result = await checkTriggerLabels(ctx, agent);
+
+      expect(result.valid).toBe(true);
+    });
+
+    it("should be valid when both trigger labels are present", async () => {
+      await writeFile(
+        eventPath,
+        JSON.stringify({
+          issue: { labels: [{ name: "approved" }, { name: "agent-assigned" }] },
+        }),
+      );
+
+      const ctx = createContext("issues");
+      const agent = createAgent(["approved", "agent-assigned"]);
+
+      const result = await checkTriggerLabels(ctx, agent);
+
+      expect(result.valid).toBe(true);
+    });
+
+    it("should be invalid when no trigger labels are present", async () => {
+      await writeFile(
+        eventPath,
+        JSON.stringify({
+          issue: { labels: [{ name: "bug" }, { name: "enhancement" }] },
+        }),
+      );
+
+      const ctx = createContext("issues");
+      const agent = createAgent(["approved", "agent-assigned"]);
+
+      const result = await checkTriggerLabels(ctx, agent);
+
+      expect(result.valid).toBe(false);
+      expect(result.reason).toContain("approved");
+      expect(result.reason).toContain("agent-assigned");
+    });
+
+    it("should be invalid when issue has no labels at all", async () => {
+      await writeFile(
+        eventPath,
+        JSON.stringify({
+          issue: { labels: [] },
+        }),
+      );
+
+      const ctx = createContext("issues");
+      const agent = createAgent(["approved"]);
+
+      const result = await checkTriggerLabels(ctx, agent);
+
+      expect(result.valid).toBe(false);
+    });
+  });
+
+  describe("non-issue events", () => {
+    it("should always be valid for pull_request events", async () => {
+      const ctx = createContext("pull_request");
+      const agent = createAgent(["approved"]);
+
+      const result = await checkTriggerLabels(ctx, agent);
+
+      expect(result.valid).toBe(true);
+    });
+
+    it("should always be valid for schedule events", async () => {
+      const ctx = createContext("schedule");
+      const agent = createAgent(["approved"]);
+
+      const result = await checkTriggerLabels(ctx, agent);
+
+      expect(result.valid).toBe(true);
+    });
+
+    it("should always be valid for workflow_dispatch events", async () => {
+      const ctx = createContext("workflow_dispatch");
+      const agent = createAgent(["approved"]);
+
+      const result = await checkTriggerLabels(ctx, agent);
+
+      expect(result.valid).toBe(true);
+    });
+  });
+
+  describe("returns present labels for debugging", () => {
+    it("should include presentLabels in result", async () => {
+      await writeFile(
+        eventPath,
+        JSON.stringify({
+          issue: { labels: [{ name: "bug" }, { name: "approved" }] },
+        }),
+      );
+
+      const ctx = createContext("issues");
+      const agent = createAgent(["approved"]);
+
+      const result = await checkTriggerLabels(ctx, agent);
+
+      expect(result.valid).toBe(true);
+      expect(result.presentLabels).toContain("bug");
+      expect(result.presentLabels).toContain("approved");
     });
   });
 });
