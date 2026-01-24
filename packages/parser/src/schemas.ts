@@ -8,6 +8,14 @@ const workflowInputSchema = z.object({
   options: z.array(z.string()).optional(),
 });
 
+const invocationConfigSchema = z.object({
+  command: z.string().min(1), // Command name (without leading /)
+  description: z.string().optional(), // Description shown in /help
+  aliases: z.array(z.string()).optional(), // Alternative command names
+  allowed_users: z.array(z.string()).optional(), // Users who can invoke
+  allowed_teams: z.array(z.string()).optional(), // Teams who can invoke
+});
+
 const triggerConfigSchema = z.strictObject({
   issues: z
     .strictObject({
@@ -41,6 +49,7 @@ const triggerConfigSchema = z.strictObject({
       types: z.array(z.string()).optional(),
     })
     .optional(),
+  invocation: z.union([invocationConfigSchema, z.array(invocationConfigSchema)]).optional(),
 });
 
 const permissionsSchema = z

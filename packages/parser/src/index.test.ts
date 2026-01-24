@@ -318,6 +318,78 @@ Rate limit test`;
         expect(result.agent?.rate_limit_minutes).toBe(15);
       });
 
+      it("should parse agent with single invocation trigger", () => {
+        const content = `---
+name: Review Agent
+on:
+  invocation:
+    command: review
+    description: "Performs code review"
+---
+
+Review instructions`;
+
+        const result = parser.parseContent(content);
+
+        expect(result.agent).toBeDefined();
+        expect(result.agent?.on.invocation).toBeDefined();
+        const invocation = result.agent?.on.invocation;
+        if (!Array.isArray(invocation)) {
+          expect(invocation?.command).toBe("review");
+          expect(invocation?.description).toBe("Performs code review");
+        }
+      });
+
+      it("should parse agent with multiple invocation triggers", () => {
+        const content = `---
+name: Multi Invoke Agent
+on:
+  invocation:
+    - command: review
+      description: "Full code review"
+    - command: quick-review
+      description: "Quick review"
+      aliases: ["/cr", "/qr"]
+---
+
+Instructions`;
+
+        const result = parser.parseContent(content);
+
+        expect(result.agent).toBeDefined();
+        const invocations = result.agent?.on.invocation;
+        expect(Array.isArray(invocations)).toBe(true);
+        if (Array.isArray(invocations)) {
+          expect(invocations).toHaveLength(2);
+          expect(invocations[0].command).toBe("review");
+          expect(invocations[1].command).toBe("quick-review");
+          expect(invocations[1].aliases).toEqual(["/cr", "/qr"]);
+        }
+      });
+
+      it("should parse agent with invocation access control", () => {
+        const content = `---
+name: Protected Agent
+on:
+  invocation:
+    command: deploy
+    allowed_users: [admin1, admin2]
+    allowed_teams: [devops]
+---
+
+Deploy instructions`;
+
+        const result = parser.parseContent(content);
+
+        expect(result.agent).toBeDefined();
+        const invocation = result.agent?.on.invocation;
+        if (!Array.isArray(invocation)) {
+          expect(invocation?.command).toBe("deploy");
+          expect(invocation?.allowed_users).toEqual(["admin1", "admin2"]);
+          expect(invocation?.allowed_teams).toEqual(["devops"]);
+        }
+      });
+
       it("should parse agent with simple timeout (number)", () => {
         const content = `---
 name: Timeout Agent

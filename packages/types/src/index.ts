@@ -40,6 +40,14 @@ export interface ConcurrencyConfig {
   cancel_in_progress?: boolean; // Whether to cancel in-progress runs (default: true)
 }
 
+export interface InvocationConfig {
+  command: string; // Command name (without leading /)
+  description?: string; // Description shown in /help
+  aliases?: string[]; // Alternative command names
+  allowed_users?: string[]; // Users who can invoke this command
+  allowed_teams?: string[]; // Teams who can invoke this command
+}
+
 export interface TimeoutConfig {
   execution?: number; // Agent execution timeout in minutes (default: 30)
   total?: number; // Total job timeout in minutes (default: 45)
@@ -65,6 +73,7 @@ export interface TriggerConfig {
   repository_dispatch?: {
     types?: string[];
   };
+  invocation?: InvocationConfig | InvocationConfig[]; // Comment-triggered execution
 }
 
 export interface WorkflowInput {

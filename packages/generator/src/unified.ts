@@ -120,11 +120,17 @@ export class UnifiedWorkflowGenerator {
     const seenCrons = new Set<string>();
     const repoDispatchTypes = new Set<string>();
     let hasBlockingChecks = false;
+    let hasInvocations = false;
 
     for (const agent of agents) {
       // Track if any agent has blocking checks enabled
       if (agent.pre_flight?.check_blocking_issues) {
         hasBlockingChecks = true;
+      }
+
+      // Track if any agent has invocation triggers
+      if (agent.on.invocation) {
+        hasInvocations = true;
       }
 
       // Issues
@@ -183,6 +189,12 @@ export class UnifiedWorkflowGenerator {
       triggers.repository_dispatch = {
         types: Array.from(repoDispatchTypes).sort(),
       };
+    }
+
+    // Add issue_comment trigger if any agent has invocation triggers
+    if (hasInvocations) {
+      // @ts-expect-error - issue_comment is a valid GitHub trigger but not in our TriggerConfig type
+      triggers.issue_comment = { types: ["created"] };
     }
 
     // Always enable workflow_dispatch for manual triggering
