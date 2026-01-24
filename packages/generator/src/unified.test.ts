@@ -386,4 +386,69 @@ describe("UnifiedWorkflowGenerator", () => {
       expect(parsed.concurrency).toBeDefined();
     });
   });
+
+  describe("invocation triggers", () => {
+    it("should add issue_comment trigger when agent has invocation", () => {
+      const agents: AgentDefinition[] = [
+        {
+          name: "Review Agent",
+          markdown: "Review instructions",
+          on: {
+            invocation: {
+              command: "review",
+              description: "Performs code review",
+            },
+          },
+        },
+      ];
+
+      const workflow = unifiedWorkflowGenerator.generate(agents, defaultSecrets);
+      const parsed = yaml.load(workflow) as WorkflowYaml;
+
+      // Should have issue_comment trigger
+      expect(parsed.on.issue_comment).toBeDefined();
+      expect((parsed.on.issue_comment as { types: string[] }).types).toContain("created");
+    });
+
+    it("should not add issue_comment trigger when no invocations", () => {
+      const agents: AgentDefinition[] = [
+        {
+          name: "Test Agent",
+          markdown: "Test",
+          on: { issues: { types: ["opened"] } },
+        },
+      ];
+
+      const workflow = unifiedWorkflowGenerator.generate(agents, defaultSecrets);
+      const parsed = yaml.load(workflow) as WorkflowYaml;
+
+      // Should NOT have issue_comment trigger
+      expect(parsed.on.issue_comment).toBeUndefined();
+    });
+
+    it("should add issue_comment trigger with multiple invocation agents", () => {
+      const agents: AgentDefinition[] = [
+        {
+          name: "Review Agent",
+          markdown: "Review",
+          on: {
+            invocation: { command: "review" },
+          },
+        },
+        {
+          name: "Explain Agent",
+          markdown: "Explain",
+          on: {
+            invocation: [{ command: "explain" }, { command: "help" }],
+          },
+        },
+      ];
+
+      const workflow = unifiedWorkflowGenerator.generate(agents, defaultSecrets);
+      const parsed = yaml.load(workflow) as WorkflowYaml;
+
+      // Should have issue_comment trigger
+      expect(parsed.on.issue_comment).toBeDefined();
+    });
+  });
 });

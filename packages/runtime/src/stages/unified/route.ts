@@ -49,6 +49,10 @@ export interface AgentMatrixEntry {
     schedule?: string[];
     repositoryDispatch?: string[];
     workflowDispatch?: boolean;
+    invocation?: Array<{
+      command: string;
+      aliases?: string[];
+    }>;
   };
 }
 
@@ -195,8 +199,29 @@ function buildAgentMatrixEntry(agent: AgentDefinition, agentPath: string): Agent
           ? agent.on.workflow_dispatch
           : agent.on.workflow_dispatch !== undefined,
       ),
+      invocation: extractInvocationTriggers(agent),
     },
   };
+}
+
+/**
+ * Extract invocation triggers from agent definition.
+ */
+function extractInvocationTriggers(
+  agent: AgentDefinition,
+): Array<{ command: string; aliases?: string[] }> | undefined {
+  if (!agent.on.invocation) {
+    return undefined;
+  }
+
+  const invocations = Array.isArray(agent.on.invocation)
+    ? agent.on.invocation
+    : [agent.on.invocation];
+
+  return invocations.map((inv) => ({
+    command: inv.command,
+    aliases: inv.aliases,
+  }));
 }
 
 /**
@@ -372,7 +397,49 @@ function matchesEvent(agent: AgentMatrixEntry, github: UnifiedRouteContext["gith
       // Routes to all agents that have workflow_dispatch enabled
       return agent.triggers.workflowDispatch ?? false;
 
+    case "issue_comment":
+      // Check if comment contains an invocation command for this agent
+      return matchesInvocation(agent, github);
+
     default:
       return false;
   }
+}
+
+/**
+ * Check if an issue comment contains an invocation command for this agent.
+ */
+function matchesInvocation(
+  agent: AgentMatrixEntry,
+  _github: UnifiedRouteContext["github"],
+): boolean {
+  if (!agent.triggers.invocation || agent.triggers.invocation.length === 0) {
+    return false;
+  }
+
+  // Get the comment body from environment variable (set by dispatcher)
+  const commentBody = process.env.COMMENT_BODY || "";
+  if (!commentBody) {
+    return false;
+  }
+
+  // Extract command from comment (looks for /command at start of line)
+  const match = commentBody.match(/^\/([a-z][a-z0-9-]*)/im);
+  if (!match) {
+    return false;
+  }
+
+  const command = match[1].toLowerCase();
+
+  // Check if the command matches any of the agent's invocation commands
+  for (const invocation of agent.triggers.invocation) {
+    if (invocation.command.toLowerCase() === command) {
+      return true;
+    }
+    if (invocation.aliases?.some((alias) => alias.replace(/^\//, "").toLowerCase() === command)) {
+      return true;
+    }
+  }
+
+  return false;
 }
