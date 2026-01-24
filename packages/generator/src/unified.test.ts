@@ -386,4 +386,99 @@ describe("UnifiedWorkflowGenerator", () => {
       expect(parsed.concurrency).toBeDefined();
     });
   });
+
+  describe("timeout", () => {
+    it("should use default timeout when not specified", () => {
+      const agents: AgentDefinition[] = [
+        {
+          name: "Test Agent",
+          markdown: "Test",
+          on: { issues: { types: ["opened"] } },
+        },
+      ];
+
+      const workflow = unifiedWorkflowGenerator.generate(agents, defaultSecrets);
+      const parsed = yaml.load(workflow) as WorkflowYaml;
+      const job = parsed.jobs["agent-test-agent"] as Record<string, unknown>;
+
+      // Default total timeout should be 45 minutes
+      expect(job["timeout-minutes"]).toBe(45);
+
+      // Default execution step timeout should be 30 minutes
+      const steps = job.steps as Array<Record<string, unknown>>;
+      const agentStep = steps.find((s) => s.name === "Run Test Agent");
+      expect(agentStep?.["timeout-minutes"]).toBe(30);
+    });
+
+    it("should use simple number timeout as execution timeout", () => {
+      const agents: AgentDefinition[] = [
+        {
+          name: "Quick Agent",
+          markdown: "Test",
+          on: { issues: { types: ["opened"] } },
+          timeout: 10, // 10 minute execution timeout
+        },
+      ];
+
+      const workflow = unifiedWorkflowGenerator.generate(agents, defaultSecrets);
+      const parsed = yaml.load(workflow) as WorkflowYaml;
+      const job = parsed.jobs["agent-quick-agent"] as Record<string, unknown>;
+
+      // Total timeout should be execution + 15 minutes
+      expect(job["timeout-minutes"]).toBe(25);
+
+      // Execution step timeout should match
+      const steps = job.steps as Array<Record<string, unknown>>;
+      const agentStep = steps.find((s) => s.name === "Run Quick Agent");
+      expect(agentStep?.["timeout-minutes"]).toBe(10);
+    });
+
+    it("should use detailed timeout config", () => {
+      const agents: AgentDefinition[] = [
+        {
+          name: "Custom Agent",
+          markdown: "Test",
+          on: { issues: { types: ["opened"] } },
+          timeout: {
+            execution: 20,
+            total: 30,
+            context_collection: 3,
+          },
+        },
+      ];
+
+      const workflow = unifiedWorkflowGenerator.generate(agents, defaultSecrets);
+      const parsed = yaml.load(workflow) as WorkflowYaml;
+      const job = parsed.jobs["agent-custom-agent"] as Record<string, unknown>;
+
+      expect(job["timeout-minutes"]).toBe(30);
+
+      const steps = job.steps as Array<Record<string, unknown>>;
+      const agentStep = steps.find((s) => s.name === "Run Custom Agent");
+      expect(agentStep?.["timeout-minutes"]).toBe(20);
+    });
+
+    it("should apply context collection timeout when context is configured", () => {
+      const agents: AgentDefinition[] = [
+        {
+          name: "Context Agent",
+          markdown: "Test",
+          on: { schedule: [{ cron: "0 0 * * *" }] },
+          context: { issues: { states: ["open"] } },
+          timeout: {
+            execution: 15,
+            context_collection: 8,
+          },
+        },
+      ];
+
+      const workflow = unifiedWorkflowGenerator.generate(agents, defaultSecrets);
+      const parsed = yaml.load(workflow) as WorkflowYaml;
+      const job = parsed.jobs["agent-context-agent"] as Record<string, unknown>;
+
+      const steps = job.steps as Array<Record<string, unknown>>;
+      const contextStep = steps.find((s) => s.name === "Collect context");
+      expect(contextStep?.["timeout-minutes"]).toBe(8);
+    });
+  });
 });

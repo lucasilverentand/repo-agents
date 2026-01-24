@@ -16,6 +16,7 @@ interface GitHubWorkflowJob {
   "runs-on": string;
   needs?: string | string[];
   if?: string;
+  "timeout-minutes"?: number;
   outputs?: Record<string, string>;
   strategy?: Record<string, unknown>;
   concurrency?: {
@@ -333,6 +334,7 @@ export class UnifiedWorkflowGenerator {
   private generateAgentExecutionJob(agent: AgentDefinition, agentSlug: string): GitHubWorkflowJob {
     const ghExpr = (expr: string) => `\${{ ${expr} }}`;
     const hasContext = !!agent.context;
+    const timeout = this.getTimeoutConfig(agent);
 
     const steps: WorkflowStep[] = [
       {
@@ -361,6 +363,7 @@ export class UnifiedWorkflowGenerator {
       steps.push({
         name: "Collect context",
         run: `bun run repo-agent run context --agent "${agent.name}"`,
+        "timeout-minutes": timeout.contextCollection,
         env: {
           GH_TOKEN: ghExpr("steps.app-token.outputs.token || secrets.GITHUB_TOKEN"),
         },
@@ -379,6 +382,7 @@ export class UnifiedWorkflowGenerator {
       {
         name: `Run ${agent.name}`,
         run: `bun run repo-agent run agent --agent "${agent.name}"`,
+        "timeout-minutes": timeout.execution,
         env: {
           ...this.buildClaudeEnv(ghExpr),
           EVENT_PAYLOAD: ghExpr(`needs.dispatcher.outputs.agent-${agentSlug}-event-payload`),
@@ -414,6 +418,7 @@ export class UnifiedWorkflowGenerator {
       "runs-on": "ubuntu-latest",
       needs: "dispatcher",
       if: `needs.dispatcher.outputs.agent-${agentSlug}-should-run == 'true'`,
+      "timeout-minutes": timeout.total,
       steps,
     };
   }
@@ -560,6 +565,42 @@ export class UnifiedWorkflowGenerator {
     }
 
     return env;
+  }
+
+  /**
+   * Get timeout configuration for an agent.
+   * Returns resolved timeout values with defaults.
+   */
+  private getTimeoutConfig(agent: AgentDefinition): {
+    execution: number;
+    total: number;
+    contextCollection: number;
+  } {
+    const defaults = {
+      execution: 30,
+      total: 45,
+      contextCollection: 5,
+    };
+
+    if (!agent.timeout) {
+      return defaults;
+    }
+
+    if (typeof agent.timeout === "number") {
+      // Simple number: treat as execution timeout, derive total
+      return {
+        execution: agent.timeout,
+        total: agent.timeout + 15, // Add 15 minutes for setup/teardown
+        contextCollection: defaults.contextCollection,
+      };
+    }
+
+    // Detailed config object
+    return {
+      execution: agent.timeout.execution ?? defaults.execution,
+      total: agent.timeout.total ?? (agent.timeout.execution ?? defaults.execution) + 15,
+      contextCollection: agent.timeout.context_collection ?? defaults.contextCollection,
+    };
   }
 
   /**
