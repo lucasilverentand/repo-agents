@@ -14,11 +14,16 @@ import type {
   GitHubCommit,
   GitHubDiscussion,
   GitHubIssue,
+  GitHubProject,
+  GitHubProjectField,
+  GitHubProjectItem,
+  GitHubProjectItemFieldValue,
   GitHubPullRequest,
   GitHubRelease,
   GitHubWorkflowRun,
   IssuesContextConfig,
   MilestonesContextConfig,
+  ProjectContextConfig,
   PullRequestsContextConfig,
   ReleasesContextConfig,
   RepositoryTrafficContextConfig,
@@ -265,6 +270,16 @@ export async function runContext(ctx: StageContext): Promise<StageResult> {
       totalItems += count;
     }
     console.log(`Found ${count} check run(s)`);
+  }
+
+  // Collect project context (GitHub Projects v2)
+  if (config.project) {
+    const { markdown, count } = await collectProject(owner, repo, config.project);
+    if (count > 0) {
+      collectedSections.push(markdown);
+      totalItems += count;
+    }
+    console.log(`Found ${count} project item(s)`);
   }
 
   // Check min_items threshold
@@ -2220,6 +2235,621 @@ function formatCheckRunsMarkdown(
     }
     lines.push(`**URL:** ${run.html_url}`);
     lines.push("", "---", "");
+  }
+
+  return lines.join("\n");
+}
+
+/**
+ * Collect GitHub Projects v2 data using GraphQL
+ */
+async function collectProject(
+  owner: string,
+  repo: string,
+  config: ProjectContextConfig,
+): Promise<CollectionResult> {
+  const limit = config.limit || 100;
+  const includeItems = config.include_items !== false;
+  const includeFields = config.include_fields !== false;
+
+  // GraphQL types for Project v2
+  interface ProjectV2SingleSelectOption {
+    id: string;
+    name: string;
+  }
+
+  interface ProjectV2SingleSelectField {
+    __typename: "ProjectV2SingleSelectField";
+    id: string;
+    name: string;
+    options: ProjectV2SingleSelectOption[];
+  }
+
+  interface ProjectV2IterationField {
+    __typename: "ProjectV2IterationField";
+    id: string;
+    name: string;
+  }
+
+  interface ProjectV2Field {
+    __typename: "ProjectV2Field";
+    id: string;
+    name: string;
+    dataType: string;
+  }
+
+  type ProjectField = ProjectV2SingleSelectField | ProjectV2IterationField | ProjectV2Field;
+
+  interface ProjectV2ItemFieldSingleSelectValue {
+    __typename: "ProjectV2ItemFieldSingleSelectValue";
+    name: string;
+    field: { name: string };
+  }
+
+  interface ProjectV2ItemFieldTextValue {
+    __typename: "ProjectV2ItemFieldTextValue";
+    text: string;
+    field: { name: string };
+  }
+
+  interface ProjectV2ItemFieldNumberValue {
+    __typename: "ProjectV2ItemFieldNumberValue";
+    number: number;
+    field: { name: string };
+  }
+
+  interface ProjectV2ItemFieldDateValue {
+    __typename: "ProjectV2ItemFieldDateValue";
+    date: string;
+    field: { name: string };
+  }
+
+  interface ProjectV2ItemFieldIterationValue {
+    __typename: "ProjectV2ItemFieldIterationValue";
+    title: string;
+    field: { name: string };
+  }
+
+  type FieldValue =
+    | ProjectV2ItemFieldSingleSelectValue
+    | ProjectV2ItemFieldTextValue
+    | ProjectV2ItemFieldNumberValue
+    | ProjectV2ItemFieldDateValue
+    | ProjectV2ItemFieldIterationValue;
+
+  interface IssueContent {
+    __typename: "Issue";
+    number: number;
+    title: string;
+    state: string;
+    url: string;
+    assignees: { nodes: Array<{ login: string }> };
+    labels: { nodes: Array<{ name: string }> };
+  }
+
+  interface PullRequestContent {
+    __typename: "PullRequest";
+    number: number;
+    title: string;
+    state: string;
+    url: string;
+    assignees: { nodes: Array<{ login: string }> };
+    labels: { nodes: Array<{ name: string }> };
+  }
+
+  interface DraftIssueContent {
+    __typename: "DraftIssue";
+    title: string;
+  }
+
+  type ItemContent = IssueContent | PullRequestContent | DraftIssueContent;
+
+  interface ProjectItem {
+    id: string;
+    content: ItemContent | null;
+    fieldValues: {
+      nodes: FieldValue[];
+    };
+  }
+
+  interface GraphQLResponse {
+    data: {
+      repository?: {
+        projectV2: {
+          id: string;
+          number: number;
+          title: string;
+          shortDescription: string | null;
+          url: string;
+          fields: {
+            nodes: ProjectField[];
+          };
+          items: {
+            nodes: ProjectItem[];
+          };
+        } | null;
+      };
+      organization?: {
+        projectV2: {
+          id: string;
+          number: number;
+          title: string;
+          shortDescription: string | null;
+          url: string;
+          fields: {
+            nodes: ProjectField[];
+          };
+          items: {
+            nodes: ProjectItem[];
+          };
+        } | null;
+      };
+    };
+    errors?: Array<{ message: string }>;
+  }
+
+  // Determine if we're querying by project_number or project_id
+  // project_number requires owner context
+  const projectNumber = config.project_number;
+  const projectId = config.project_id;
+
+  if (!projectNumber && !projectId) {
+    console.log("Project context requires either project_number or project_id");
+    return { markdown: "", count: 0 };
+  }
+
+  try {
+    let query: string;
+    let variables: Record<string, unknown>;
+
+    if (projectNumber) {
+      // Query by project number - need to determine if user or org project
+      const projectOwner = config.owner || owner;
+
+      // Try repository project first, then org project
+      query = `
+        query($owner: String!, $repo: String!, $projectNumber: Int!, $itemsLimit: Int!) {
+          repository(owner: $owner, name: $repo) {
+            projectV2(number: $projectNumber) {
+              id
+              number
+              title
+              shortDescription
+              url
+              fields(first: 50) {
+                nodes {
+                  ... on ProjectV2SingleSelectField {
+                    __typename
+                    id
+                    name
+                    options {
+                      id
+                      name
+                    }
+                  }
+                  ... on ProjectV2IterationField {
+                    __typename
+                    id
+                    name
+                  }
+                  ... on ProjectV2Field {
+                    __typename
+                    id
+                    name
+                    dataType
+                  }
+                }
+              }
+              items(first: $itemsLimit) {
+                nodes {
+                  id
+                  content {
+                    ... on Issue {
+                      __typename
+                      number
+                      title
+                      state
+                      url
+                      assignees(first: 10) { nodes { login } }
+                      labels(first: 10) { nodes { name } }
+                    }
+                    ... on PullRequest {
+                      __typename
+                      number
+                      title
+                      state
+                      url
+                      assignees(first: 10) { nodes { login } }
+                      labels(first: 10) { nodes { name } }
+                    }
+                    ... on DraftIssue {
+                      __typename
+                      title
+                    }
+                  }
+                  fieldValues(first: 20) {
+                    nodes {
+                      ... on ProjectV2ItemFieldSingleSelectValue {
+                        __typename
+                        name
+                        field { ... on ProjectV2SingleSelectField { name } }
+                      }
+                      ... on ProjectV2ItemFieldTextValue {
+                        __typename
+                        text
+                        field { ... on ProjectV2Field { name } }
+                      }
+                      ... on ProjectV2ItemFieldNumberValue {
+                        __typename
+                        number
+                        field { ... on ProjectV2Field { name } }
+                      }
+                      ... on ProjectV2ItemFieldDateValue {
+                        __typename
+                        date
+                        field { ... on ProjectV2Field { name } }
+                      }
+                      ... on ProjectV2ItemFieldIterationValue {
+                        __typename
+                        title
+                        field { ... on ProjectV2IterationField { name } }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      `;
+      variables = {
+        owner: projectOwner,
+        repo,
+        projectNumber,
+        itemsLimit: limit,
+      };
+    } else {
+      // Query by project ID (node ID)
+      query = `
+        query($projectId: ID!, $itemsLimit: Int!) {
+          node(id: $projectId) {
+            ... on ProjectV2 {
+              id
+              number
+              title
+              shortDescription
+              url
+              fields(first: 50) {
+                nodes {
+                  ... on ProjectV2SingleSelectField {
+                    __typename
+                    id
+                    name
+                    options {
+                      id
+                      name
+                    }
+                  }
+                  ... on ProjectV2IterationField {
+                    __typename
+                    id
+                    name
+                  }
+                  ... on ProjectV2Field {
+                    __typename
+                    id
+                    name
+                    dataType
+                  }
+                }
+              }
+              items(first: $itemsLimit) {
+                nodes {
+                  id
+                  content {
+                    ... on Issue {
+                      __typename
+                      number
+                      title
+                      state
+                      url
+                      assignees(first: 10) { nodes { login } }
+                      labels(first: 10) { nodes { name } }
+                    }
+                    ... on PullRequest {
+                      __typename
+                      number
+                      title
+                      state
+                      url
+                      assignees(first: 10) { nodes { login } }
+                      labels(first: 10) { nodes { name } }
+                    }
+                    ... on DraftIssue {
+                      __typename
+                      title
+                    }
+                  }
+                  fieldValues(first: 20) {
+                    nodes {
+                      ... on ProjectV2ItemFieldSingleSelectValue {
+                        __typename
+                        name
+                        field { ... on ProjectV2SingleSelectField { name } }
+                      }
+                      ... on ProjectV2ItemFieldTextValue {
+                        __typename
+                        text
+                        field { ... on ProjectV2Field { name } }
+                      }
+                      ... on ProjectV2ItemFieldNumberValue {
+                        __typename
+                        number
+                        field { ... on ProjectV2Field { name } }
+                      }
+                      ... on ProjectV2ItemFieldDateValue {
+                        __typename
+                        date
+                        field { ... on ProjectV2Field { name } }
+                      }
+                      ... on ProjectV2ItemFieldIterationValue {
+                        __typename
+                        title
+                        field { ... on ProjectV2IterationField { name } }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      `;
+      variables = {
+        projectId,
+        itemsLimit: limit,
+      };
+    }
+
+    const response = await ghApi<GraphQLResponse>("graphql", {
+      method: "POST",
+      body: { query, variables },
+    });
+
+    if (response.errors && response.errors.length > 0) {
+      console.log(`GraphQL errors: ${response.errors.map((e) => e.message).join(", ")}`);
+      return { markdown: "", count: 0 };
+    }
+
+    // Extract project data from response
+    let projectData: GraphQLResponse["data"]["repository"] extends undefined
+      ? never
+      : NonNullable<GraphQLResponse["data"]["repository"]>["projectV2"];
+
+    if (projectNumber) {
+      projectData = response.data.repository?.projectV2 || null;
+      // If not found in repository, try organization
+      if (!projectData && response.data.organization) {
+        projectData = response.data.organization.projectV2;
+      }
+    } else {
+      // For node ID query, the data is at data.node
+      const nodeData = (response.data as { node?: typeof projectData }).node;
+      projectData = nodeData || null;
+    }
+
+    if (!projectData) {
+      console.log("Project not found");
+      return { markdown: "", count: 0 };
+    }
+
+    // Parse fields
+    const fields: GitHubProjectField[] = includeFields
+      ? projectData.fields.nodes
+          .filter((f): f is ProjectField => f !== null)
+          .map((field) => {
+            if (field.__typename === "ProjectV2SingleSelectField") {
+              return {
+                id: field.id,
+                name: field.name,
+                dataType: "single_select" as const,
+                options: field.options.map((o) => ({ id: o.id, name: o.name })),
+              };
+            }
+            if (field.__typename === "ProjectV2IterationField") {
+              return {
+                id: field.id,
+                name: field.name,
+                dataType: "iteration" as const,
+              };
+            }
+            return {
+              id: field.id,
+              name: field.name,
+              dataType: (field.dataType?.toLowerCase() || "text") as GitHubProjectField["dataType"],
+            };
+          })
+      : [];
+
+    // Parse items
+    let items: GitHubProjectItem[] = includeItems
+      ? projectData.items.nodes
+          .filter((item): item is ProjectItem => item !== null)
+          .map((item) => {
+            const content = item.content;
+            const fieldValues: GitHubProjectItemFieldValue[] = item.fieldValues.nodes
+              .filter((fv): fv is FieldValue => fv !== null && fv.__typename !== undefined)
+              .map((fv) => {
+                let value: string | number | null = null;
+                const fieldName = fv.field?.name || "Unknown";
+
+                if (fv.__typename === "ProjectV2ItemFieldSingleSelectValue") {
+                  value = fv.name;
+                } else if (fv.__typename === "ProjectV2ItemFieldTextValue") {
+                  value = fv.text;
+                } else if (fv.__typename === "ProjectV2ItemFieldNumberValue") {
+                  value = fv.number;
+                } else if (fv.__typename === "ProjectV2ItemFieldDateValue") {
+                  value = fv.date;
+                } else if (fv.__typename === "ProjectV2ItemFieldIterationValue") {
+                  value = fv.title;
+                }
+
+                return { fieldName, value };
+              })
+              .filter((fv) => fv.value !== null);
+
+            const assignees: string[] = [];
+            const labels: string[] = [];
+
+            if (content) {
+              if (content.__typename === "Issue" || content.__typename === "PullRequest") {
+                assignees.push(...content.assignees.nodes.map((a) => a.login));
+                labels.push(...content.labels.nodes.map((l) => l.name));
+              }
+            }
+
+            return {
+              id: item.id,
+              contentType: (content?.__typename ||
+                "DraftIssue") as GitHubProjectItem["contentType"],
+              contentNumber:
+                content && content.__typename !== "DraftIssue" ? content.number : undefined,
+              contentTitle: content?.title,
+              contentState:
+                content && content.__typename !== "DraftIssue" ? content.state : undefined,
+              contentUrl: content && content.__typename !== "DraftIssue" ? content.url : undefined,
+              assignees,
+              labels,
+              fieldValues,
+            };
+          })
+      : [];
+
+    // Apply filters
+    if (config.filters) {
+      if (config.filters.status && config.filters.status.length > 0) {
+        items = items.filter((item) => {
+          const statusField = item.fieldValues.find(
+            (fv) => fv.fieldName.toLowerCase() === "status",
+          );
+          return statusField && config.filters?.status?.includes(statusField.value as string);
+        });
+      }
+
+      if (config.filters.assignee && config.filters.assignee.length > 0) {
+        items = items.filter((item) =>
+          item.assignees.some((a) => config.filters?.assignee?.includes(a)),
+        );
+      }
+
+      if (config.filters.labels && config.filters.labels.length > 0) {
+        items = items.filter((item) =>
+          item.labels.some((l) => config.filters?.labels?.includes(l)),
+        );
+      }
+    }
+
+    // Calculate status distribution
+    const itemsByStatus: Record<string, number> = {};
+    for (const item of items) {
+      const statusField = item.fieldValues.find((fv) => fv.fieldName.toLowerCase() === "status");
+      const status = (statusField?.value as string) || "No Status";
+      itemsByStatus[status] = (itemsByStatus[status] || 0) + 1;
+    }
+
+    const project: GitHubProject = {
+      id: projectData.id,
+      number: projectData.number,
+      title: projectData.title,
+      description: projectData.shortDescription || undefined,
+      url: projectData.url,
+      fields,
+      items,
+      itemsByStatus,
+      totalItems: items.length,
+    };
+
+    const markdown = formatProjectMarkdown(project, includeFields, includeItems);
+    return { markdown, count: items.length };
+  } catch (error) {
+    console.log("Failed to collect project context");
+    console.error(error);
+    return { markdown: "", count: 0 };
+  }
+}
+
+function formatProjectMarkdown(
+  project: GitHubProject,
+  includeFields: boolean,
+  includeItems: boolean,
+): string {
+  const lines = [`## Project: ${project.title}`, ""];
+
+  if (project.description) {
+    lines.push(`*${project.description}*`, "");
+  }
+
+  lines.push(`**URL:** ${project.url}`, "");
+
+  // Fields section
+  if (includeFields && project.fields.length > 0) {
+    lines.push("### Fields", "");
+
+    for (const field of project.fields) {
+      if (field.options && field.options.length > 0) {
+        lines.push(`- **${field.name}**: ${field.options.map((o) => o.name).join(", ")}`);
+      } else {
+        lines.push(`- **${field.name}** (${field.dataType})`);
+      }
+    }
+    lines.push("");
+  }
+
+  // Items summary by status
+  if (Object.keys(project.itemsByStatus).length > 0) {
+    lines.push(`### Items (${project.totalItems} total)`, "");
+    lines.push("#### By Status", "");
+
+    for (const [status, count] of Object.entries(project.itemsByStatus)) {
+      lines.push(`- ${status}: ${count} item${count === 1 ? "" : "s"}`);
+    }
+    lines.push("");
+  }
+
+  // Recent items
+  if (includeItems && project.items.length > 0) {
+    lines.push("#### Recent Items", "");
+
+    for (const item of project.items.slice(0, 20)) {
+      const typeIcon =
+        item.contentType === "Issue" ? "📋" : item.contentType === "PullRequest" ? "🔀" : "📝";
+      const numberStr = item.contentNumber ? `#${item.contentNumber}` : "";
+
+      lines.push(`**${typeIcon} ${numberStr} ${item.contentTitle || "Untitled"}**`);
+
+      // Show field values
+      const fieldLines: string[] = [];
+      for (const fv of item.fieldValues) {
+        if (fv.value !== null) {
+          fieldLines.push(`${fv.fieldName}: ${fv.value}`);
+        }
+      }
+
+      if (item.assignees.length > 0) {
+        fieldLines.push(`Assignee: @${item.assignees.join(", @")}`);
+      }
+
+      if (fieldLines.length > 0) {
+        lines.push(`- ${fieldLines.join(" | ")}`);
+      }
+
+      if (item.contentUrl) {
+        lines.push(`- URL: ${item.contentUrl}`);
+      }
+
+      lines.push("");
+    }
   }
 
   return lines.join("\n");
