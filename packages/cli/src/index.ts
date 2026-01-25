@@ -4,7 +4,6 @@ import { Command } from "commander";
 // Import root package.json for version (gets inlined during bundling)
 import packageJson from "../../../package.json";
 import { addCommand } from "./commands/add";
-import { authCommand } from "./commands/auth";
 import { compileCommand } from "./commands/compile";
 import { initCommand } from "./commands/init";
 import { listCommand } from "./commands/list";
@@ -67,15 +66,6 @@ program
   .option("-d, --details", "Show detailed information")
   .option("--plain", "Plain output without colors (for piping to grep)")
   .action(listCommand);
-
-program
-  .command("setup-token")
-  .description(
-    "Set up Claude API token (checks subscription token first, then prompts for API key)",
-  )
-  .option("--force", "Overwrite existing token")
-  .option("--no-input", "Disable interactive prompts (for automation)")
-  .action(authCommand);
 
 program
   .command("setup-app")

@@ -118,7 +118,7 @@ export async function compileCommand(options: CompileOptions): Promise<void> {
         "  ⚠ Set either ANTHROPIC_API_KEY or CLAUDE_CODE_OAUTH_TOKEN to enable Claude authentication",
       ),
     );
-    logger.log(chalk.gray("  Run: repo-agents setup-token"));
+    logger.log(chalk.gray("  Run: repo-agents setup"));
   } else {
     const authMethod = secrets.hasApiKey ? "ANTHROPIC_API_KEY" : "CLAUDE_CODE_OAUTH_TOKEN";
     secretsSpinner.succeed(`Found Claude authentication: ${authMethod}`);
