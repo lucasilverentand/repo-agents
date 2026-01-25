@@ -725,12 +725,9 @@ async function executeAddLabel(
   // Merge labels
   const mergedLabels = [...new Set([...currentLabels, ...labels])];
 
-  // Update labels via API - use heredoc to pass JSON to gh api
-  const labelsJson = JSON.stringify(mergedLabels);
-  await $`gh api repos/${repository}/issues/${issueOrPrNumber}/labels -X PUT --input - <<'EOF'
-${labelsJson}
-EOF
-`;
+  // Update labels via API - pass labels array as JSON body
+  const labelsPayload = JSON.stringify({ labels: mergedLabels });
+  await $`echo ${labelsPayload} | gh api repos/${repository}/issues/${issueOrPrNumber}/labels -X PUT --input -`;
 }
 
 /**
@@ -758,12 +755,9 @@ async function executeRemoveLabel(
   // Filter out labels to remove
   const remainingLabels = currentLabels.filter((l) => !labelsToRemove.includes(l));
 
-  // Update labels via API - use heredoc to pass JSON to gh api
-  const remainingJson = JSON.stringify(remainingLabels);
-  await $`gh api repos/${repository}/issues/${issueOrPrNumber}/labels -X PUT --input - <<'EOF'
-${remainingJson}
-EOF
-`;
+  // Update labels via API - pass labels array as JSON body
+  const remainingPayload = JSON.stringify({ labels: remainingLabels });
+  await $`echo ${remainingPayload} | gh api repos/${repository}/issues/${issueOrPrNumber}/labels -X PUT --input -`;
 }
 
 /**
@@ -782,10 +776,7 @@ async function executeCreateIssue(file: OutputFile, repository: string): Promise
     assignees,
   });
 
-  await $`gh api repos/${repository}/issues --input - <<'EOF'
-${payload}
-EOF
-`;
+  await $`echo ${payload} | gh api repos/${repository}/issues --input -`;
 }
 
 /**
@@ -971,10 +962,7 @@ async function executeUpdateFile(file: OutputFile, repository: string): Promise<
 
     // Update file via API
     const payloadJson = JSON.stringify(payload);
-    await $`gh api repos/${repository}/contents/${fileSpec.path} -X PUT --input - <<'EOF'
-${payloadJson}
-EOF
-`;
+    await $`echo ${payloadJson} | gh api repos/${repository}/contents/${fileSpec.path} -X PUT --input -`;
   }
 }
 
