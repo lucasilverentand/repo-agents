@@ -426,6 +426,110 @@ describe("runOutputs", () => {
     });
   });
 
+  describe("edit-issue validation", () => {
+    it("should reject edit-issue with no title or body", async () => {
+      const { runOutputs } = await import("./outputs");
+
+      await writeFile(agentPath, createAgentMd({ outputs: { "edit-issue": true } }));
+      await writeFile(path.join(outputsDir, "edit-issue.json"), JSON.stringify({}));
+
+      const result = await runOutputs(createContext({ outputType: "edit-issue" }));
+
+      expect(result.success).toBe(false);
+    });
+
+    it("should accept edit-issue with only title", async () => {
+      const { runOutputs } = await import("./outputs");
+
+      await writeFile(agentPath, createAgentMd({ outputs: { "edit-issue": true } }));
+      await writeFile(
+        path.join(outputsDir, "edit-issue.json"),
+        JSON.stringify({ title: "Updated title" }),
+      );
+
+      // Validation should pass (execution will fail without gh CLI)
+      const result = await runOutputs(createContext({ outputType: "edit-issue" }));
+
+      // Check if the failure is due to execution, not validation
+      if (!result.success) {
+        const errors = await readFile(
+          path.join(validationErrorsDir, "edit-issue.txt"),
+          "utf-8",
+        ).catch(() => "");
+        expect(errors).not.toContain("at least one of title or body is required");
+      }
+    });
+
+    it("should accept edit-issue with only body", async () => {
+      const { runOutputs } = await import("./outputs");
+
+      await writeFile(agentPath, createAgentMd({ outputs: { "edit-issue": true } }));
+      await writeFile(
+        path.join(outputsDir, "edit-issue.json"),
+        JSON.stringify({ body: "Updated body" }),
+      );
+
+      // Validation should pass (execution will fail without gh CLI)
+      const result = await runOutputs(createContext({ outputType: "edit-issue" }));
+
+      // Check if the failure is due to execution, not validation
+      if (!result.success) {
+        const errors = await readFile(
+          path.join(validationErrorsDir, "edit-issue.txt"),
+          "utf-8",
+        ).catch(() => "");
+        expect(errors).not.toContain("at least one of title or body is required");
+      }
+    });
+
+    it("should accept edit-issue with both title and body", async () => {
+      const { runOutputs } = await import("./outputs");
+
+      await writeFile(agentPath, createAgentMd({ outputs: { "edit-issue": true } }));
+      await writeFile(
+        path.join(outputsDir, "edit-issue.json"),
+        JSON.stringify({ title: "Updated title", body: "Updated body" }),
+      );
+
+      // Validation should pass (execution will fail without gh CLI)
+      const result = await runOutputs(createContext({ outputType: "edit-issue" }));
+
+      // Check if the failure is due to execution, not validation
+      if (!result.success) {
+        const errors = await readFile(
+          path.join(validationErrorsDir, "edit-issue.txt"),
+          "utf-8",
+        ).catch(() => "");
+        expect(errors).not.toContain("at least one of title or body is required");
+      }
+    });
+
+    it("should reject edit-issue with non-string title", async () => {
+      const { runOutputs } = await import("./outputs");
+
+      await writeFile(agentPath, createAgentMd({ outputs: { "edit-issue": true } }));
+      await writeFile(path.join(outputsDir, "edit-issue.json"), JSON.stringify({ title: 123 }));
+
+      const result = await runOutputs(createContext({ outputType: "edit-issue" }));
+
+      expect(result.success).toBe(false);
+    });
+
+    it("should reject edit-issue with title exceeding 256 characters", async () => {
+      const { runOutputs } = await import("./outputs");
+
+      await writeFile(agentPath, createAgentMd({ outputs: { "edit-issue": true } }));
+      await writeFile(
+        path.join(outputsDir, "edit-issue.json"),
+        JSON.stringify({ title: "a".repeat(257) }),
+      );
+
+      const result = await runOutputs(createContext({ outputType: "edit-issue" }));
+
+      expect(result.success).toBe(false);
+    });
+  });
+
   describe("create-discussion validation", () => {
     it("should reject create-discussion with missing category", async () => {
       const { runOutputs } = await import("./outputs");

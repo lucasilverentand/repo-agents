@@ -438,6 +438,24 @@ async function validateOutputFile(
         errors.push(`**${outputType}**: merge must be a boolean in ${file.filename}`);
       }
       break;
+
+    case "edit-issue":
+      // At least one of title or body must be provided
+      if (file.data.title === undefined && file.data.body === undefined) {
+        errors.push(
+          `**${outputType}**: at least one of title or body is required in ${file.filename}`,
+        );
+      }
+      if (file.data.title !== undefined && typeof file.data.title !== "string") {
+        errors.push(`**${outputType}**: title must be a string in ${file.filename}`);
+      }
+      if (file.data.body !== undefined && typeof file.data.body !== "string") {
+        errors.push(`**${outputType}**: body must be a string in ${file.filename}`);
+      }
+      if (file.data.title && (file.data.title as string).length > 256) {
+        errors.push(`**${outputType}**: title exceeds 256 characters in ${file.filename}`);
+      }
+      break;
   }
 
   return errors;
@@ -668,6 +686,10 @@ async function executeOutput(
 
     case "close-pr":
       await executeClosePr(file, repository, prNumber);
+      break;
+
+    case "edit-issue":
+      await executeEditIssue(file, repository, issueOrPrNumber);
       break;
 
     default:
@@ -1002,6 +1024,30 @@ async function executeClosePr(
   } else {
     await $`gh api repos/${repository}/pulls/${prNumber} -X PATCH -f state=closed`;
   }
+}
+
+/**
+ * Edit an issue's title and/or body.
+ */
+async function executeEditIssue(
+  file: OutputFile,
+  repository: string,
+  issueNumber: string | undefined,
+): Promise<void> {
+  if (!issueNumber) {
+    throw new Error("No issue number available");
+  }
+
+  const payload: Record<string, string> = {};
+  if (file.data.title !== undefined) {
+    payload.title = file.data.title as string;
+  }
+  if (file.data.body !== undefined) {
+    payload.body = file.data.body as string;
+  }
+
+  const payloadJson = JSON.stringify(payload);
+  await $`echo ${payloadJson} | gh api repos/${repository}/issues/${issueNumber} -X PATCH --input -`;
 }
 
 /**
