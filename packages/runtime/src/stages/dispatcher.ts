@@ -5,6 +5,7 @@ import type { AgentDefinition } from "@repo-agents/types";
 import type { StageResult } from "../types";
 import {
   checkBlockingIssues,
+  checkBotActor,
   checkMaxOpenPRs,
   checkRateLimit,
   checkTriggerLabels,
@@ -132,31 +133,37 @@ async function validateAgent(
   ctx: ValidationContext,
   agent: AgentDefinition,
 ): Promise<{ shouldRun: boolean; reason?: string }> {
-  // 1. Check user authorization
+  // 1. Check bot actor (prevents recursive loops from bot-triggered events)
+  const botResult = await checkBotActor(ctx, agent);
+  if (!botResult.allowed) {
+    return { shouldRun: false, reason: botResult.reason ?? "Bot actors not allowed" };
+  }
+
+  // 2. Check user authorization
   const authResult = await checkUserAuthorization(ctx, agent);
   if (!authResult.authorized) {
     return { shouldRun: false, reason: authResult.reason ?? "User not authorized" };
   }
 
-  // 2. Check trigger labels
+  // 3. Check trigger labels
   const labelsResult = await checkTriggerLabels(ctx, agent);
   if (!labelsResult.valid) {
     return { shouldRun: false, reason: labelsResult.reason ?? "Required labels not present" };
   }
 
-  // 3. Check rate limiting
+  // 4. Check rate limiting
   const rateLimitResult = await checkRateLimit(ctx, agent);
   if (!rateLimitResult.allowed) {
     return { shouldRun: false, reason: rateLimitResult.reason ?? "Rate limit exceeded" };
   }
 
-  // 4. Check max open PRs
+  // 5. Check max open PRs
   const maxOpenPrsResult = await checkMaxOpenPRs(ctx, agent);
   if (!maxOpenPrsResult.allowed) {
     return { shouldRun: false, reason: maxOpenPrsResult.reason ?? "Max open PRs limit reached" };
   }
 
-  // 5. Check blocking issues
+  // 6. Check blocking issues
   const blockingIssuesResult = await checkBlockingIssues(ctx, agent);
   if (!blockingIssuesResult.allowed) {
     return {
