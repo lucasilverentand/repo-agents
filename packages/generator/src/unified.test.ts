@@ -13,7 +13,7 @@ interface WorkflowYaml {
   };
   concurrency?: {
     group: string;
-    "cancel-in-progress": boolean;
+    "cancel-in-progress": boolean | string;
   };
   permissions: Record<string, string>;
   jobs: Record<string, unknown>;
@@ -324,7 +324,13 @@ describe("UnifiedWorkflowGenerator", () => {
       expect(parsed.concurrency?.group).toContain("github.event_name");
       expect(parsed.concurrency?.group).toContain("github.event.issue.number");
       expect(parsed.concurrency?.group).toContain("github.event.pull_request.number");
-      expect(parsed.concurrency?.["cancel-in-progress"]).toBe(true);
+      // cancel-in-progress should be conditional: false for bot-triggered edit/label events
+      // to prevent agents from cancelling their own running workflows
+      const cancelExpr = parsed.concurrency?.["cancel-in-progress"];
+      expect(typeof cancelExpr).toBe("string");
+      expect(cancelExpr).toContain("endsWith(github.actor, '[bot]')");
+      expect(cancelExpr).toContain("github.event.action == 'edited'");
+      expect(cancelExpr).toContain("github.event.action == 'labeled'");
     });
 
     it("should not have job-level concurrency (workflow-level handles it)", () => {

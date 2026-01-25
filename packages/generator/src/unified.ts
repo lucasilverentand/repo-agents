@@ -34,7 +34,7 @@ interface UnifiedWorkflow {
   on: TriggerConfig;
   concurrency?: {
     group: string;
-    "cancel-in-progress": boolean;
+    "cancel-in-progress": boolean | string;
   };
   permissions: Record<string, string>;
   jobs: Record<string, GitHubWorkflowJob>;
@@ -259,7 +259,7 @@ export class UnifiedWorkflowGenerator {
    */
   private generateWorkflowConcurrency(
     agents: AgentDefinition[],
-  ): { group: string; "cancel-in-progress": boolean } | undefined {
+  ): { group: string; "cancel-in-progress": boolean | string } | undefined {
     // Check if all agents have concurrency disabled
     const allDisabled = agents.every((a) => a.concurrency === false);
     if (allDisabled) {
@@ -274,9 +274,18 @@ export class UnifiedWorkflowGenerator {
     );
     const group = `agents-${ghExpr("github.event_name")}-${entityId}`;
 
+    // Bot-triggered edit/label events should NOT cancel in-progress workflows.
+    // When an agent edits/labels an issue, it triggers a new workflow. Without this,
+    // the new workflow would cancel the still-running original workflow.
+    // The job-level condition will skip bot-triggered workflows, but we need to
+    // prevent them from cancelling the original workflow first.
+    const cancelInProgress = ghExpr(
+      "!(endsWith(github.actor, '[bot]') && (github.event.action == 'edited' || github.event.action == 'labeled'))",
+    );
+
     return {
       group,
-      "cancel-in-progress": true,
+      "cancel-in-progress": cancelInProgress,
     };
   }
 

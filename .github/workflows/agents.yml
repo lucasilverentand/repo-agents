@@ -16,7 +16,7 @@ name: AI Agents
         type: string
 concurrency:
   group: agents-${{ github.event_name }}-${{ github.event.issue.number || github.event.pull_request.number || github.event.discussion.number || github.run_id }}
-  cancel-in-progress: true
+  cancel-in-progress: ${{ !(endsWith(github.actor, '[bot]') && (github.event.action == 'edited' || github.event.action == 'labeled')) }}
 permissions:
   actions: write
   contents: write
