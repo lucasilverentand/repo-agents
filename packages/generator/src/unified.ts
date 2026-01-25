@@ -317,6 +317,10 @@ export class UnifiedWorkflowGenerator {
 
     return {
       "runs-on": "ubuntu-latest",
+      // Skip bot-triggered events to prevent recursive loops and self-cancellation.
+      // When an agent edits/labels an issue, it triggers a new workflow run.
+      // Without this check, the new run would cancel the still-running original.
+      if: "!(endsWith(github.actor, '[bot]') && (github.event.action == 'edited' || github.event.action == 'labeled'))",
       outputs,
       steps: [
         {

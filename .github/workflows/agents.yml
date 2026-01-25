@@ -25,6 +25,7 @@ permissions:
 jobs:
   dispatcher:
     runs-on: ubuntu-latest
+    if: "!(endsWith(github.actor, '[bot]') && (github.event.action == 'edited' || github.event.action == 'labeled'))"
     outputs:
       agent-issue-implementer-should-run: ${{ steps.dispatcher.outputs.agent-issue-implementer-should-run }}
       agent-issue-implementer-skip-reason: ${{ steps.dispatcher.outputs.agent-issue-implementer-skip-reason }}
