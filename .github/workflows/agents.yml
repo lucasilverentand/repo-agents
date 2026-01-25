@@ -22,7 +22,6 @@ permissions:
   contents: write
   issues: write
   pull-requests: write
-  discussions: write
 jobs:
   dispatcher:
     runs-on: ubuntu-latest
@@ -33,9 +32,6 @@ jobs:
       agent-issue-quality-should-run: ${{ steps.dispatcher.outputs.agent-issue-quality-should-run }}
       agent-issue-quality-skip-reason: ${{ steps.dispatcher.outputs.agent-issue-quality-skip-reason }}
       agent-issue-quality-event-payload: ${{ steps.dispatcher.outputs.agent-issue-quality-event-payload }}
-      agent-test-agent-should-run: ${{ steps.dispatcher.outputs.agent-test-agent-should-run }}
-      agent-test-agent-skip-reason: ${{ steps.dispatcher.outputs.agent-test-agent-skip-reason }}
-      agent-test-agent-event-payload: ${{ steps.dispatcher.outputs.agent-test-agent-event-payload }}
     steps:
       - uses: actions/checkout@v4
       - uses: oven-sh/setup-bun@v2
@@ -53,6 +49,7 @@ jobs:
     runs-on: ubuntu-latest
     needs: dispatcher
     if: needs.dispatcher.outputs.agent-issue-implementer-should-run == 'true'
+    timeout-minutes: 45
     steps:
       - uses: actions/checkout@v4
       - uses: oven-sh/setup-bun@v2
@@ -70,6 +67,7 @@ jobs:
           git config --global user.email "${{ steps.app-token.outputs.app-slug || 'github-actions[bot]' }}@users.noreply.github.com"
       - name: Run Issue Implementer
         run: bun run repo-agent run agent --agent "Issue Implementer"
+        timeout-minutes: 30
         env:
           GH_TOKEN: ${{ steps.app-token.outputs.token || secrets.GITHUB_TOKEN }}
           CLAUDE_CODE_OAUTH_TOKEN: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
@@ -91,6 +89,7 @@ jobs:
     runs-on: ubuntu-latest
     needs: dispatcher
     if: needs.dispatcher.outputs.agent-issue-quality-should-run == 'true'
+    timeout-minutes: 45
     steps:
       - uses: actions/checkout@v4
       - uses: oven-sh/setup-bun@v2
@@ -108,6 +107,7 @@ jobs:
           git config --global user.email "${{ steps.app-token.outputs.app-slug || 'github-actions[bot]' }}@users.noreply.github.com"
       - name: Run Issue Quality
         run: bun run repo-agent run agent --agent "Issue Quality"
+        timeout-minutes: 30
         env:
           GH_TOKEN: ${{ steps.app-token.outputs.token || secrets.GITHUB_TOKEN }}
           CLAUDE_CODE_OAUTH_TOKEN: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
@@ -125,51 +125,12 @@ jobs:
           path: /tmp/audit/
           retention-days: "7"
 
-  agent-test-agent:
-    runs-on: ubuntu-latest
-    needs: dispatcher
-    if: needs.dispatcher.outputs.agent-test-agent-should-run == 'true'
-    steps:
-      - uses: actions/checkout@v4
-      - uses: oven-sh/setup-bun@v2
-      - name: Install dependencies
-        run: bun install --frozen-lockfile
-      - uses: actions/create-github-app-token@v1
-        id: app-token
-        with:
-          app-id: ${{ secrets.GH_APP_ID }}
-          private-key: ${{ secrets.GH_APP_PRIVATE_KEY }}
-        continue-on-error: true
-      - name: Configure git identity
-        run: |-
-          git config --global user.name "${{ steps.app-token.outputs.app-slug || 'github-actions[bot]' }}"
-          git config --global user.email "${{ steps.app-token.outputs.app-slug || 'github-actions[bot]' }}@users.noreply.github.com"
-      - name: Run Test Agent
-        run: bun run repo-agent run agent --agent "Test Agent"
-        env:
-          GH_TOKEN: ${{ steps.app-token.outputs.token || secrets.GITHUB_TOKEN }}
-          CLAUDE_CODE_OAUTH_TOKEN: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
-          EVENT_PAYLOAD: ${{ needs.dispatcher.outputs.agent-test-agent-event-payload }}
-      - name: Execute outputs
-        run: bun run repo-agent run outputs --agent "Test Agent"
-        env:
-          GH_TOKEN: ${{ steps.app-token.outputs.token || secrets.GITHUB_TOKEN }}
-          EVENT_PAYLOAD: ${{ needs.dispatcher.outputs.agent-test-agent-event-payload }}
-      - if: always()
-        name: Upload audit metrics
-        uses: actions/upload-artifact@v4
-        with:
-          name: agent-test-agent-audit-${{ github.run_id }}
-          path: /tmp/audit/
-          retention-days: "7"
-
   audit-report:
     runs-on: ubuntu-latest
     needs:
       - dispatcher
       - agent-issue-implementer
       - agent-issue-quality
-      - agent-test-agent
     if: always()
     outputs:
       has-failures: ${{ steps.report.outputs.has-failures }}
