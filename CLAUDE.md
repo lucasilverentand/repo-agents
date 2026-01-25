@@ -36,7 +36,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
    - `compile`: Parses agent markdown and generates workflow YAML
    - `validate`: Validates agent definitions without generating workflows
    - `list`: Lists all agents in repository
-   - `setup-token`: Configures Claude API authentication (API key or OAuth)
+   - `setup`: Unified setup wizard for authentication and GitHub App
    - `setup-app`: Configures GitHub App for branded identity and CI triggering
 
 ### Type System
@@ -299,7 +299,7 @@ repo-agents/
 │       │   ├── compile.ts    # repo-agents compile
 │       │   ├── validate.ts   # repo-agents validate
 │       │   ├── list.ts       # repo-agents list
-│       │   ├── auth.ts       # repo-agents setup-token
+│       │   ├── setup.ts      # repo-agents setup
 │       │   └── setup-app.ts  # repo-agents setup-app
 │       └── utils/
 │           ├── logger.ts     # Logging utilities

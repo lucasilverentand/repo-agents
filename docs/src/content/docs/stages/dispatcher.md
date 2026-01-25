@@ -127,7 +127,7 @@ jobs:
 
 | Check | Failure Reason | Resolution |
 |-------|---------------|------------|
-| Secrets | Missing API key | Run `repo-agents setup-token` |
+| Secrets | Missing API key | Run `repo-agents setup` |
 | Authorization | User not allowed | Add to `allowed-actors` or grant write access |
 | Labels | Required label missing | Add the trigger label to issue/PR |
 | Rate Limit | Too soon since last run | Wait for cooldown or adjust `rate_limit_minutes` |

@@ -5,14 +5,63 @@ import {
   getExistingAppSecrets,
   getExistingSecrets,
   isGhAuthenticated,
+  setGitHubSecret,
 } from "@repo-agents/cli-utils/secrets";
-import { authCommand } from "./auth";
+import ora from "ora";
 import { setupAppCommand } from "./setup-app";
 
 interface SetupOptions {
   force?: boolean;
   skipAuth?: boolean;
   skipApp?: boolean;
+}
+
+/**
+ * Validates an API key format (basic check)
+ */
+function isValidApiKeyFormat(apiKey: string): boolean {
+  return apiKey.startsWith("sk-ant-") && apiKey.length > 20;
+}
+
+/**
+ * Configures the Anthropic API key as a GitHub secret
+ */
+async function configureApiKey(options: { force?: boolean }): Promise<void> {
+  const existingSecrets = getExistingSecrets();
+
+  if (existingSecrets.hasApiKey && !options.force) {
+    logger.success("API key already configured");
+    return;
+  }
+
+  logger.info("You can get an API key from: https://console.anthropic.com/settings/keys");
+  logger.newline();
+
+  const apiKey = await promptForInput("Enter your Anthropic API key: ");
+
+  if (!apiKey) {
+    logger.error("No API key provided. Setup cancelled.");
+    process.exit(1);
+  }
+
+  if (!isValidApiKeyFormat(apiKey)) {
+    logger.error('Invalid API key format. Key should start with "sk-ant-"');
+    process.exit(1);
+  }
+
+  const spinner = ora("Setting GitHub repository secret ANTHROPIC_API_KEY...").start();
+
+  try {
+    setGitHubSecret("ANTHROPIC_API_KEY", apiKey);
+    spinner.succeed("GitHub secret ANTHROPIC_API_KEY set successfully");
+  } catch (error) {
+    spinner.fail("Failed to set GitHub secret");
+    logger.error((error as Error).message);
+    process.exit(1);
+  }
+
+  logger.newline();
+  logger.success("API key configured successfully!");
 }
 
 /**
@@ -92,7 +141,7 @@ export async function setupCommand(options: SetupOptions): Promise<void> {
 
       const reconfigure = await promptForInput("  Would you like to reconfigure? (y/N): ");
       if (reconfigure.toLowerCase() === "y" || reconfigure.toLowerCase() === "yes") {
-        await authCommand({ force: true });
+        await configureApiKey({ force: true });
       }
     } else {
       logger.warn("✗ AI authentication is not configured");
@@ -101,10 +150,10 @@ export async function setupCommand(options: SetupOptions): Promise<void> {
 
       const shouldSetup = await promptForInput("  Configure AI authentication now? (Y/n): ");
       if (shouldSetup.toLowerCase() !== "n" && shouldSetup.toLowerCase() !== "no") {
-        await authCommand({ force: options.force });
+        await configureApiKey({ force: options.force });
       } else {
         logger.warn("  Skipping AI authentication setup");
-        logger.warn("  You can configure it later with: repo-agents setup-token");
+        logger.warn("  You can configure it later with: repo-agents setup");
       }
     }
   } else {

@@ -194,7 +194,7 @@ export async function initCommand(options: InitOptions): Promise<void> {
   logger.success("Successfully initialized Repo Agents!");
   logger.newline();
   logger.info("Next steps:");
-  logger.log("  1. Set up your API token: repo-agents setup-token");
+  logger.log("  1. Set up authentication: repo-agents setup");
   logger.log("  2. Create agent files in .github/agents/");
   logger.log("  3. Run: repo-agents compile");
   logger.log("  4. Commit and push the generated workflows");
