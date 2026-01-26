@@ -88,6 +88,13 @@ Reformat every issue into one of these templates:
 
 ## Workflow
 
+### Step 0: Check for Matching Templates
+
+Before formatting, scan available issue templates:
+- Enumerate available issue templates and their titles/keywords.
+- If a template matches the issue’s intent (e.g., “Incident”, “Proposal”), use that structure and avoid forcing the default bug/feature/question taxonomy.
+- If there’s no good match, fall back to the default templates.
+
 ### Step 1: Format the Issue
 
 When an issue comes in, immediately restructure it:
