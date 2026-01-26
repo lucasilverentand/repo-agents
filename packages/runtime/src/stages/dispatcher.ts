@@ -8,6 +8,7 @@ import {
   checkBotActor,
   checkMaxOpenPRs,
   checkRateLimit,
+  checkSkipLabels,
   checkTriggerLabels,
   checkUserAuthorization,
   getEventPayload,
@@ -151,19 +152,25 @@ async function validateAgent(
     return { shouldRun: false, reason: labelsResult.reason ?? "Required labels not present" };
   }
 
-  // 4. Check rate limiting
+  // 4. Check skip labels
+  const skipLabelsResult = await checkSkipLabels(ctx, agent);
+  if (!skipLabelsResult.valid) {
+    return { shouldRun: false, reason: skipLabelsResult.reason ?? "Skipped due to labels" };
+  }
+
+  // 5. Check rate limiting
   const rateLimitResult = await checkRateLimit(ctx, agent);
   if (!rateLimitResult.allowed) {
     return { shouldRun: false, reason: rateLimitResult.reason ?? "Rate limit exceeded" };
   }
 
-  // 5. Check max open PRs
+  // 6. Check max open PRs
   const maxOpenPrsResult = await checkMaxOpenPRs(ctx, agent);
   if (!maxOpenPrsResult.allowed) {
     return { shouldRun: false, reason: maxOpenPrsResult.reason ?? "Max open PRs limit reached" };
   }
 
-  // 6. Check blocking issues
+  // 7. Check blocking issues
   const blockingIssuesResult = await checkBlockingIssues(ctx, agent);
   if (!blockingIssuesResult.allowed) {
     return {

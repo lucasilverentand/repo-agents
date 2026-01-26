@@ -17,6 +17,7 @@ export interface AgentDefinition {
   allowed_teams?: string[];
   allowed_paths?: string[];
   trigger_labels?: string[]; // Labels that must ALL be present to trigger the agent
+  skip_labels?: string[]; // Labels that will skip the agent if ANY are present
   max_open_prs?: number; // Maximum number of open PRs before skipping execution
   rate_limit_minutes?: number; // Minimum minutes between agent runs (default: 5)
   pre_flight?: PreFlightConfig; // Pre-flight checks configuration

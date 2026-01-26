@@ -222,6 +222,65 @@ export async function checkTriggerLabels(
 }
 
 /**
+ * Check skip labels.
+ *
+ * Validates if ANY of the skip_labels are present on the issue/PR.
+ * If any skip label is present, the agent should be skipped.
+ * Only applies to issue and pull_request events; other event types are always valid.
+ */
+export async function checkSkipLabels(
+  ctx: ValidationContext,
+  agent: AgentDefinition,
+): Promise<{
+  valid: boolean;
+  reason?: string;
+  presentLabels?: string[];
+  matchedLabels?: string[];
+}> {
+  // If no skip labels configured, always valid
+  if (!agent.skip_labels || agent.skip_labels.length === 0) {
+    return { valid: true };
+  }
+
+  const eventName = ctx.github.eventName;
+
+  // Only issue and pull_request events support label validation
+  if (eventName !== "issues" && eventName !== "pull_request") {
+    return { valid: true };
+  }
+
+  // Get labels from event
+  let labels: string[] = [];
+  try {
+    const eventPayload = JSON.parse(await Bun.file(ctx.github.eventPath).text()) as {
+      issue?: { labels?: Array<{ name: string }> };
+      pull_request?: { labels?: Array<{ name: string }> };
+    };
+    labels =
+      eventPayload.issue?.labels?.map((l) => l.name) ??
+      eventPayload.pull_request?.labels?.map((l) => l.name) ??
+      [];
+  } catch (error) {
+    console.warn("Failed to read event labels:", error);
+    // If we can't read labels, allow execution (fail open)
+    return { valid: true };
+  }
+
+  // Check if any skip label is present (OR logic - any match skips)
+  const matchedLabels = agent.skip_labels.filter((label) => labels.includes(label));
+  if (matchedLabels.length > 0) {
+    return {
+      valid: false,
+      reason: `Skipped due to label(s): ${matchedLabels.join(", ")}`,
+      presentLabels: labels,
+      matchedLabels,
+    };
+  }
+
+  return { valid: true, presentLabels: labels };
+}
+
+/**
  * Check rate limiting.
  *
  * Ensures minimum time has passed since the last successful run.

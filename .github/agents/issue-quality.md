@@ -11,6 +11,7 @@ outputs:
     blocked-labels: [approved, agent-assigned]
   remove-label: true
   edit-issue: true
+skip_labels: [agent-failure]
 rate_limit_minutes: 1
 ---
 

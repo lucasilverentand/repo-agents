@@ -3,7 +3,12 @@ import { mkdtemp, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import type { AgentDefinition } from "@repo-agents/types";
-import { checkBotActor, checkTriggerLabels, type ValidationContext } from "./validation";
+import {
+  checkBotActor,
+  checkSkipLabels,
+  checkTriggerLabels,
+  type ValidationContext,
+} from "./validation";
 
 describe("checkBotActor", () => {
   const createContext = (actor: string): ValidationContext => ({
@@ -365,6 +370,223 @@ describe("checkTriggerLabels", () => {
       expect(result.valid).toBe(true);
       expect(result.presentLabels).toContain("bug");
       expect(result.presentLabels).toContain("approved");
+    });
+  });
+});
+
+describe("checkSkipLabels", () => {
+  let tempDir: string;
+  let eventPath: string;
+
+  beforeEach(async () => {
+    tempDir = await mkdtemp(join(tmpdir(), "skip-labels-test-"));
+    eventPath = join(tempDir, "event.json");
+  });
+
+  afterEach(async () => {
+    await rm(tempDir, { recursive: true, force: true });
+  });
+
+  const createContext = (eventName: string, eventPathOverride?: string): ValidationContext => ({
+    github: {
+      actor: "octocat",
+      repository: "owner/repo",
+      eventName,
+      eventPath: eventPathOverride ?? eventPath,
+      runId: 12345,
+      serverUrl: "https://github.com",
+    },
+  });
+
+  const createAgent = (skipLabels?: string[]): AgentDefinition => ({
+    name: "test-agent",
+    on: { issues: { types: ["opened", "labeled"] } },
+    skip_labels: skipLabels,
+    markdown: "# Test Agent",
+  });
+
+  describe("no skip_labels configured", () => {
+    it("should always be valid when no skip_labels specified", async () => {
+      const ctx = createContext("issues");
+      const agent = createAgent(undefined);
+
+      const result = await checkSkipLabels(ctx, agent);
+
+      expect(result.valid).toBe(true);
+    });
+
+    it("should always be valid with empty skip_labels array", async () => {
+      const ctx = createContext("issues");
+      const agent = createAgent([]);
+
+      const result = await checkSkipLabels(ctx, agent);
+
+      expect(result.valid).toBe(true);
+    });
+  });
+
+  describe("OR logic for skip_labels (any match skips)", () => {
+    it("should be invalid when first skip label is present", async () => {
+      await writeFile(
+        eventPath,
+        JSON.stringify({
+          issue: { labels: [{ name: "agent-failure" }] },
+        }),
+      );
+
+      const ctx = createContext("issues");
+      const agent = createAgent(["agent-failure", "wontfix"]);
+
+      const result = await checkSkipLabels(ctx, agent);
+
+      expect(result.valid).toBe(false);
+      expect(result.reason).toContain("agent-failure");
+      expect(result.matchedLabels).toContain("agent-failure");
+    });
+
+    it("should be invalid when second skip label is present", async () => {
+      await writeFile(
+        eventPath,
+        JSON.stringify({
+          issue: { labels: [{ name: "wontfix" }] },
+        }),
+      );
+
+      const ctx = createContext("issues");
+      const agent = createAgent(["agent-failure", "wontfix"]);
+
+      const result = await checkSkipLabels(ctx, agent);
+
+      expect(result.valid).toBe(false);
+      expect(result.reason).toContain("wontfix");
+      expect(result.matchedLabels).toContain("wontfix");
+    });
+
+    it("should be invalid when both skip labels are present", async () => {
+      await writeFile(
+        eventPath,
+        JSON.stringify({
+          issue: { labels: [{ name: "agent-failure" }, { name: "wontfix" }] },
+        }),
+      );
+
+      const ctx = createContext("issues");
+      const agent = createAgent(["agent-failure", "wontfix"]);
+
+      const result = await checkSkipLabels(ctx, agent);
+
+      expect(result.valid).toBe(false);
+      expect(result.matchedLabels).toContain("agent-failure");
+      expect(result.matchedLabels).toContain("wontfix");
+    });
+
+    it("should be valid when no skip labels are present", async () => {
+      await writeFile(
+        eventPath,
+        JSON.stringify({
+          issue: { labels: [{ name: "bug" }, { name: "enhancement" }] },
+        }),
+      );
+
+      const ctx = createContext("issues");
+      const agent = createAgent(["agent-failure", "wontfix"]);
+
+      const result = await checkSkipLabels(ctx, agent);
+
+      expect(result.valid).toBe(true);
+    });
+
+    it("should be valid when issue has no labels at all", async () => {
+      await writeFile(
+        eventPath,
+        JSON.stringify({
+          issue: { labels: [] },
+        }),
+      );
+
+      const ctx = createContext("issues");
+      const agent = createAgent(["agent-failure"]);
+
+      const result = await checkSkipLabels(ctx, agent);
+
+      expect(result.valid).toBe(true);
+    });
+  });
+
+  describe("pull_request events", () => {
+    it("should check labels on pull_request events", async () => {
+      await writeFile(
+        eventPath,
+        JSON.stringify({
+          pull_request: { labels: [{ name: "agent-failure" }] },
+        }),
+      );
+
+      const ctx = createContext("pull_request");
+      const agent = createAgent(["agent-failure"]);
+
+      const result = await checkSkipLabels(ctx, agent);
+
+      expect(result.valid).toBe(false);
+      expect(result.matchedLabels).toContain("agent-failure");
+    });
+
+    it("should be valid when pull_request has no skip labels", async () => {
+      await writeFile(
+        eventPath,
+        JSON.stringify({
+          pull_request: { labels: [{ name: "ready" }] },
+        }),
+      );
+
+      const ctx = createContext("pull_request");
+      const agent = createAgent(["agent-failure"]);
+
+      const result = await checkSkipLabels(ctx, agent);
+
+      expect(result.valid).toBe(true);
+    });
+  });
+
+  describe("non-label events", () => {
+    it("should always be valid for schedule events", async () => {
+      const ctx = createContext("schedule");
+      const agent = createAgent(["agent-failure"]);
+
+      const result = await checkSkipLabels(ctx, agent);
+
+      expect(result.valid).toBe(true);
+    });
+
+    it("should always be valid for workflow_dispatch events", async () => {
+      const ctx = createContext("workflow_dispatch");
+      const agent = createAgent(["agent-failure"]);
+
+      const result = await checkSkipLabels(ctx, agent);
+
+      expect(result.valid).toBe(true);
+    });
+  });
+
+  describe("returns labels for debugging", () => {
+    it("should include presentLabels in result", async () => {
+      await writeFile(
+        eventPath,
+        JSON.stringify({
+          issue: { labels: [{ name: "bug" }, { name: "agent-failure" }] },
+        }),
+      );
+
+      const ctx = createContext("issues");
+      const agent = createAgent(["agent-failure"]);
+
+      const result = await checkSkipLabels(ctx, agent);
+
+      expect(result.valid).toBe(false);
+      expect(result.presentLabels).toContain("bug");
+      expect(result.presentLabels).toContain("agent-failure");
+      expect(result.matchedLabels).toContain("agent-failure");
+      expect(result.matchedLabels).not.toContain("bug");
     });
   });
 });

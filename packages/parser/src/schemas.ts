@@ -377,6 +377,7 @@ export const agentFrontmatterSchema = z.strictObject({
   "allowed-teams": z.array(z.string()).optional(),
   "allowed-paths": z.array(z.string()).optional(),
   trigger_labels: z.array(z.string()).optional(),
+  skip_labels: z.array(z.string()).optional(),
   max_open_prs: z.number().min(1).optional(),
   rate_limit_minutes: z.number().min(0).optional(),
   pre_flight: preFlightConfigSchema,
