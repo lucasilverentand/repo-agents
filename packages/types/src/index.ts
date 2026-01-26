@@ -323,6 +323,7 @@ export interface ContextConfig {
   branches?: BranchesContextConfig;
   check_runs?: CheckRunsContextConfig;
   project?: ProjectContextConfig; // GitHub Projects v2 context collection
+  documentation?: DocumentationConfig; // Documentation generation configuration
   stars?: boolean;
   forks?: boolean;
   since?: string; // Time filter: "last-run", "1h", "24h", "7d", etc. (default: "last-run")
@@ -330,6 +331,56 @@ export interface ContextConfig {
   project_id?: string; // GitHub Project ID for custom fields (format: PVT_...) - deprecated, use project.project_id
   include_dependencies?: boolean; // Include issue blocking/blocked-by relationships
   include_custom_fields?: string[]; // Custom field names to include from Projects - deprecated, use project config
+}
+
+// Documentation Generation Types
+export interface ApiDocumentationConfig {
+  sources: string[]; // Glob patterns for source files (e.g., "src/**/*.ts")
+  output: string; // Output directory (e.g., "docs/api/")
+  format?: "markdown" | "json" | "html"; // Output format (default: markdown)
+  include_private?: boolean; // Include private members (default: false)
+  include_internal?: boolean; // Include @internal members (default: false)
+}
+
+export interface ReadmeSectionConfig {
+  section: string; // Section name to update
+  source?: string; // Source for content (e.g., "package.json", "examples/")
+  template?: string; // Custom template for the section
+}
+
+export interface ReadmeMaintenanceConfig {
+  path?: string; // Path to README file (default: "README.md")
+  sections: ReadmeSectionConfig[];
+  preserve_custom?: boolean; // Preserve custom content outside managed sections (default: true)
+}
+
+export interface ChangelogConfig {
+  path?: string; // Path to changelog (default: "CHANGELOG.md")
+  format?: "keep-a-changelog" | "conventional" | "custom"; // Format to use
+  include_prs?: boolean; // Include merged PRs (default: true)
+  include_commits?: boolean; // Include commits (default: false)
+  categories?: string[]; // Categories to use (default: Added, Changed, Fixed, etc.)
+  exclude_labels?: string[]; // PRs with these labels are excluded
+}
+
+export interface DriftDetectionPair {
+  code: string; // Glob pattern for code files
+  docs: string; // Glob pattern for doc files
+  threshold?: number; // Days before alerting (default: 7)
+}
+
+export interface DriftDetectionConfig {
+  enabled: boolean;
+  pairs: DriftDetectionPair[];
+  create_issues?: boolean; // Create issues for detected drift (default: true)
+  labels?: string[]; // Labels to add to drift issues
+}
+
+export interface DocumentationConfig {
+  api?: ApiDocumentationConfig;
+  readme?: ReadmeMaintenanceConfig;
+  changelog?: ChangelogConfig;
+  drift_detection?: DriftDetectionConfig;
 }
 
 // Issue Dependency Types
