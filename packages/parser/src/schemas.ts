@@ -452,6 +452,46 @@ const tracingConfigSchema = z
   })
   .optional();
 
+// Deduplication configuration schemas
+const eventDeduplicationSchema = z
+  .object({
+    // Enable event deduplication (default: true when configured)
+    enabled: z.boolean().optional(),
+    // Time window for deduplication (e.g., "1h", "24h", "7d")
+    window: z
+      .string()
+      .regex(/^\d+[hdwm]$/, "Window must be in format: number + h/d/w/m (e.g., '1h', '24h', '7d')")
+      .optional(),
+    // Custom deduplication key fields
+    key: z.array(z.string()).optional(),
+  })
+  .optional();
+
+const actionDeduplicationSchema = z
+  .object({
+    // Enable action deduplication (default: true when configured)
+    enabled: z.boolean().optional(),
+    // Time window for deduplication
+    window: z
+      .string()
+      .regex(/^\d+[hdwm]$/, "Window must be in format: number + h/d/w/m (e.g., '24h', '7d')")
+      .optional(),
+    // How to match actions: exact or similar (content-based)
+    match: z.enum(["exact", "similar"]).optional(),
+  })
+  .optional();
+
+const deduplicationConfigSchema = z
+  .object({
+    // Event-level deduplication
+    events: eventDeduplicationSchema,
+    // Action-level deduplication (can be global or per-action type)
+    actions: z
+      .union([actionDeduplicationSchema, z.record(z.string(), actionDeduplicationSchema)])
+      .optional(),
+  })
+  .optional();
+
 export const agentFrontmatterSchema = z.strictObject({
   name: z.string().min(1, { message: "Agent name is required" }),
   on: triggerConfigSchema,
@@ -475,6 +515,7 @@ export const agentFrontmatterSchema = z.strictObject({
   concurrency: concurrencyConfigSchema, // Concurrency settings for debouncing (default: auto-generated based on trigger)
   timeout: timeoutConfigSchema, // Execution timeout in minutes or detailed config
   tracing: tracingConfigSchema, // Execution tracing configuration
+  deduplication: deduplicationConfigSchema, // Smart deduplication to prevent redundant actions
 }); // Reject unknown properties
 
 export type AgentFrontmatter = z.infer<typeof agentFrontmatterSchema>;

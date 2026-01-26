@@ -590,3 +590,290 @@ describe("checkSkipLabels", () => {
     });
   });
 });
+
+describe("Deduplication utilities", () => {
+  const {
+    parseTimeWindow,
+    initDeduplicationState,
+    cleanupDeduplicationState,
+    createDeduplicationRecord,
+    checkEventDeduplication,
+    checkActionDeduplication,
+  } = require("./validation");
+
+  describe("parseTimeWindow", () => {
+    it("should parse hours correctly", () => {
+      expect(parseTimeWindow("1h")).toBe(60 * 60 * 1000);
+      expect(parseTimeWindow("24h")).toBe(24 * 60 * 60 * 1000);
+    });
+
+    it("should parse days correctly", () => {
+      expect(parseTimeWindow("1d")).toBe(24 * 60 * 60 * 1000);
+      expect(parseTimeWindow("7d")).toBe(7 * 24 * 60 * 60 * 1000);
+    });
+
+    it("should parse weeks correctly", () => {
+      expect(parseTimeWindow("1w")).toBe(7 * 24 * 60 * 60 * 1000);
+      expect(parseTimeWindow("2w")).toBe(14 * 24 * 60 * 60 * 1000);
+    });
+
+    it("should parse months correctly", () => {
+      expect(parseTimeWindow("1m")).toBe(30 * 24 * 60 * 60 * 1000);
+    });
+
+    it("should return default for invalid format", () => {
+      expect(parseTimeWindow("invalid")).toBe(24 * 60 * 60 * 1000);
+      expect(parseTimeWindow("")).toBe(24 * 60 * 60 * 1000);
+    });
+  });
+
+  describe("initDeduplicationState", () => {
+    it("should create empty state with current timestamp", () => {
+      const state = initDeduplicationState();
+      expect(state.schema_version).toBe("1.0.0");
+      expect(state.records).toEqual([]);
+      expect(state.last_cleanup).toBeDefined();
+    });
+  });
+
+  describe("cleanupDeduplicationState", () => {
+    it("should remove old records", () => {
+      const oldDate = new Date(Date.now() - 10 * 24 * 60 * 60 * 1000).toISOString(); // 10 days ago
+      const recentDate = new Date(Date.now() - 1 * 24 * 60 * 60 * 1000).toISOString(); // 1 day ago
+
+      const state = {
+        schema_version: "1.0.0" as const,
+        records: [
+          { key: "old", timestamp: oldDate, agent_name: "test" },
+          { key: "recent", timestamp: recentDate, agent_name: "test" },
+        ],
+        last_cleanup: oldDate,
+      };
+
+      const cleaned = cleanupDeduplicationState(state);
+      expect(cleaned.records).toHaveLength(1);
+      expect(cleaned.records[0].key).toBe("recent");
+    });
+
+    it("should update last_cleanup timestamp", () => {
+      const state = {
+        schema_version: "1.0.0" as const,
+        records: [],
+        last_cleanup: "2020-01-01T00:00:00.000Z",
+      };
+
+      const cleaned = cleanupDeduplicationState(state);
+      expect(new Date(cleaned.last_cleanup).getTime()).toBeGreaterThan(
+        new Date("2020-01-01").getTime(),
+      );
+    });
+  });
+
+  describe("createDeduplicationRecord", () => {
+    it("should create a record with all fields", () => {
+      const agent = { name: "test-agent", on: {}, markdown: "" };
+      const record = createDeduplicationRecord(agent, "test-key", {
+        actionType: "add-comment",
+        eventType: "issues",
+        issueNumber: 123,
+        details: { body: "test" },
+      });
+
+      expect(record.key).toBe("test-key");
+      expect(record.agent_name).toBe("test-agent");
+      expect(record.action_type).toBe("add-comment");
+      expect(record.event_type).toBe("issues");
+      expect(record.issue_number).toBe(123);
+      expect(record.details).toEqual({ body: "test" });
+      expect(record.timestamp).toBeDefined();
+    });
+  });
+
+  describe("checkEventDeduplication", () => {
+    let eventPath: string;
+    let tempDir: string;
+
+    beforeEach(async () => {
+      tempDir = await mkdtemp(join(tmpdir(), "dedup-test-"));
+      eventPath = join(tempDir, "event.json");
+      await writeFile(eventPath, JSON.stringify({ issue: { number: 123 }, action: "opened" }));
+    });
+
+    afterEach(async () => {
+      await rm(tempDir, { recursive: true });
+    });
+
+    it("should allow when deduplication not configured", async () => {
+      const ctx = {
+        github: {
+          actor: "testuser",
+          repository: "owner/repo",
+          eventName: "issues",
+          eventPath,
+          runId: 12345,
+          serverUrl: "https://github.com",
+        },
+      };
+      const agent = { name: "test", on: {}, markdown: "" };
+
+      const result = await checkEventDeduplication(ctx, agent, null);
+      expect(result.allowed).toBe(true);
+    });
+
+    it("should allow when deduplication explicitly disabled", async () => {
+      const ctx = {
+        github: {
+          actor: "testuser",
+          repository: "owner/repo",
+          eventName: "issues",
+          eventPath,
+          runId: 12345,
+          serverUrl: "https://github.com",
+        },
+      };
+      const agent = {
+        name: "test",
+        on: {},
+        markdown: "",
+        deduplication: { events: { enabled: false } },
+      };
+
+      const result = await checkEventDeduplication(ctx, agent, null);
+      expect(result.allowed).toBe(true);
+    });
+
+    it("should allow first occurrence of an event", async () => {
+      const ctx = {
+        github: {
+          actor: "testuser",
+          repository: "owner/repo",
+          eventName: "issues",
+          eventPath,
+          runId: 12345,
+          serverUrl: "https://github.com",
+        },
+      };
+      const agent = {
+        name: "test",
+        on: {},
+        markdown: "",
+        deduplication: { events: { enabled: true, window: "1h" } },
+      };
+
+      const result = await checkEventDeduplication(ctx, agent, initDeduplicationState());
+      expect(result.allowed).toBe(true);
+      expect(result.key).toBeDefined();
+    });
+
+    it("should block duplicate event within window", async () => {
+      const ctx = {
+        github: {
+          actor: "testuser",
+          repository: "owner/repo",
+          eventName: "issues",
+          eventPath,
+          runId: 12345,
+          serverUrl: "https://github.com",
+        },
+      };
+      const agent = {
+        name: "test",
+        on: {},
+        markdown: "",
+        deduplication: { events: { enabled: true, window: "1h" } },
+      };
+
+      const state = {
+        schema_version: "1.0.0" as const,
+        records: [
+          {
+            key: "test:event:issues:issue:123:action:opened",
+            timestamp: new Date().toISOString(),
+            agent_name: "test",
+            event_type: "issues",
+          },
+        ],
+        last_cleanup: new Date().toISOString(),
+      };
+
+      const result = await checkEventDeduplication(ctx, agent, state);
+      expect(result.allowed).toBe(false);
+      expect(result.reason).toContain("already processed");
+    });
+  });
+
+  describe("checkActionDeduplication", () => {
+    it("should allow when deduplication not configured", async () => {
+      const agent = { name: "test", on: {}, markdown: "" };
+      const result = await checkActionDeduplication(agent, "add-comment", { body: "test" }, null);
+      expect(result.allowed).toBe(true);
+    });
+
+    it("should allow first occurrence of an action", async () => {
+      const agent = {
+        name: "test",
+        on: {},
+        markdown: "",
+        deduplication: { actions: { enabled: true, window: "24h" } },
+      };
+      const result = await checkActionDeduplication(
+        agent,
+        "add-comment",
+        { body: "test" },
+        initDeduplicationState(),
+      );
+      expect(result.allowed).toBe(true);
+    });
+
+    it("should block duplicate exact action within window", async () => {
+      const agent = {
+        name: "test",
+        on: {},
+        markdown: "",
+        deduplication: { actions: { enabled: true, window: "24h", match: "exact" } },
+      };
+      const state = {
+        schema_version: "1.0.0" as const,
+        records: [
+          {
+            key: "test:action:add-comment",
+            timestamp: new Date().toISOString(),
+            agent_name: "test",
+            action_type: "add-comment",
+            details: { body: "test" },
+          },
+        ],
+        last_cleanup: new Date().toISOString(),
+      };
+
+      const result = await checkActionDeduplication(agent, "add-comment", { body: "test" }, state);
+      expect(result.allowed).toBe(false);
+      expect(result.reason).toContain("already performed");
+    });
+
+    it("should allow different action details with exact match", async () => {
+      const agent = {
+        name: "test",
+        on: {},
+        markdown: "",
+        deduplication: { actions: { enabled: true, window: "24h", match: "exact" } },
+      };
+      const state = {
+        schema_version: "1.0.0" as const,
+        records: [
+          {
+            key: "test:action:add-comment",
+            timestamp: new Date().toISOString(),
+            agent_name: "test",
+            action_type: "add-comment",
+            details: { body: "different text" },
+          },
+        ],
+        last_cleanup: new Date().toISOString(),
+      };
+
+      const result = await checkActionDeduplication(agent, "add-comment", { body: "test" }, state);
+      expect(result.allowed).toBe(true);
+    });
+  });
+});

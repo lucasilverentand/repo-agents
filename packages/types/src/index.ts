@@ -28,6 +28,7 @@ export interface AgentDefinition {
   concurrency?: ConcurrencyConfig | false; // Concurrency settings for debouncing (default: auto-generated based on trigger)
   timeout?: number | TimeoutConfig; // Execution timeout in minutes (number) or detailed config
   tracing?: TracingConfig; // Execution tracing configuration
+  deduplication?: DeduplicationConfig; // Smart deduplication configuration
   markdown: string;
 }
 
@@ -143,6 +144,41 @@ export interface ExecutionTrace {
   // Debug level only
   tool_calls?: ToolCall[];
   raw_output?: string;
+}
+
+// Deduplication Configuration Types
+export interface EventDeduplicationConfig {
+  enabled?: boolean; // Enable event deduplication (default: true)
+  window?: string; // Time window for deduplication (e.g., "1h", "24h", "7d")
+  key?: string[]; // Custom deduplication key fields (default: ["event_type", "issue_number", "action"])
+}
+
+export interface ActionDeduplicationConfig {
+  enabled?: boolean; // Enable action deduplication (default: true)
+  window?: string; // Time window for deduplication (e.g., "24h", "7d")
+  match?: "exact" | "similar"; // How to match actions (default: "exact")
+}
+
+export interface DeduplicationConfig {
+  events?: EventDeduplicationConfig; // Event-level deduplication
+  actions?: ActionDeduplicationConfig | Record<string, ActionDeduplicationConfig>; // Action-level deduplication (global or per-action)
+}
+
+// Deduplication State Types (stored in artifacts)
+export interface DeduplicationRecord {
+  key: string; // Unique key for the action/event
+  timestamp: string; // ISO timestamp when action was performed
+  agent_name: string; // Agent that performed the action
+  action_type?: string; // Type of action (for action deduplication)
+  event_type?: string; // Type of event (for event deduplication)
+  issue_number?: number; // Issue/PR number if applicable
+  details?: Record<string, unknown>; // Additional details for matching
+}
+
+export interface DeduplicationState {
+  schema_version: "1.0.0";
+  records: DeduplicationRecord[];
+  last_cleanup: string; // ISO timestamp of last cleanup
 }
 
 export interface ConcurrencyConfig {

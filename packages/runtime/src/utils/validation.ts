@@ -19,6 +19,7 @@ export interface ValidationStatus {
   rate_limit_check: boolean;
   max_open_prs_check: boolean;
   blocking_issues_check: boolean;
+  deduplication_check: boolean;
 }
 
 /**
@@ -491,4 +492,295 @@ export async function getEventPayload(ctx: ValidationContext): Promise<string | 
     console.error(`Failed to read event payload: ${error}`);
     return undefined;
   }
+}
+
+/**
+ * Deduplication record stored in artifacts.
+ */
+export interface DeduplicationRecord {
+  key: string;
+  timestamp: string;
+  agent_name: string;
+  action_type?: string;
+  event_type?: string;
+  issue_number?: number;
+  details?: Record<string, unknown>;
+}
+
+/**
+ * Deduplication state stored in artifacts.
+ */
+export interface DeduplicationState {
+  schema_version: "1.0.0";
+  records: DeduplicationRecord[];
+  last_cleanup: string;
+}
+
+/**
+ * Parse a time window string (e.g., "1h", "24h", "7d") into milliseconds.
+ */
+export function parseTimeWindow(window: string): number {
+  const match = window.match(/^(\d+)([hdwm])$/);
+  if (!match) {
+    return 24 * 60 * 60 * 1000; // Default: 24 hours
+  }
+  const value = parseInt(match[1], 10);
+  const unit = match[2];
+  switch (unit) {
+    case "h":
+      return value * 60 * 60 * 1000;
+    case "d":
+      return value * 24 * 60 * 60 * 1000;
+    case "w":
+      return value * 7 * 24 * 60 * 60 * 1000;
+    case "m":
+      return value * 30 * 24 * 60 * 60 * 1000;
+    default:
+      return 24 * 60 * 60 * 1000;
+  }
+}
+
+/**
+ * Generate a deduplication key for an event.
+ */
+function generateEventKey(
+  ctx: ValidationContext,
+  agent: AgentDefinition,
+  issueNumber?: number,
+  eventAction?: string,
+): string {
+  const keyFields = agent.deduplication?.events?.key ?? ["event_type", "issue_number", "action"];
+  const keyParts: string[] = [];
+
+  for (const field of keyFields) {
+    switch (field) {
+      case "event_type":
+        keyParts.push(`event:${ctx.github.eventName}`);
+        break;
+      case "issue_number":
+        if (issueNumber) {
+          keyParts.push(`issue:${issueNumber}`);
+        }
+        break;
+      case "action":
+        if (eventAction) {
+          keyParts.push(`action:${eventAction}`);
+        }
+        break;
+      default:
+        keyParts.push(`custom:${field}`);
+    }
+  }
+
+  return `${agent.name}:${keyParts.join(":")}`;
+}
+
+/**
+ * Check event deduplication.
+ *
+ * Validates if this event has already been processed within the configured time window.
+ * Uses artifact storage to track processed events across workflow runs.
+ */
+export async function checkEventDeduplication(
+  ctx: ValidationContext,
+  agent: AgentDefinition,
+  state: DeduplicationState | null,
+): Promise<{
+  allowed: boolean;
+  reason?: string;
+  key?: string;
+  previousTimestamp?: string;
+}> {
+  // Skip if deduplication not configured or disabled
+  if (!agent.deduplication?.events || agent.deduplication.events.enabled === false) {
+    return { allowed: true };
+  }
+
+  // Get event details
+  let issueNumber: number | undefined;
+  let eventAction: string | undefined;
+  try {
+    const eventPayload = JSON.parse(await Bun.file(ctx.github.eventPath).text()) as {
+      issue?: { number: number };
+      pull_request?: { number: number };
+      action?: string;
+    };
+    issueNumber = eventPayload.issue?.number ?? eventPayload.pull_request?.number;
+    eventAction = eventPayload.action;
+  } catch (error) {
+    console.warn("Failed to read event payload for deduplication:", error);
+    return { allowed: true };
+  }
+
+  const key = generateEventKey(ctx, agent, issueNumber, eventAction);
+  const windowMs = parseTimeWindow(agent.deduplication.events.window ?? "1h");
+  const now = Date.now();
+
+  // Check if this event was processed within the window
+  if (state) {
+    const existingRecord = state.records.find(
+      (r) => r.key === key && r.event_type === ctx.github.eventName,
+    );
+
+    if (existingRecord) {
+      const recordTime = new Date(existingRecord.timestamp).getTime();
+      if (now - recordTime < windowMs) {
+        return {
+          allowed: false,
+          reason: `Event already processed at ${existingRecord.timestamp} (within ${agent.deduplication.events.window ?? "1h"} window)`,
+          key,
+          previousTimestamp: existingRecord.timestamp,
+        };
+      }
+    }
+  }
+
+  return { allowed: true, key };
+}
+
+/**
+ * Check action deduplication.
+ *
+ * Validates if this action has already been performed within the configured time window.
+ * Used before executing outputs to prevent duplicate actions.
+ */
+export async function checkActionDeduplication(
+  agent: AgentDefinition,
+  actionType: string,
+  actionDetails: Record<string, unknown>,
+  state: DeduplicationState | null,
+): Promise<{
+  allowed: boolean;
+  reason?: string;
+  key?: string;
+  previousTimestamp?: string;
+}> {
+  // Skip if deduplication not configured
+  if (!agent.deduplication?.actions) {
+    return { allowed: true };
+  }
+
+  // Get action-specific config or global config
+  let actionConfig: { enabled?: boolean; window?: string; match?: "exact" | "similar" };
+  if (typeof agent.deduplication.actions === "object" && "enabled" in agent.deduplication.actions) {
+    actionConfig = agent.deduplication.actions;
+  } else if (
+    typeof agent.deduplication.actions === "object" &&
+    actionType in agent.deduplication.actions
+  ) {
+    const actions = agent.deduplication.actions as Record<
+      string,
+      { enabled?: boolean; window?: string; match?: "exact" | "similar" }
+    >;
+    actionConfig = actions[actionType] ?? { enabled: true };
+  } else {
+    return { allowed: true };
+  }
+
+  // Skip if disabled
+  if (actionConfig.enabled === false) {
+    return { allowed: true };
+  }
+
+  const windowMs = parseTimeWindow(actionConfig.window ?? "24h");
+  const matchMode = actionConfig.match ?? "exact";
+  const now = Date.now();
+
+  // Generate action key
+  const key = `${agent.name}:action:${actionType}:${JSON.stringify(actionDetails)}`;
+
+  // Check if this action was performed within the window
+  if (state) {
+    const existingRecords = state.records.filter(
+      (r) => r.action_type === actionType && r.agent_name === agent.name,
+    );
+
+    for (const record of existingRecords) {
+      const recordTime = new Date(record.timestamp).getTime();
+      if (now - recordTime >= windowMs) {
+        continue;
+      }
+
+      if (matchMode === "exact") {
+        // Exact match: compare stringified details
+        if (JSON.stringify(record.details) === JSON.stringify(actionDetails)) {
+          return {
+            allowed: false,
+            reason: `Action '${actionType}' already performed at ${record.timestamp} (within ${actionConfig.window ?? "24h"} window)`,
+            key,
+            previousTimestamp: record.timestamp,
+          };
+        }
+      } else if (matchMode === "similar") {
+        // Similar match: check if key fields match (for comments, check target)
+        const recordTarget = record.details?.issue_number ?? record.details?.pr_number;
+        const currentTarget = actionDetails.issue_number ?? actionDetails.pr_number;
+        if (recordTarget && currentTarget && recordTarget === currentTarget) {
+          return {
+            allowed: false,
+            reason: `Similar action '${actionType}' already performed on #${currentTarget} at ${record.timestamp}`,
+            key,
+            previousTimestamp: record.timestamp,
+          };
+        }
+      }
+    }
+  }
+
+  return { allowed: true, key };
+}
+
+/**
+ * Create a new deduplication record.
+ */
+export function createDeduplicationRecord(
+  agent: AgentDefinition,
+  key: string,
+  options: {
+    actionType?: string;
+    eventType?: string;
+    issueNumber?: number;
+    details?: Record<string, unknown>;
+  },
+): DeduplicationRecord {
+  return {
+    key,
+    timestamp: new Date().toISOString(),
+    agent_name: agent.name,
+    action_type: options.actionType,
+    event_type: options.eventType,
+    issue_number: options.issueNumber,
+    details: options.details,
+  };
+}
+
+/**
+ * Clean up old deduplication records.
+ */
+export function cleanupDeduplicationState(
+  state: DeduplicationState,
+  maxAge: number = 7 * 24 * 60 * 60 * 1000, // Default: 7 days
+): DeduplicationState {
+  const now = Date.now();
+  const filteredRecords = state.records.filter((record) => {
+    const recordTime = new Date(record.timestamp).getTime();
+    return now - recordTime < maxAge;
+  });
+
+  return {
+    ...state,
+    records: filteredRecords,
+    last_cleanup: new Date().toISOString(),
+  };
+}
+
+/**
+ * Initialize empty deduplication state.
+ */
+export function initDeduplicationState(): DeduplicationState {
+  return {
+    schema_version: "1.0.0",
+    records: [],
+    last_cleanup: new Date().toISOString(),
+  };
 }

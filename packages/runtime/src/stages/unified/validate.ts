@@ -11,12 +11,15 @@ import type { PermissionIssue, ValidationContext, ValidationStatus } from "../..
 import {
   checkBlockingIssues,
   checkBotActor,
+  checkEventDeduplication,
   checkMaxOpenPRs,
   checkRateLimit,
   checkTriggerLabels,
   checkUserAuthorization,
+  type DeduplicationState,
   getEventPayload,
   getIssueOrPRNumber,
+  initDeduplicationState,
 } from "../../utils/validation";
 
 /**
@@ -71,6 +74,7 @@ export async function runUnifiedValidate(ctx: {
     rate_limit_check: false,
     max_open_prs_check: false,
     blocking_issues_check: false,
+    deduplication_check: false,
   };
   const permissionIssues: PermissionIssue[] = [];
 
@@ -80,6 +84,7 @@ export async function runUnifiedValidate(ctx: {
     "rate-limited": "false",
     "pr-limited": "false",
     "blocked-by-issues": "false",
+    deduplicated: "false",
   };
 
   try {
@@ -239,6 +244,47 @@ export async function runUnifiedValidate(ctx: {
     validationStatus.blocking_issues_check = true;
     console.log("✓ Blocking issues check passed");
 
+    // Step 8: Check event deduplication (if configured)
+    // Load deduplication state from previous runs (would be loaded from artifact in production)
+    let deduplicationState: DeduplicationState | null = null;
+    try {
+      // In production, this would load from an artifact stored by previous runs
+      // For now, we initialize empty state - the deduplication state management
+      // would be handled by a separate artifact workflow
+      deduplicationState = initDeduplicationState();
+    } catch {
+      // No existing state - this is fine for first run
+    }
+
+    const deduplicationResult = await checkEventDeduplication(
+      validationContext,
+      agent,
+      deduplicationState,
+    );
+    if (!deduplicationResult.allowed) {
+      permissionIssues.push({
+        timestamp: new Date().toISOString(),
+        issue_type: "validation_error",
+        severity: "warning",
+        message: "Event deduplicated - already processed",
+        context: {
+          key: deduplicationResult.key,
+          previousTimestamp: deduplicationResult.previousTimestamp,
+        },
+      });
+      await writeAuditData(validationStatus, permissionIssues, agent.name);
+      outputs["skip-reason"] =
+        deduplicationResult.reason ?? "Event already processed (deduplicated)";
+      outputs.deduplicated = "true";
+      await writeValidationResult(outputs);
+      return {
+        success: true, // Not an error, just skipped
+        outputs,
+      };
+    }
+    validationStatus.deduplication_check = true;
+    console.log("✓ Deduplication check passed");
+
     // All checks passed
     await writeAuditData(validationStatus, permissionIssues, agent.name);
 
@@ -340,6 +386,7 @@ async function writeValidationResult(outputs: Record<string, string>): Promise<v
     rate_limited: outputs["rate-limited"] === "true",
     pr_limited: outputs["pr-limited"] === "true",
     blocked_by_issues: outputs["blocked-by-issues"] === "true",
+    deduplicated: outputs.deduplicated === "true",
     progress_comment_id: outputs["progress-comment-id"] || null,
     progress_issue_number: outputs["progress-issue-number"] || null,
     target_issue_number: outputs["target-issue-number"] || null,
