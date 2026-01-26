@@ -157,6 +157,19 @@ export class AgentParser {
 
 export const agentParser = new AgentParser();
 
+// Blueprint exports
+export {
+  applyTemplate,
+  applyTemplateToObject,
+  extendsBlueprint,
+  isBlueprint,
+  mergeWithDefaults,
+  parseBlueprint,
+  parseBlueprintContent,
+  parseBlueprintInstance,
+  resolveBlueprintSource,
+  validateParameters,
+} from "./blueprint";
 export type { AgentFrontmatter } from "./schemas";
 // Re-export schema types
 export { agentFrontmatterSchema } from "./schemas";
