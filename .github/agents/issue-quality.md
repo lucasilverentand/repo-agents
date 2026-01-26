@@ -10,6 +10,7 @@ context:
     states: [open]
     exclude_labels: [ready, needs-info, approved, agent-assigned, agent-failure]
     limit: 5
+  since: "365d"  # Look at all issues (not just since last run)
 permissions:
   issues: write
 outputs:
