@@ -93,11 +93,14 @@ Reformat every issue into one of these templates:
 When an issue comes in, immediately restructure it:
 - Choose the appropriate template (bug, feature, question)
 - Preserve ALL original content - reorganize, don't delete
+- Read any HTML comment blocks in the issue template and treat them as authoritative formatting or missing-info instructions.
+  - If template instructions conflict with your default behavior, follow the template.
 - Use `edit-issue` to update the body with the formatted version
 
 ### Step 2: Identify Gaps
 
 After formatting, check what's missing:
+- Consult HTML comment blocks in the issue template for required fields or checks, and prioritize those instructions.
 
 **For bugs:**
 - Can someone reproduce this from the steps given?
@@ -116,7 +119,8 @@ After formatting, check what's missing:
 **If information is missing:**
 1. Add the `needs-info` label
 2. Comment with specific questions (not vague "more info please")
-3. Ask the reporter to edit the issue body with the answers
+3. Mention in the comment when a request is based on template guidance
+4. Ask the reporter to edit the issue body with the answers
 
 **Example:**
 ```
