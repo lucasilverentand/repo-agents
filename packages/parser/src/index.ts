@@ -105,6 +105,7 @@ export class AgentParser {
       concurrency: frontmatter.concurrency,
       timeout: frontmatter.timeout,
       tracing: frontmatter.tracing,
+      deduplication: frontmatter.deduplication,
       markdown: parsed.content.trim(),
     };
 
