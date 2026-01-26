@@ -14,7 +14,7 @@ context:
 permissions:
   issues: write
 outputs:
-  add-comment: { max: 1 }
+  add-comment: true  # No max limit - batch mode needs one comment per issue
   add-label:
     blocked-labels: [approved, agent-assigned]
   remove-label: true
