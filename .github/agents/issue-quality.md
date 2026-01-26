@@ -151,6 +151,13 @@ When triggered by an edit, re-evaluate:
 - `needs-info` - Issue is missing critical information
 - `ready` - Issue is complete and ready for human review
 
+## Label Context
+
+- Read the repository's available labels (names + descriptions) from context before applying labels.
+- Use exact label names when they exist.
+- If an exact label doesn't exist, infer a synonym by matching description keywords (e.g., “needs-info” ↔ “needs more info”), and only apply labels that are confirmed present.
+- If no matching label exists, skip adding that label and mention the mismatch in your comment.
+
 **Labels you DON'T touch** (humans apply these):
 - `approved` - Human approved for implementation
 - `agent-assigned` - Assigned to implementation agent
