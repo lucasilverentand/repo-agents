@@ -55,17 +55,27 @@ import { runOutputs } from "./outputs";
  * which saves time, reduces rate limiting, and provides better error messages.
  */
 
+// Output directories must match the hardcoded paths in outputs.ts
 const OUTPUTS_DIR = "/tmp/outputs";
 const VALIDATION_ERRORS_DIR = "/tmp/validation-errors";
-const TEST_AGENT_PATH = ".github/agents/test-agent.md";
+
+// Use isolated temp directory for test-specific files to avoid writing to the actual repository
+const TEST_DIR = "/tmp/repo-agents-contract-test";
+const TEST_AGENT_PATH = join(TEST_DIR, ".github/agents/test-agent.md");
+const EVENT_FILE_PATH = join(TEST_DIR, "event.json");
 
 describe("Output Format Contract Tests", () => {
   beforeEach(async () => {
-    // Clean up directories
+    // Clean up output directories (used by outputs.ts)
     await rm(OUTPUTS_DIR, { recursive: true, force: true });
     await rm(VALIDATION_ERRORS_DIR, { recursive: true, force: true });
-    await rm(TEST_AGENT_PATH, { force: true });
+
+    // Clean up test-specific directory (agent file, event file)
+    await rm(TEST_DIR, { recursive: true, force: true });
+
+    // Create directory structures
     await mkdir(OUTPUTS_DIR, { recursive: true });
+    await mkdir(join(TEST_DIR, ".github/agents"), { recursive: true });
 
     // Create test agent definition
     const agentContent = `---
@@ -104,7 +114,10 @@ Test agent instructions.
     return {
       agentPath: TEST_AGENT_PATH,
       repository: "owner/repo",
-      eventPath: "/tmp/event.json",
+      runId: "12345",
+      actor: "test-user",
+      eventName: "issues",
+      eventPath: EVENT_FILE_PATH,
       outputType,
     };
   }
@@ -120,7 +133,7 @@ Test agent instructions.
     if (prNumber) {
       event.pull_request = { number: prNumber };
     }
-    await writeFile("/tmp/event.json", JSON.stringify(event), "utf-8");
+    await writeFile(EVENT_FILE_PATH, JSON.stringify(event), "utf-8");
   }
 
   describe("add-comment - Output Format Contract", () => {
