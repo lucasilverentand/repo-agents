@@ -24,7 +24,8 @@ describe("generateSkillForOutput", () => {
       const skill = generateSkillForOutput("add-comment", {}, undefined);
 
       expect(skill).toContain("**JSON Schema**");
-      expect(skill).toContain('{\n  "body": "string"\n}');
+      expect(skill).toContain('"issue_number": number');
+      expect(skill).toContain('"body": "string"');
     });
 
     test("should include example usage", () => {

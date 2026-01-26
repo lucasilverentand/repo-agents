@@ -14,7 +14,7 @@ class AddCommentHandler implements OutputHandler {
 
     return `## Skill: Add Comment
 
-Add a comment to the current issue or pull request.
+Add a comment to an issue or pull request.
 
 **File to create**: \`/tmp/outputs/add-comment.json\`
 
@@ -23,30 +23,39 @@ For multiple comments, use numbered suffixes: \`add-comment-1.json\`, \`add-comm
 **JSON Schema**:
 \`\`\`json
 {
+  "issue_number": number,
   "body": "string"
 }
 \`\`\`
 
 **Fields**:
+- \`issue_number\` (required for batch/scheduled mode, optional otherwise): The issue or PR number to comment on
 - \`body\` (required): Markdown-formatted comment text
 
 **Constraints**:
 - Maximum comments: ${maxConstraint}
 - Body must be non-empty
 
-**Example**:
-Create \`/tmp/outputs/add-comment.json\` with:
+**When to include issue_number**:
+- In batch/scheduled mode (when processing multiple issues from context), you MUST include \`issue_number\` to specify which issue to comment on
+- In single-issue mode (when triggered by an issue event), \`issue_number\` is optional and defaults to the triggering issue
+
+**Example** (batch mode - processing multiple issues):
 \`\`\`json
 {
+  "issue_number": 42,
   "body": "Thank you for reporting this issue! I've analyzed it and added appropriate labels."
 }
 \`\`\`
 
-Or for multiple comments:
-- \`/tmp/outputs/add-comment-1.json\`
-- \`/tmp/outputs/add-comment-2.json\`
+**Example** (single-issue mode):
+\`\`\`json
+{
+  "body": "Thank you for reporting this issue!"
+}
+\`\`\`
 
-**Important**: Use the Write tool to create this file. Only create the file when you're ready to post the comment.`;
+**Important**: Use the Write tool to create this file. In batch mode, create separate files for each issue (add-comment-1.json, add-comment-2.json, etc.) with the appropriate issue_number in each.`;
   }
 
   generateValidationScript(config: OutputConfig, runtime: RuntimeContext): string {

@@ -649,7 +649,14 @@ async function executeOutput(
     }
   }
 
-  const issueOrPrNumber = issueNumber || prNumber;
+  // Allow outputs to specify their own target issue/PR number (for batch mode)
+  const outputIssueNumber = file.data.issue_number?.toString() || file.data.issue?.toString();
+  const outputPrNumber = file.data.pr_number?.toString() || file.data.pr?.toString();
+
+  // Use output-specified number first, then fall back to event context
+  const effectiveIssueNumber = outputIssueNumber || issueNumber;
+  const effectivePrNumber = outputPrNumber || prNumber;
+  const issueOrPrNumber = effectiveIssueNumber || effectivePrNumber;
 
   switch (outputType) {
     case "add-comment":

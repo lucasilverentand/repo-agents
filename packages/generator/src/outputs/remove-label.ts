@@ -12,35 +12,50 @@ class RemoveLabelHandler implements OutputHandler {
   generateSkill(_config: OutputConfig): string {
     return `## Skill: Remove Labels
 
-Remove one or more labels from the current issue or pull request.
+Remove one or more labels from an issue or pull request.
 
 **Available labels**: See the "Available Repository Labels" section in the context above for the complete list of labels.
 
 **File to create**: \`/tmp/outputs/remove-label.json\`
 
+For multiple remove operations, use numbered suffixes: \`remove-label-1.json\`, \`remove-label-2.json\`, etc.
+
 **JSON Schema**:
 \`\`\`json
 {
+  "issue_number": number,
   "labels": ["string"]
 }
 \`\`\`
 
 **Fields**:
+- \`issue_number\` (required for batch/scheduled mode, optional otherwise): The issue or PR number to remove labels from
 - \`labels\` (required): Array of label names to remove
 
 **Constraints**:
 - Labels array must be non-empty
 - Attempting to remove non-existent labels will be silently ignored
 
-**Example**:
-Create \`/tmp/outputs/remove-label.json\` with:
+**When to include issue_number**:
+- In batch/scheduled mode (when processing multiple issues from context), you MUST include \`issue_number\` to specify which issue to modify
+- In single-issue mode (when triggered by an issue event), \`issue_number\` is optional and defaults to the triggering issue
+
+**Example** (batch mode):
+\`\`\`json
+{
+  "issue_number": 42,
+  "labels": ["needs-triage", "duplicate"]
+}
+\`\`\`
+
+**Example** (single-issue mode):
 \`\`\`json
 {
   "labels": ["needs-triage", "duplicate"]
 }
 \`\`\`
 
-**Important**: Use the Write tool to create this file. Only removes specified labels, keeps all others.`;
+**Important**: Use the Write tool to create this file. In batch mode, create separate files for each issue with the appropriate issue_number in each.`;
   }
 
   generateValidationScript(_config: OutputConfig, runtime: RuntimeContext): string {

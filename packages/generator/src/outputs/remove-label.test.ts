@@ -88,7 +88,7 @@ describe("RemoveLabelHandler", () => {
       const config = {};
       const skill = handler.generateSkill(config);
 
-      expect(skill).toContain("Only removes specified labels, keeps all others");
+      expect(skill).toContain("Attempting to remove non-existent labels will be silently ignored");
     });
   });
 

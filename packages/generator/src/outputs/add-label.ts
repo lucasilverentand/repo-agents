@@ -23,7 +23,7 @@ class AddLabelHandler implements OutputHandler {
 
     return `## Skill: Add Labels
 
-Add one or more labels to the current issue or pull request.
+Add one or more labels to an issue or pull request.
 
 **Available labels**: See the "Available Repository Labels" section in the context above for the complete list of labels you can use.${blockedNote}
 
@@ -34,11 +34,13 @@ For multiple label operations, use numbered suffixes: \`add-label-1.json\`, \`ad
 **JSON Schema**:
 \`\`\`json
 {
+  "issue_number": number,
   "labels": ["string"]
 }
 \`\`\`
 
 **Fields**:
+- \`issue_number\` (required for batch/scheduled mode, optional otherwise): The issue or PR number to add labels to
 - \`labels\` (required): Array of label names to add
 
 **Constraints**:
@@ -47,15 +49,26 @@ For multiple label operations, use numbered suffixes: \`add-label-1.json\`, \`ad
 - Duplicate labels will be ignored
 - This operation adds to existing labels (doesn't replace them)${blockedLabels.length > 0 ? `\n- Cannot add blocked labels: ${blockedLabels.join(", ")}` : ""}
 
-**Example**:
-Create \`/tmp/outputs/add-label.json\` with:
+**When to include issue_number**:
+- In batch/scheduled mode (when processing multiple issues from context), you MUST include \`issue_number\` to specify which issue to label
+- In single-issue mode (when triggered by an issue event), \`issue_number\` is optional and defaults to the triggering issue
+
+**Example** (batch mode):
+\`\`\`json
+{
+  "issue_number": 42,
+  "labels": ["bug", "priority: high"]
+}
+\`\`\`
+
+**Example** (single-issue mode):
 \`\`\`json
 {
   "labels": ["bug", "priority: high"]
 }
 \`\`\`
 
-**Important**: Use the Write tool to create this file. Only add labels that exist in the available labels list.`;
+**Important**: Use the Write tool to create this file. In batch mode, create separate files for each issue with the appropriate issue_number in each.`;
   }
 
   generateValidationScript(config: OutputConfig, runtime: RuntimeContext): string {
