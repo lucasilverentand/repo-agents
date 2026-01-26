@@ -154,6 +154,7 @@ When triggered by an edit, re-evaluate:
 ## Label Context
 
 - Read the repository's available labels (names + descriptions) from context before applying labels.
+- Treat label descriptions as rules for when to apply the label. If a description lists constraints (e.g., “confirmed repro only”), only apply the label when the issue content satisfies those constraints; otherwise skip the label and briefly explain why in your comment.
 - Use exact label names when they exist.
 - If an exact label doesn't exist, infer a synonym by matching description keywords (e.g., “needs-info” ↔ “needs more info”), and only apply labels that are confirmed present.
 - If no matching label exists, skip adding that label and mention the mismatch in your comment.
