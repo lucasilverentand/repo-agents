@@ -286,6 +286,65 @@ const projectContextSchema = z
   })
   .optional();
 
+const apiDocumentationConfigSchema = z
+  .object({
+    sources: z.array(z.string()).min(1),
+    output: z.string().min(1),
+    format: z.enum(["markdown", "json", "html"]).optional(),
+    include_private: z.boolean().optional(),
+    include_internal: z.boolean().optional(),
+  })
+  .optional();
+
+const readmeSectionConfigSchema = z.object({
+  section: z.string().min(1),
+  source: z.string().optional(),
+  template: z.string().optional(),
+});
+
+const readmeMaintenanceConfigSchema = z
+  .object({
+    path: z.string().optional(),
+    sections: z.array(readmeSectionConfigSchema),
+    preserve_custom: z.boolean().optional(),
+  })
+  .optional();
+
+const changelogConfigSchema = z
+  .object({
+    path: z.string().optional(),
+    format: z.enum(["keep-a-changelog", "conventional", "custom"]).optional(),
+    include_prs: z.boolean().optional(),
+    include_commits: z.boolean().optional(),
+    categories: z.array(z.string()).optional(),
+    exclude_labels: z.array(z.string()).optional(),
+  })
+  .optional();
+
+const driftDetectionPairSchema = z.object({
+  code: z.string().min(1),
+  docs: z.string().min(1),
+  threshold: z.number().min(1).optional(),
+});
+
+const driftDetectionConfigSchema = z
+  .object({
+    enabled: z.boolean(),
+    pairs: z.array(driftDetectionPairSchema),
+    create_issues: z.boolean().optional(),
+    labels: z.array(z.string()).optional(),
+  })
+  .optional();
+
+const documentationConfigSchema = z
+  .object({
+    api: apiDocumentationConfigSchema,
+    readme: readmeMaintenanceConfigSchema,
+    changelog: changelogConfigSchema,
+    drift_detection: driftDetectionConfigSchema,
+  })
+  .optional();
+
 const contextConfigSchema = z
   .object({
     issues: issuesContextSchema,
@@ -305,6 +364,7 @@ const contextConfigSchema = z
     branches: branchesContextSchema,
     check_runs: checkRunsContextSchema,
     project: projectContextSchema,
+    documentation: documentationConfigSchema,
     stars: z.boolean().optional(),
     forks: z.boolean().optional(),
     since: z.string().optional(),
