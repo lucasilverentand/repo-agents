@@ -1,0 +1,107 @@
+name: Feature Request
+description: Suggest a new feature or enhancement for Repo Agents
+title: "[Feature]: "
+labels: ["feature"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for taking the time to suggest a feature! Please fill out the form below.
+
+        <!--
+        AI AGENT INSTRUCTIONS:
+        When filing a feature request, follow these guidelines:
+
+        1. TITLE: Use format "[Feature]: <concise feature name>" - be descriptive
+           Good: "[Feature]: Add support for workflow_run trigger"
+           Bad: "[Feature]: New feature"
+
+        2. PROBLEM OR USE CASE: Explain the real-world scenario that motivates this
+           feature. Focus on the problem, not just the solution. Include:
+           - What task are you trying to accomplish?
+           - What's the current workaround (if any)?
+           - How often do you encounter this need?
+
+        3. PROPOSED SOLUTION: Be specific about what you want. Include:
+           - Example syntax/configuration if proposing new agent features
+           - Example usage showing how it would work
+           - Any new CLI commands or flags needed
+
+        4. ALTERNATIVES CONSIDERED: Show you've thought about other approaches.
+           This helps maintainers understand trade-offs and may reveal simpler solutions.
+
+        5. FEATURE AREA: Choose the most relevant area:
+           - CLI commands: New commands or flags (init, compile, validate, etc.)
+           - Agent definition format: New frontmatter fields, YAML structure
+           - Workflow generation: How workflows are generated
+           - Output handlers: New output types (add-comment, create-pr, etc.)
+           - Context collection: New context sources (issues, PRs, commits, etc.)
+           - GitHub App integration: Authentication, permissions, branding
+           - Documentation: Docs site, examples, guides
+
+        6. ADDITIONAL CONTEXT: Include links to related issues, similar features
+           in other tools, or discussions that provide context.
+
+        7. CONTRIBUTION: Check this if you're willing to implement. Even partial
+           implementations or prototypes are valuable.
+        -->
+
+  - type: textarea
+    id: problem
+    attributes:
+      label: Problem or Use Case
+      description: What problem are you trying to solve? What use case does this feature address?
+      placeholder: "I'm always frustrated when..."
+    validations:
+      required: true
+
+  - type: textarea
+    id: solution
+    attributes:
+      label: Proposed Solution
+      description: Describe the feature or change you'd like to see.
+      placeholder: "It would be great if..."
+    validations:
+      required: true
+
+  - type: textarea
+    id: alternatives
+    attributes:
+      label: Alternatives Considered
+      description: Have you considered any alternative solutions or workarounds?
+      placeholder: "I've tried..."
+    validations:
+      required: false
+
+  - type: dropdown
+    id: area
+    attributes:
+      label: Feature Area
+      description: Which part of Repo Agents does this relate to?
+      options:
+        - CLI commands
+        - Agent definition format
+        - Workflow generation
+        - Output handlers
+        - Context collection
+        - GitHub App integration
+        - Documentation
+        - Other
+    validations:
+      required: true
+
+  - type: textarea
+    id: context
+    attributes:
+      label: Additional Context
+      description: Add any other context, screenshots, or examples that would help explain the feature.
+    validations:
+      required: false
+
+  - type: checkboxes
+    id: contribution
+    attributes:
+      label: Contribution
+      description: Would you be willing to help implement this feature?
+      options:
+        - label: I would be willing to submit a PR for this feature

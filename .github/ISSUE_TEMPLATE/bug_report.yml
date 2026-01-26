@@ -8,6 +8,43 @@ body:
       value: |
         Thanks for taking the time to report a bug! Please fill out the form below to help us investigate.
 
+        <!--
+        AI AGENT INSTRUCTIONS:
+        When filing a bug report, follow these guidelines:
+
+        1. TITLE: Use format "[Bug]: <concise description>" - be specific, not generic
+           Good: "[Bug]: Parser fails on multiline YAML strings in frontmatter"
+           Bad: "[Bug]: It doesn't work"
+
+        2. DESCRIPTION: Include the exact error message, what you were trying to do,
+           and the specific behavior observed. Quote error messages verbatim.
+
+        3. EXPECTED BEHAVIOR: Describe what should have happened based on documentation
+           or reasonable expectations.
+
+        4. STEPS TO REPRODUCE: Provide minimal, complete steps. Include exact commands
+           and file contents needed to reproduce. Someone should be able to copy-paste
+           these steps and see the same issue.
+
+        5. AGENT DEFINITION: Always include a minimal reproducible example if the bug
+           involves agent parsing or workflow generation. Strip out unrelated config.
+
+        6. ERROR OUTPUT: Include the FULL error message and stack trace, not just
+           the first line. Use the exact output, don't paraphrase.
+
+        7. CATEGORY: Choose based on where the error occurs:
+           - Parser Error: YAML/frontmatter parsing, schema validation
+           - Generator Error: Workflow YAML generation
+           - CLI Error: Command-line interface issues
+           - Workflow Runtime Error: Issues when workflow runs in GitHub Actions
+           - Output Handler Error: Problems with add-comment, create-pr, etc.
+
+        8. ENVIRONMENT: Always include Bun version (bun --version), OS with version,
+           and repo-agents version. These are critical for reproduction.
+
+        9. CONTRIBUTION: Check this if you've identified a fix or are willing to investigate.
+        -->
+
   - type: textarea
     id: description
     attributes:
