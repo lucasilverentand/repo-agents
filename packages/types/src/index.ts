@@ -36,6 +36,44 @@ export interface AuditConfig {
   assignees?: string[]; // Assignees for audit issues
 }
 
+// Blueprint Types
+export type BlueprintParameterType = "string" | "number" | "boolean" | "array" | "enum";
+
+export interface BlueprintParameter {
+  name: string;
+  description?: string;
+  type: BlueprintParameterType;
+  default?: string | number | boolean | string[];
+  required?: boolean;
+  values?: string[]; // For enum type
+}
+
+export interface BlueprintMetadata {
+  name: string;
+  version: string;
+  description?: string;
+  author?: string;
+  extends?: string; // Parent blueprint to inherit from
+  parameters: BlueprintParameter[];
+}
+
+export interface BlueprintDefinition {
+  blueprint: BlueprintMetadata;
+  frontmatter: Record<string, unknown>; // Template frontmatter with {{ parameter }} placeholders
+  markdown: string; // Template markdown with {{ parameter }} placeholders
+}
+
+export interface BlueprintInstance {
+  extends: string; // Blueprint source (e.g., "catalog:standard-triage@v1", "./blueprints/custom.md")
+  parameters?: Record<string, string | number | boolean | string[]>; // Parameter values
+}
+
+export interface ResolvedBlueprint {
+  source: string;
+  metadata: BlueprintMetadata;
+  agent: AgentDefinition; // The resolved agent with parameters applied
+}
+
 export interface ConcurrencyConfig {
   group?: string; // Custom concurrency group (supports GitHub expressions)
   cancel_in_progress?: boolean; // Whether to cancel in-progress runs (default: true)
