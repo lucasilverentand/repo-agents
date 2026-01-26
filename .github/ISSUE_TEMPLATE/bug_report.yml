@@ -1,0 +1,107 @@
+name: Bug Report
+description: Report a bug or unexpected behavior in Repo Agents
+title: "[Bug]: "
+labels: ["bug"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for taking the time to report a bug! Please fill out the form below to help us investigate.
+
+  - type: textarea
+    id: description
+    attributes:
+      label: Description
+      description: What happened? Be as specific as possible.
+      placeholder: "When I run `repo-agents compile`, I get..."
+    validations:
+      required: true
+
+  - type: textarea
+    id: expected
+    attributes:
+      label: Expected Behavior
+      description: What did you expect to happen instead?
+      placeholder: "I expected the workflow to..."
+    validations:
+      required: true
+
+  - type: textarea
+    id: steps
+    attributes:
+      label: Steps to Reproduce
+      description: Provide numbered steps to reproduce the issue.
+      placeholder: |
+        1. Create an agent file with...
+        2. Run `repo-agents compile`
+        3. See error...
+    validations:
+      required: true
+
+  - type: textarea
+    id: agent-definition
+    attributes:
+      label: Agent Definition
+      description: If applicable, paste your agent markdown file (or relevant parts).
+      render: yaml
+      placeholder: |
+        ---
+        name: my-agent
+        on:
+          issues:
+            types: [opened]
+        outputs:
+          - add-comment
+        ---
+
+        Agent instructions here...
+    validations:
+      required: false
+
+  - type: textarea
+    id: error-output
+    attributes:
+      label: Error Output
+      description: Paste any error messages, logs, or stack traces.
+      render: shell
+      placeholder: |
+        Error: Invalid agent definition
+          at parseAgent (src/parser/index.ts:42)
+          ...
+    validations:
+      required: false
+
+  - type: dropdown
+    id: category
+    attributes:
+      label: Category
+      description: Which part of Repo Agents is affected?
+      options:
+        - Parser Error
+        - Generator Error
+        - CLI Error
+        - Workflow Runtime Error
+        - Output Handler Error
+        - Other
+    validations:
+      required: true
+
+  - type: textarea
+    id: environment
+    attributes:
+      label: Environment
+      description: Provide your environment details.
+      placeholder: |
+        - Bun version: 1.x.x
+        - OS: macOS 14.x / Ubuntu 22.04 / Windows 11
+        - repo-agents version: x.x.x
+    validations:
+      required: true
+
+  - type: checkboxes
+    id: contribution
+    attributes:
+      label: Contribution
+      description: Would you be willing to help fix this bug?
+      options:
+        - label: I would be willing to submit a PR to fix this bug
