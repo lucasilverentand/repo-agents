@@ -27,6 +27,7 @@ export interface AgentDefinition {
   allow_bot_triggers?: boolean; // Allow bot/app actors to trigger this agent (default: false, prevents recursive loops)
   concurrency?: ConcurrencyConfig | false; // Concurrency settings for debouncing (default: auto-generated based on trigger)
   timeout?: number | TimeoutConfig; // Execution timeout in minutes (number) or detailed config
+  tracing?: TracingConfig; // Execution tracing configuration
   markdown: string;
 }
 
@@ -72,6 +73,76 @@ export interface ResolvedBlueprint {
   source: string;
   metadata: BlueprintMetadata;
   agent: AgentDefinition; // The resolved agent with parameters applied
+}
+
+// Execution Tracing Types
+export type TraceLevel = "summary" | "detailed" | "debug";
+
+export interface TracingConfig {
+  level?: TraceLevel; // Trace level (default: "summary")
+  retention?: string; // How long to keep traces (e.g., "7d")
+  include?: ("tool-calls" | "decisions" | "timing" | "file-reads" | "file-writes")[]; // What to include
+  exclude?: ("sensitive-data" | "full-file-contents" | "secrets")[]; // What to exclude
+  redact?: {
+    secrets?: boolean; // Redact secrets (default: true)
+    patterns?: string[]; // Custom patterns to redact
+    file_contents_over?: number; // Truncate file contents over N lines
+  };
+}
+
+export interface TraceEntry {
+  timestamp: string;
+  elapsed_ms: number; // Milliseconds since trace start
+  action: string; // Type of action (read, write, analyze, comment, etc.)
+  target?: string; // Target of the action (file path, issue number, etc.)
+  result: "success" | "failure" | "skipped";
+  duration_ms?: number; // Duration of this specific action
+  details?: Record<string, unknown>; // Additional action-specific details
+}
+
+export interface TraceDecision {
+  timestamp: string;
+  question: string; // What decision was being made
+  input: string; // Input/context for the decision
+  output: string; // The decision made
+  reasoning?: string; // Why this decision was made
+}
+
+export interface ToolCall {
+  timestamp: string;
+  tool: string;
+  parameters: Record<string, unknown>;
+  result: "success" | "failure";
+  error?: string;
+  duration_ms: number;
+}
+
+export interface ExecutionTrace {
+  schema_version: "1.0.0";
+  trace_id: string;
+  agent_name: string;
+  workflow_run_id: string;
+  level: TraceLevel;
+  started_at: string;
+  completed_at?: string;
+  status: "running" | "success" | "failure" | "cancelled";
+
+  // Summary level (always present)
+  summary: {
+    duration_ms: number;
+    actions: string[]; // Human-readable action summary (e.g., "read 12 files")
+    total_tool_calls: number;
+    successful_tool_calls: number;
+    failed_tool_calls: number;
+  };
+
+  // Detailed level (when level is "detailed" or "debug")
+  steps?: TraceEntry[];
+  decisions?: TraceDecision[];
+
+  // Debug level only
+  tool_calls?: ToolCall[];
+  raw_output?: string;
 }
 
 export interface ConcurrencyConfig {
