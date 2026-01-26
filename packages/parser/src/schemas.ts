@@ -425,6 +425,33 @@ const timeoutConfigSchema = z
   ])
   .optional();
 
+// Tracing configuration schema
+const tracingConfigSchema = z
+  .object({
+    // Trace level: summary (default), detailed, or debug
+    level: z.enum(["summary", "detailed", "debug"]).optional(),
+    // How long to keep traces (e.g., "7d")
+    retention: z
+      .string()
+      .regex(/^\d+[hdwm]$/, "Retention must be in format: number + h/d/w/m (e.g., '7d', '30d')")
+      .optional(),
+    // What to include in traces
+    include: z
+      .array(z.enum(["tool-calls", "decisions", "timing", "file-reads", "file-writes"]))
+      .optional(),
+    // What to exclude from traces
+    exclude: z.array(z.enum(["sensitive-data", "full-file-contents", "secrets"])).optional(),
+    // Redaction settings
+    redact: z
+      .object({
+        secrets: z.boolean().optional(), // Redact secrets (default: true)
+        patterns: z.array(z.string()).optional(), // Custom regex patterns to redact
+        file_contents_over: z.number().min(1).optional(), // Truncate file contents over N lines
+      })
+      .optional(),
+  })
+  .optional();
+
 export const agentFrontmatterSchema = z.strictObject({
   name: z.string().min(1, { message: "Agent name is required" }),
   on: triggerConfigSchema,
@@ -447,6 +474,7 @@ export const agentFrontmatterSchema = z.strictObject({
   allow_bot_triggers: z.boolean().optional(), // Allow bot/app actors to trigger this agent (default: false, prevents recursive loops)
   concurrency: concurrencyConfigSchema, // Concurrency settings for debouncing (default: auto-generated based on trigger)
   timeout: timeoutConfigSchema, // Execution timeout in minutes or detailed config
+  tracing: tracingConfigSchema, // Execution tracing configuration
 }); // Reject unknown properties
 
 export type AgentFrontmatter = z.infer<typeof agentFrontmatterSchema>;

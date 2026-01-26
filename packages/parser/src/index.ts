@@ -94,6 +94,7 @@ export class AgentParser {
       allowed_teams: frontmatter["allowed-teams"],
       allowed_paths: frontmatter["allowed-paths"],
       trigger_labels: frontmatter.trigger_labels,
+      skip_labels: frontmatter.skip_labels,
       max_open_prs: frontmatter.max_open_prs,
       rate_limit_minutes: frontmatter.rate_limit_minutes,
       pre_flight: frontmatter.pre_flight,
@@ -103,6 +104,7 @@ export class AgentParser {
       allow_bot_triggers: frontmatter.allow_bot_triggers,
       concurrency: frontmatter.concurrency,
       timeout: frontmatter.timeout,
+      tracing: frontmatter.tracing,
       markdown: parsed.content.trim(),
     };
 
