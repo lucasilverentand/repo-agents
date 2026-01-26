@@ -5,6 +5,34 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.8.0](https://github.com/lucasilverentand/repo-agents/compare/v1.7.0...v1.8.0) (2026-01-26)
+
+
+### Features
+
+* **blueprints:** add agent blueprint system for reusable templates ([#303](https://github.com/lucasilverentand/repo-agents/issues/303)) ([ed0f596](https://github.com/lucasilverentand/repo-agents/commit/ed0f596271fdb2c770e30f64e70d7d2b86cae87d)), closes [#242](https://github.com/lucasilverentand/repo-agents/issues/242)
+* **deduplication:** add smart deduplication to prevent redundant agent actions ([#301](https://github.com/lucasilverentand/repo-agents/issues/301)) ([e87a0ad](https://github.com/lucasilverentand/repo-agents/commit/e87a0ad62968c489f1a9cc071692753e44e34e17)), closes [#238](https://github.com/lucasilverentand/repo-agents/issues/238)
+* **docs:** add documentation generation system ([#304](https://github.com/lucasilverentand/repo-agents/issues/304)) ([4d29516](https://github.com/lucasilverentand/repo-agents/commit/4d2951689335c8b5ee4e6c411ef90f89963558a7)), closes [#253](https://github.com/lucasilverentand/repo-agents/issues/253)
+* **github:** add AI agent instructions to issue templates ([9a5c956](https://github.com/lucasilverentand/repo-agents/commit/9a5c956ba3c2130888a489450b68101067100de6))
+* **github:** add bug report template and issue config ([14ba7ad](https://github.com/lucasilverentand/repo-agents/commit/14ba7adc5b02c541f4e316d0486026a8d1ea7947))
+* **issue-quality:** add scheduled processing for unchecked issues ([0ec5558](https://github.com/lucasilverentand/repo-agents/commit/0ec5558d343f891a9530cb176dfbe76a8c30db3f))
+* **outputs:** add edit-issue handler ([f4f22b7](https://github.com/lucasilverentand/repo-agents/commit/f4f22b75def07600c304ce0ee4a15ca2ac23de54))
+* **tracing:** add execution tracing for detailed agent action logs ([#302](https://github.com/lucasilverentand/repo-agents/issues/302)) ([3e84891](https://github.com/lucasilverentand/repo-agents/commit/3e84891adca713fb766e60dcda5d97d190639e15)), closes [#241](https://github.com/lucasilverentand/repo-agents/issues/241)
+* **validation:** add exclude_bot_issues option to skip bot-authored issues ([ad2ca88](https://github.com/lucasilverentand/repo-agents/commit/ad2ca8849e00f460d70ffeb3088619f282a1ffd6))
+* **validation:** add skip_labels to prevent agents from processing certain issues ([f47cb97](https://github.com/lucasilverentand/repo-agents/commit/f47cb97d457377a91dc0e43b6c5ca4dc7dedafb8)), closes [#296](https://github.com/lucasilverentand/repo-agents/issues/296)
+
+
+### Bug Fixes
+
+* **agent:** remove add-comment max constraint for batch mode ([02a271b](https://github.com/lucasilverentand/repo-agents/commit/02a271b66b0efd161f45fb35301e95a930f87c41))
+* **concurrency:** prevent bot-triggered events from cancelling running agents ([ba54544](https://github.com/lucasilverentand/repo-agents/commit/ba545440e09084ab57ecdef4754bc58dcfc8bcd2))
+* **generator:** skip bot-triggered events to prevent self-cancellation ([ff533a5](https://github.com/lucasilverentand/repo-agents/commit/ff533a579705005cf77e197fdcf62bff78fca34d))
+* **issue-quality:** use 365d lookback for scheduled batch processing ([8b24bfe](https://github.com/lucasilverentand/repo-agents/commit/8b24bfe3a3ae5f9ce950f81632def95dfafd14c9))
+* **outputs:** support issue_number in batch mode for add-comment, add-label, remove-label ([804aefb](https://github.com/lucasilverentand/repo-agents/commit/804aefbc18f3df0530243d8dbdb7fc259b6d8b06))
+* **runtime:** add bot actor check to prevent recursive agent loops ([014de18](https://github.com/lucasilverentand/repo-agents/commit/014de1865d2097d34bad2152e4545136727b4f2e))
+* **runtime:** replace heredoc with echo pipe for Bun shell compatibility ([56b1066](https://github.com/lucasilverentand/repo-agents/commit/56b1066d36323ffb6a505f8794c1cc7fec18f26d))
+* **tests:** isolate contract tests to prevent repo pollution ([13fc830](https://github.com/lucasilverentand/repo-agents/commit/13fc83029e38890e7f9a07d1529571254b975f90))
+
 ## [1.7.0](https://github.com/lucasilverentand/repo-agents/compare/v1.6.0...v1.7.0) (2026-01-24)
 
 
