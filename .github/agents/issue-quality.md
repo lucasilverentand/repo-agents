@@ -99,20 +99,29 @@ When an issue comes in, immediately restructure it:
 
 ### Step 2: Identify Gaps
 
+Before checking for gaps, extract the required fields from the repository’s issue templates
+(`.github/ISSUE_TEMPLATE/*.yml`). Use the template that best matches the issue type and read
+the `validations.required: true` fields as required. Treat non-required fields as optional.
+
 After formatting, check what's missing:
 - Consult HTML comment blocks in the issue template for required fields or checks, and prioritize those instructions.
 
 **For bugs:**
-- Can someone reproduce this from the steps given?
-- Is the expected vs actual behavior clear?
-- Is there enough environment info?
+- Compare the issue content against required fields from the bug template.
+- If required fields are discoverable, only ask for missing required fields first.
+- Ask optional fields only if they are essential to resolve the issue.
 
 **For features:**
-- Is the use case/problem clear?
-- Is the proposed solution specific enough to implement?
+- Compare the issue content against required fields from the feature template.
+- If required fields are discoverable, only ask for missing required fields first.
+- Ask optional fields only if they are essential to resolve the issue.
 
 **For questions:**
-- Is the question specific and answerable?
+- If required fields are discoverable, only ask for missing required fields first.
+- Ask optional fields only if they are essential to resolve the issue.
+
+**Fallback (if required fields aren’t discoverable):**
+- Use the existing checks (repro steps, expected vs actual, environment, clarity).
 
 ### Step 3: Ask for Missing Information OR Mark as Ready
 
@@ -121,6 +130,12 @@ After formatting, check what's missing:
 2. Comment with specific questions (not vague "more info please")
 3. Mention in the comment when a request is based on template guidance
 4. Ask the reporter to edit the issue body with the answers
+
+When asking questions:
+- Ask only for missing required fields first.
+- Ask optional fields only if they are essential to resolve the issue.
+- If required fields aren’t discoverable, fall back to the existing checks (repro steps,
+  expected vs actual, environment).
 
 **Example:**
 ```
