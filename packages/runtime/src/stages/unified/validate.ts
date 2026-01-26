@@ -11,6 +11,7 @@ import type { PermissionIssue, ValidationContext, ValidationStatus } from "../..
 import {
   checkBlockingIssues,
   checkBotActor,
+  checkBotAuthoredIssue,
   checkEventDeduplication,
   checkMaxOpenPRs,
   checkRateLimit,
@@ -69,6 +70,7 @@ export async function runUnifiedValidate(ctx: {
   const validationStatus: ValidationStatus = {
     agent_loaded: false,
     bot_actor_check: false,
+    bot_authored_check: false,
     user_authorization: false,
     labels_check: false,
     rate_limit_check: false,
@@ -128,6 +130,31 @@ export async function runUnifiedValidate(ctx: {
     }
     validationStatus.bot_actor_check = true;
     console.log(`✓ Bot actor check passed: ${ctx.github.actor}`);
+
+    // Step 2b: Check if issue/PR was authored by a bot (if exclude_bot_issues is set)
+    const botAuthoredResult = await checkBotAuthoredIssue(validationContext, agent);
+    if (!botAuthoredResult.allowed) {
+      permissionIssues.push({
+        timestamp: new Date().toISOString(),
+        issue_type: "validation_error",
+        severity: "warning",
+        message: "Issue/PR authored by bot - skipping",
+        context: {
+          author: botAuthoredResult.author,
+          isBot: botAuthoredResult.isBot,
+        },
+      });
+      await writeAuditData(validationStatus, permissionIssues, agent.name);
+      outputs["skip-reason"] = botAuthoredResult.reason ?? "Bot-authored issue excluded";
+      outputs["bot-authored"] = "true";
+      await writeValidationResult(outputs);
+      return {
+        success: true, // Not an error, just skipped
+        outputs,
+      };
+    }
+    validationStatus.bot_authored_check = true;
+    console.log("✓ Bot-authored issue check passed");
 
     // Step 3: Check user authorization (human users only at this point)
     const authResult = await checkUserAuthorization(validationContext, agent);

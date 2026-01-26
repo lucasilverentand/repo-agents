@@ -25,6 +25,7 @@ export interface AgentDefinition {
   audit?: AuditConfig; // Audit and failure reporting configuration
   progress_comment?: boolean; // Show progress comment on issue/PR (default: true for issue/PR triggers)
   allow_bot_triggers?: boolean; // Allow bot/app actors to trigger this agent (default: false, prevents recursive loops)
+  exclude_bot_issues?: boolean; // Skip issues/PRs authored by bots (default: false)
   concurrency?: ConcurrencyConfig | false; // Concurrency settings for debouncing (default: auto-generated based on trigger)
   timeout?: number | TimeoutConfig; // Execution timeout in minutes (number) or detailed config
   tracing?: TracingConfig; // Execution tracing configuration

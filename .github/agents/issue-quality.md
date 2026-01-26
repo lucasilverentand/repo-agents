@@ -19,7 +19,7 @@ outputs:
     blocked-labels: [approved, agent-assigned]
   remove-label: true
   edit-issue: true
-skip_labels: [agent-failure]
+exclude_bot_issues: true  # Skip bot-created issues (e.g., audit failure issues)
 rate_limit_minutes: 1
 ---
 

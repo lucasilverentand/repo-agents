@@ -512,6 +512,7 @@ export const agentFrontmatterSchema = z.strictObject({
   audit: auditConfigSchema,
   progress_comment: z.boolean().optional(), // Show progress comment on issue/PR (default: true for issue/PR triggers)
   allow_bot_triggers: z.boolean().optional(), // Allow bot/app actors to trigger this agent (default: false, prevents recursive loops)
+  exclude_bot_issues: z.boolean().optional(), // Skip issues/PRs authored by bots (default: false)
   concurrency: concurrencyConfigSchema, // Concurrency settings for debouncing (default: auto-generated based on trigger)
   timeout: timeoutConfigSchema, // Execution timeout in minutes or detailed config
   tracing: tracingConfigSchema, // Execution tracing configuration

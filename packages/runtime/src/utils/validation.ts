@@ -14,6 +14,7 @@ import {
 export interface ValidationStatus {
   agent_loaded: boolean;
   bot_actor_check: boolean;
+  bot_authored_check: boolean;
   user_authorization: boolean;
   labels_check: boolean;
   rate_limit_check: boolean;
@@ -167,6 +168,77 @@ export async function checkBotActor(
   }
 
   return { allowed: true, isBot: false };
+}
+
+/**
+ * Check if the issue/PR was authored by a bot.
+ *
+ * When `exclude_bot_issues: true` is set, agents skip issues/PRs created by bots.
+ * This is useful for agents like issue-quality that shouldn't process bot-created
+ * issues (e.g., audit failure issues created by the system).
+ *
+ * Only applies to issue and pull_request events; other event types are always allowed.
+ */
+export async function checkBotAuthoredIssue(
+  ctx: ValidationContext,
+  agent: AgentDefinition,
+): Promise<{ allowed: boolean; reason?: string; isBot?: boolean; author?: string }> {
+  // If not configured to exclude bot issues, always allow
+  if (!agent.exclude_bot_issues) {
+    return { allowed: true };
+  }
+
+  const eventName = ctx.github.eventName;
+
+  // Only issue and pull_request events have authors to check
+  if (eventName !== "issues" && eventName !== "pull_request") {
+    return { allowed: true };
+  }
+
+  // Get author from event payload
+  let author: string | undefined;
+  let authorType: string | undefined;
+  try {
+    const eventPayload = JSON.parse(await Bun.file(ctx.github.eventPath).text()) as {
+      issue?: { user?: { login: string; type: string } };
+      pull_request?: { user?: { login: string; type: string } };
+    };
+    const user = eventPayload.issue?.user ?? eventPayload.pull_request?.user;
+    author = user?.login;
+    authorType = user?.type;
+  } catch (error) {
+    console.warn("Failed to read event author:", error);
+    // If we can't read the author, allow execution (fail open)
+    return { allowed: true };
+  }
+
+  if (!author) {
+    return { allowed: true };
+  }
+
+  // Check if author type is "Bot"
+  if (authorType === "Bot") {
+    return {
+      allowed: false,
+      reason: `Issue/PR authored by bot '${author}' is excluded. Set 'exclude_bot_issues: false' to allow.`,
+      isBot: true,
+      author,
+    };
+  }
+
+  // Check if author matches bot patterns (for apps that appear as users)
+  for (const pattern of BOT_ACTOR_PATTERNS) {
+    if (pattern.test(author)) {
+      return {
+        allowed: false,
+        reason: `Issue/PR authored by bot '${author}' is excluded. Set 'exclude_bot_issues: false' to allow.`,
+        isBot: true,
+        author,
+      };
+    }
+  }
+
+  return { allowed: true, isBot: false, author };
 }
 
 /**
