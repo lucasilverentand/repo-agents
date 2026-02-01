@@ -36,7 +36,7 @@ jobs:
       agent-issue-quality-skip-reason: ${{ steps.dispatcher.outputs.agent-issue-quality-skip-reason }}
       agent-issue-quality-event-payload: ${{ steps.dispatcher.outputs.agent-issue-quality-event-payload }}
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
       - uses: oven-sh/setup-bun@v2
       - name: Install dependencies
         run: bun install --frozen-lockfile
@@ -54,7 +54,7 @@ jobs:
     if: needs.dispatcher.outputs.agent-issue-implementer-should-run == 'true'
     timeout-minutes: 45
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
       - uses: oven-sh/setup-bun@v2
       - name: Install dependencies
         run: bun install --frozen-lockfile
@@ -94,7 +94,7 @@ jobs:
     if: needs.dispatcher.outputs.agent-issue-quality-should-run == 'true'
     timeout-minutes: 45
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
       - uses: oven-sh/setup-bun@v2
       - name: Install dependencies
         run: bun install --frozen-lockfile
@@ -144,7 +144,7 @@ jobs:
       has-failures: ${{ steps.report.outputs.has-failures }}
       failed-agents: ${{ steps.report.outputs.failed-agents }}
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
       - uses: oven-sh/setup-bun@v2
       - name: Install dependencies
         run: bun install --frozen-lockfile
@@ -182,7 +182,7 @@ jobs:
         agent: ${{ fromJSON(needs.audit-report.outputs.failed-agents) }}
       fail-fast: false
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
       - uses: oven-sh/setup-bun@v2
       - name: Install dependencies
         run: bun install --frozen-lockfile
