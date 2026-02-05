@@ -121,8 +121,11 @@ function detectFailures(ctx: StageContext, auditData: AuditData): FailureInfo {
   const reasons: string[] = [];
   const { jobStatuses } = ctx;
 
-  // Rate-limited runs are not failures
+  // Rate-limited and circuit-breaker-tripped runs are not failures
   if (jobStatuses?.rateLimited) {
+    return { hasFailures: false, reasons: [] };
+  }
+  if (jobStatuses?.circuitBreakerTripped) {
     return { hasFailures: false, reasons: [] };
   }
 
@@ -407,6 +410,20 @@ export const runAudit: Stage = async (ctx: StageContext): Promise<StageResult> =
         "has-failures": "false",
       },
       skipReason: "Rate-limited run",
+    };
+  }
+
+  // Check for circuit-breaker-tripped runs (not a failure, agent disabled)
+  if (ctx.jobStatuses?.circuitBreakerTripped) {
+    console.log(
+      "Agent was disabled by circuit breaker due to consecutive failures. Fix the underlying issue and re-run manually.",
+    );
+    return {
+      success: true,
+      outputs: {
+        "has-failures": "false",
+      },
+      skipReason: "Circuit breaker tripped",
     };
   }
 

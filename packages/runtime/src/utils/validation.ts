@@ -1,6 +1,7 @@
 import type { AgentDefinition } from "@repo-agents/types";
 import {
   countOpenPRs,
+  getRecentCompletedRuns,
   getRecentWorkflowRuns,
   getRepositoryPermission,
   isOrgMember,
@@ -13,6 +14,7 @@ import {
  */
 export interface ValidationStatus {
   agent_loaded: boolean;
+  failure_threshold_check: boolean;
   bot_actor_check: boolean;
   bot_authored_check: boolean;
   user_authorization: boolean;
@@ -398,6 +400,74 @@ export async function checkRateLimit(
   } catch (error) {
     console.warn("Failed to check rate limit:", error);
     // Allow execution if we can't check rate limit
+    return { allowed: true };
+  }
+}
+
+/** Default number of consecutive failures before an agent is disabled */
+const DEFAULT_FAILURE_THRESHOLD = 5;
+
+/**
+ * Check failure threshold (circuit breaker).
+ *
+ * Counts recent consecutive workflow run failures for this agent's workflow.
+ * If the number of consecutive failures meets or exceeds the threshold,
+ * the agent is disabled to prevent runaway failures and wasted API credits.
+ *
+ * Default threshold: 5 consecutive failures.
+ * Configure with `failure_threshold` in agent frontmatter (set to 0 to disable).
+ */
+export async function checkFailureThreshold(
+  ctx: ValidationContext,
+  agent: AgentDefinition,
+): Promise<{
+  allowed: boolean;
+  reason?: string;
+  consecutiveFailures?: number;
+  threshold?: number;
+}> {
+  const threshold = agent.failure_threshold ?? DEFAULT_FAILURE_THRESHOLD;
+
+  // Threshold of 0 disables the circuit breaker
+  if (threshold === 0) {
+    return { allowed: true };
+  }
+
+  const workflowFile = ctx.options?.workflowFile ?? `agent-${agent.name}.yml`;
+  const { owner, repo } = parseRepository(ctx.github.repository);
+
+  try {
+    // Fetch recent completed runs (any conclusion)
+    const recentRuns = await getRecentCompletedRuns(owner, repo, workflowFile, threshold + 5);
+
+    if (recentRuns.length === 0) {
+      return { allowed: true, consecutiveFailures: 0, threshold };
+    }
+
+    // Count consecutive failures from most recent run backwards
+    let consecutiveFailures = 0;
+    for (const run of recentRuns) {
+      if (run.conclusion === "failure") {
+        consecutiveFailures++;
+      } else {
+        // Any non-failure (success, cancelled, skipped) breaks the streak
+        break;
+      }
+    }
+
+    if (consecutiveFailures >= threshold) {
+      return {
+        allowed: false,
+        reason: `Circuit breaker tripped: ${consecutiveFailures} consecutive failures (threshold: ${threshold}). Disable the circuit breaker by setting \`failure_threshold: 0\` or fix the underlying issue and re-run manually.`,
+        consecutiveFailures,
+        threshold,
+      };
+    }
+
+    return { allowed: true, consecutiveFailures, threshold };
+  } catch (error) {
+    console.warn("Failed to check failure threshold:", error);
+    // Allow execution if we can't check (fail open)
     return { allowed: true };
   }
 }

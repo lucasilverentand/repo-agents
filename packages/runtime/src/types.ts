@@ -54,6 +54,8 @@ export interface JobStatuses {
   collectContext?: JobResult;
   /** Whether the run was rate-limited (skip, not failure) */
   rateLimited?: boolean;
+  /** Whether the circuit breaker was tripped (skip, not failure) */
+  circuitBreakerTripped?: boolean;
 }
 
 export type JobResult = "success" | "failure" | "cancelled" | "skipped";

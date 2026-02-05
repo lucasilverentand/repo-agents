@@ -20,6 +20,7 @@ export interface AgentDefinition {
   skip_labels?: string[]; // Labels that will skip the agent if ANY are present
   max_open_prs?: number; // Maximum number of open PRs before skipping execution
   rate_limit_minutes?: number; // Minimum minutes between agent runs (default: 5)
+  failure_threshold?: number; // Consecutive failures before circuit breaker trips (default: 5, 0 to disable)
   pre_flight?: PreFlightConfig; // Pre-flight checks configuration
   context?: ContextConfig; // Data collection configuration
   audit?: AuditConfig; // Audit and failure reporting configuration

@@ -507,6 +507,7 @@ export const agentFrontmatterSchema = z.strictObject({
   skip_labels: z.array(z.string()).optional(),
   max_open_prs: z.number().min(1).optional(),
   rate_limit_minutes: z.number().min(0).optional(),
+  failure_threshold: z.number().min(0).optional(),
   pre_flight: preFlightConfigSchema,
   context: contextConfigSchema,
   audit: auditConfigSchema,

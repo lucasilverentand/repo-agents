@@ -240,3 +240,26 @@ export async function getRecentWorkflowRuns(
     return [];
   }
 }
+
+/**
+ * Get recent completed workflow runs (any conclusion) for a specific workflow.
+ * Returns runs in reverse chronological order (most recent first).
+ */
+export async function getRecentCompletedRuns(
+  owner: string,
+  repo: string,
+  workflowName: string,
+  limit = 10,
+): Promise<WorkflowRun[]> {
+  try {
+    const response = await ghApi<{ workflow_runs: WorkflowRun[] }>(
+      `repos/${owner}/${repo}/actions/runs`,
+    );
+
+    return response.workflow_runs
+      .filter((run) => run.name === workflowName && run.status === "completed")
+      .slice(0, limit);
+  } catch {
+    return [];
+  }
+}

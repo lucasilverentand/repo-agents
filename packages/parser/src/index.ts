@@ -97,6 +97,7 @@ export class AgentParser {
       skip_labels: frontmatter.skip_labels,
       max_open_prs: frontmatter.max_open_prs,
       rate_limit_minutes: frontmatter.rate_limit_minutes,
+      failure_threshold: frontmatter.failure_threshold,
       pre_flight: frontmatter.pre_flight,
       context: frontmatter.context,
       audit: frontmatter.audit,

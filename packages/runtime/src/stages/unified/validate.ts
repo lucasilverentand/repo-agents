@@ -13,6 +13,7 @@ import {
   checkBotActor,
   checkBotAuthoredIssue,
   checkEventDeduplication,
+  checkFailureThreshold,
   checkMaxOpenPRs,
   checkRateLimit,
   checkTriggerLabels,
@@ -69,6 +70,7 @@ export async function runUnifiedValidate(ctx: {
 }): Promise<StageResult> {
   const validationStatus: ValidationStatus = {
     agent_loaded: false,
+    failure_threshold_check: false,
     bot_actor_check: false,
     bot_authored_check: false,
     user_authorization: false,
@@ -86,6 +88,7 @@ export async function runUnifiedValidate(ctx: {
     "rate-limited": "false",
     "pr-limited": "false",
     "blocked-by-issues": "false",
+    "circuit-breaker-tripped": "false",
     deduplicated: "false",
   };
 
@@ -105,6 +108,33 @@ export async function runUnifiedValidate(ctx: {
       github: ctx.github,
       options: ctx.options,
     };
+
+    // Step 1b: Check failure threshold (circuit breaker)
+    const failureThresholdResult = await checkFailureThreshold(validationContext, agent);
+    if (!failureThresholdResult.allowed) {
+      permissionIssues.push({
+        timestamp: new Date().toISOString(),
+        issue_type: "validation_error",
+        severity: "error",
+        message: `Circuit breaker tripped: ${failureThresholdResult.consecutiveFailures} consecutive failures`,
+        context: {
+          consecutiveFailures: failureThresholdResult.consecutiveFailures,
+          threshold: failureThresholdResult.threshold,
+        },
+      });
+      await writeAuditData(validationStatus, permissionIssues, agent.name);
+      outputs["skip-reason"] = failureThresholdResult.reason ?? "Failure threshold exceeded";
+      outputs["circuit-breaker-tripped"] = "true";
+      await writeValidationResult(outputs);
+      return {
+        success: true, // Not an error, just disabled
+        outputs,
+      };
+    }
+    validationStatus.failure_threshold_check = true;
+    console.log(
+      `✓ Failure threshold check passed (${failureThresholdResult.consecutiveFailures ?? 0} consecutive failures, threshold: ${failureThresholdResult.threshold ?? "default"})`,
+    );
 
     // Step 2: Check if actor is a bot (prevents recursive loops)
     const botActorResult = await checkBotActor(validationContext, agent);
@@ -413,6 +443,7 @@ async function writeValidationResult(outputs: Record<string, string>): Promise<v
     rate_limited: outputs["rate-limited"] === "true",
     pr_limited: outputs["pr-limited"] === "true",
     blocked_by_issues: outputs["blocked-by-issues"] === "true",
+    circuit_breaker_tripped: outputs["circuit-breaker-tripped"] === "true",
     deduplicated: outputs.deduplicated === "true",
     progress_comment_id: outputs["progress-comment-id"] || null,
     progress_issue_number: outputs["progress-issue-number"] || null,

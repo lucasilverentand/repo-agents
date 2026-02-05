@@ -60,6 +60,7 @@ interface RunOptions {
   executeOutputsResult?: JobResult;
   collectContextResult?: JobResult;
   rateLimited?: boolean;
+  circuitBreakerTripped?: boolean;
   // Progress comment info (from dispatcher via workflow inputs)
   progressCommentId?: string;
   progressIssueNumber?: string;
@@ -82,6 +83,7 @@ program
   .option("--execute-outputs-result <result>", "Result of execute-outputs job (for audit stage)")
   .option("--collect-context-result <result>", "Result of collect-context job (for audit stage)")
   .option("--rate-limited", "Whether the run was rate-limited (for audit stage)")
+  .option("--circuit-breaker-tripped", "Whether the circuit breaker was tripped (for audit stage)")
   .option("--progress-comment-id <id>", "Progress comment ID (from dispatcher)")
   .option(
     "--progress-issue-number <number>",
@@ -268,6 +270,7 @@ program
         executeOutputs: options.executeOutputsResult,
         collectContext: options.collectContextResult,
         rateLimited: options.rateLimited,
+        circuitBreakerTripped: options.circuitBreakerTripped,
       },
       progressCommentId: options.progressCommentId ? Number(options.progressCommentId) : undefined,
       progressIssueNumber: options.progressIssueNumber
